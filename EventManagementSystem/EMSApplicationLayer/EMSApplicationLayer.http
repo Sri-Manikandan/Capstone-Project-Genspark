@@ -1,0 +1,6 @@
+@EMSApplicationLayer_HostAddress = http://localhost:5222
+
+GET {{EMSApplicationLayer_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

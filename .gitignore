@@ -1,0 +1,24 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Logs
+logs/
+*.log
+
+# Angular / Node
+node_modules/
+EMSAngular/dist/
+EMSAngular/.angular/
+EMSAngular/coverage/
+
+# Env / secrets
+*.env
+appsettings.Development.json
+
+# OS
+.DS_Store
+Thumbs.db

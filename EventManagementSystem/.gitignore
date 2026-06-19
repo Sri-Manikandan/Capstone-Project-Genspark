@@ -1,0 +1,51 @@
+# Build outputs
+bin/
+obj/
+docs/
+
+# Test results and coverage
+TestResults/
+coverage*/
+*.cobertura.xml
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+nuget.config
+
+# .NET publish output
+publish/
+out/
+
+# Secrets and environment
+appsettings.Development.json
+appsettings.Local.json
+*.pfx
+*.p12
+.env
+.env.*
+secrets.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
