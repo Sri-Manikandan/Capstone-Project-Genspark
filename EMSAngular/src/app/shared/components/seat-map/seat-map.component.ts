@@ -1,0 +1,121 @@
+import {
+  ChangeDetectionStrategy,
+  Component,
+  EventEmitter,
+  Input,
+  OnDestroy,
+  OnInit,
+  Output,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { SeatService } from '../../../core/services/seat.service';
+import { SeatHubService } from '../../../core/services/seat-hub.service';
+import { SeatDto } from '../../../core/models/seat.model';
+
+interface SeatRow { row: string; seats: SeatDto[]; }
+interface SeatSection { section: string; rows: SeatRow[]; }
+
+@Component({
+  selector: 'ems-seat-map',
+  standalone: true,
+  imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <div class="overflow-x-auto">
+      <div class="mb-4 flex flex-wrap gap-4 text-xs text-gray-600">
+        <span class="flex items-center gap-1"><i class="h-3 w-3 rounded border border-indigo-600 bg-white"></i> Available</span>
+        <span class="flex items-center gap-1"><i class="h-3 w-3 rounded bg-indigo-600"></i> Selected</span>
+        <span class="flex items-center gap-1"><i class="h-3 w-3 rounded bg-gray-400"></i> Taken</span>
+      </div>
+      <div class="space-y-6">
+        <div *ngFor="let section of sections()">
+          <h4 class="mb-2 text-sm font-semibold text-gray-700">Section {{ section.section }}</h4>
+          <div class="space-y-1">
+            <div *ngFor="let r of section.rows" class="flex items-center gap-1">
+              <span class="w-6 text-xs text-gray-400">{{ r.row }}</span>
+              <button *ngFor="let seat of r.seats" type="button"
+                      class="h-8 w-8 rounded border text-xs"
+                      [class.border-indigo-600]="seatState(seat) === 'available'"
+                      [class.bg-white]="seatState(seat) === 'available'"
+                      [class.bg-indigo-600]="seatState(seat) === 'selected'"
+                      [class.text-white]="seatState(seat) === 'selected'"
+                      [class.bg-gray-400]="seatState(seat) === 'taken'"
+                      [class.cursor-not-allowed]="seatState(seat) === 'taken'"
+                      [disabled]="seatState(seat) === 'taken'"
+                      (click)="onSeatClick(seat)">{{ seat.seatNumber }}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `,
+})
+export class SeatMapComponent implements OnInit, OnDestroy {
+  private seatService = inject(SeatService);
+  private hub = inject(SeatHubService);
+
+  @Input({ required: true }) eventId!: number;
+  @Input({ required: true }) venueId!: number;
+  @Input() selectedSeatIds: number[] = [];
+  @Output() seatToggled = new EventEmitter<SeatDto>();
+
+  private allSeats = signal<SeatDto[]>([]);
+  private availableIds = signal<Set<number>>(new Set());
+  protected sections = computed<SeatSection[]>(() => this.group(this.allSeats()));
+
+  constructor() {
+    effect(() => {
+      const update = this.hub.lastUpdate();
+      if (!update) return;
+      this.availableIds.update(set => {
+        const next = new Set(set);
+        if (update.status === 'released') next.add(update.seatId);
+        else next.delete(update.seatId);
+        return next;
+      });
+    });
+  }
+
+  ngOnInit(): void {
+    this.seatService.getAvailableByEvent(this.eventId).subscribe(seats => {
+      this.allSeats.set(seats);
+      this.availableIds.set(new Set(seats.map(s => s.id)));
+    });
+    void this.hub.joinEvent(this.eventId);
+  }
+
+  ngOnDestroy(): void {
+    void this.hub.leaveEvent(this.eventId);
+  }
+
+  protected seatState(seat: SeatDto): 'selected' | 'available' | 'taken' {
+    if (this.selectedSeatIds.includes(seat.id)) return 'selected';
+    return this.availableIds().has(seat.id) ? 'available' : 'taken';
+  }
+
+  protected onSeatClick(seat: SeatDto): void {
+    if (this.seatState(seat) === 'taken') return;
+    this.seatToggled.emit(seat);
+  }
+
+  private group(seats: SeatDto[]): SeatSection[] {
+    const bySection = new Map<string, Map<string, SeatDto[]>>();
+    for (const s of seats) {
+      if (!bySection.has(s.section)) bySection.set(s.section, new Map());
+      const rows = bySection.get(s.section)!;
+      if (!rows.has(s.row)) rows.set(s.row, []);
+      rows.get(s.row)!.push(s);
+    }
+    return [...bySection.entries()].map(([section, rows]) => ({
+      section,
+      rows: [...rows.entries()].map(([row, rowSeats]) => ({
+        row,
+        seats: rowSeats.sort((a, b) => a.seatNumber - b.seatNumber),
+      })),
+    }));
+  }
+}
