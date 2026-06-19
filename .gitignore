@@ -4,10 +4,12 @@ obj/
 *.user
 *.suo
 .vs/
+docs/
 
 # Logs
 logs/
 *.log
+CLAUDE.md
 
 # Angular / Node
 node_modules/
