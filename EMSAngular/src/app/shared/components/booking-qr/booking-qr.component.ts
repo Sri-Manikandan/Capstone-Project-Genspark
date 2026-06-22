@@ -5,10 +5,12 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="flex flex-col items-center gap-2">
-      <img [src]="src()" alt="Booking QR code" class="h-48 w-48 rounded-lg border border-gray-200" />
-      <a [href]="src()" download="ticket-qr.png"
-         class="text-sm text-indigo-600 hover:underline">Download QR</a>
+    <div class="flex flex-col items-center gap-3">
+      <span class="eyebrow">Scan at the door</span>
+      <div class="rounded-2xl border border-line bg-surface p-3 shadow-card">
+        <img [src]="src()" alt="Booking QR code" class="h-48 w-48 rounded-lg" />
+      </div>
+      <a [href]="src()" download="ticket-qr.png" class="link-action text-sm">Download QR</a>
     </div>
   `,
 })

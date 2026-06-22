@@ -14,35 +14,40 @@ import { IstDatePipe } from '../../../shared/pipes/ist-date.pipe';
   imports: [CommonModule, RouterLink, PaginationComponent, LoadingSpinnerComponent, AlertComponent, IstDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="mb-4 flex items-center justify-between">
-      <h1 class="text-2xl font-semibold text-gray-900">My Events</h1>
-      <a routerLink="/organizer/events/new" class="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">New Event</a>
+    <div class="mb-6 flex items-end justify-between gap-4">
+      <div>
+        <p class="eyebrow text-plum">Organizer</p>
+        <h1 class="page-title mt-2">My events</h1>
+      </div>
+      <a routerLink="/organizer/events/new" class="btn-primary">+ New event</a>
     </div>
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <ems-loading-spinner *ngIf="loading()" />
 
-    <table *ngIf="!loading()" class="w-full overflow-hidden rounded-lg border border-gray-200 bg-white text-sm">
-      <thead class="bg-gray-50 text-left text-gray-600">
-        <tr><th class="p-3">Title</th><th class="p-3">Start</th><th class="p-3">Status</th><th class="p-3">Actions</th></tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let ev of events()" class="border-t border-gray-100">
-          <td class="p-3 font-medium text-gray-900">{{ ev.title }}</td>
-          <td class="p-3 text-gray-600">{{ ev.startTime | istDate }}</td>
-          <td class="p-3 text-gray-600">{{ ev.status }}</td>
-          <td class="p-3">
-            <div class="flex flex-wrap gap-2">
-              <a [routerLink]="['/organizer/events', ev.id, 'edit']" class="text-indigo-600 hover:underline">Edit</a>
-              <a [routerLink]="['/organizer/events', ev.id, 'tickets']" class="text-indigo-600 hover:underline">Tickets</a>
-              <a [routerLink]="['/organizer/events', ev.id, 'bookings']" class="text-indigo-600 hover:underline">Scan</a>
-              <button *ngIf="ev.status === 'Draft' || ev.status === 'Rejected'" (click)="submitEvent(ev.id)" class="text-green-600 hover:underline">Submit</button>
-              <button *ngIf="ev.status !== 'Cancelled'" (click)="cancelEvent(ev.id)" class="text-red-600 hover:underline">Cancel</button>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <p *ngIf="!loading() && events().length === 0" class="py-10 text-center text-gray-500">No events yet.</p>
+    <div *ngIf="!loading()" class="overflow-x-auto">
+      <table class="data-table">
+        <thead>
+          <tr><th>Title</th><th>Start</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let ev of events()">
+            <td class="font-medium text-ink">{{ ev.title }}</td>
+            <td class="font-mono text-xs">{{ ev.startTime | istDate }}</td>
+            <td><span class="badge bg-paper text-ink-soft">{{ ev.status }}</span></td>
+            <td>
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <a [routerLink]="['/organizer/events', ev.id, 'edit']" class="link-action">Edit</a>
+                <a [routerLink]="['/organizer/events', ev.id, 'tickets']" class="link-action">Tickets</a>
+                <a [routerLink]="['/organizer/events', ev.id, 'bookings']" class="link-action">Scan</a>
+                <button *ngIf="ev.status === 'Draft' || ev.status === 'Rejected'" (click)="submitEvent(ev.id)" class="link-go">Submit</button>
+                <button *ngIf="ev.status !== 'Cancelled'" (click)="cancelEvent(ev.id)" class="link-danger">Cancel</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p *ngIf="!loading() && events().length === 0" class="card mt-2 px-6 py-16 text-center text-muted">No events yet — create your first one.</p>
     <ems-pagination [currentPage]="page()" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
   `,
 })

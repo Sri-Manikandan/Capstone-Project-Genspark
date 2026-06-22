@@ -13,24 +13,31 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
   imports: [CommonModule, ReactiveFormsModule, AlertComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h1 class="mb-4 text-2xl font-semibold text-gray-900">{{ isEdit() ? 'Edit' : 'Create' }} Event</h1>
+    <p class="eyebrow text-plum">Organizer</p>
+    <h1 class="page-title mt-2 mb-6">{{ isEdit() ? 'Edit' : 'Create' }} event</h1>
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <form [formGroup]="form" (ngSubmit)="submit()" class="max-w-xl space-y-4">
-      <select formControlName="venueId" class="w-full rounded-lg border border-gray-300 px-3 py-2" [class.hidden]="isEdit()">
-        <option [ngValue]="0" disabled>Select venue…</option>
-        <option *ngFor="let v of venues()" [ngValue]="v.id">{{ v.name }} — {{ v.city }}</option>
-      </select>
-      <input formControlName="title" placeholder="Title" class="w-full rounded-lg border border-gray-300 px-3 py-2" />
-      <textarea formControlName="description" placeholder="Description" rows="4" class="w-full rounded-lg border border-gray-300 px-3 py-2"></textarea>
-      <label class="block text-sm text-gray-600">Start time
-        <input formControlName="startTime" type="datetime-local" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" />
-      </label>
-      <label class="block text-sm text-gray-600">End time
-        <input formControlName="endTime" type="datetime-local" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" />
-      </label>
-      <input formControlName="imageUrl" placeholder="Image URL" class="w-full rounded-lg border border-gray-300 px-3 py-2" />
-      <input formControlName="category" placeholder="Category" class="w-full rounded-lg border border-gray-300 px-3 py-2" />
-      <button type="submit" class="rounded-lg bg-indigo-600 px-5 py-2 text-white hover:bg-indigo-700">{{ isEdit() ? 'Save' : 'Create' }}</button>
+      <div class="card space-y-4 p-6">
+        <select formControlName="venueId" class="field" [class.hidden]="isEdit()">
+          <option [ngValue]="0" disabled>Select venue…</option>
+          <option *ngFor="let v of venues()" [ngValue]="v.id">{{ v.name }} — {{ v.city }}</option>
+        </select>
+        <input formControlName="title" placeholder="Title" class="field" />
+        <textarea formControlName="description" placeholder="Description" rows="4" class="field"></textarea>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label class="block space-y-1">
+            <span class="field-label">Start time</span>
+            <input formControlName="startTime" type="datetime-local" class="field" />
+          </label>
+          <label class="block space-y-1">
+            <span class="field-label">End time</span>
+            <input formControlName="endTime" type="datetime-local" class="field" />
+          </label>
+        </div>
+        <input formControlName="imageUrl" placeholder="Image URL" class="field" />
+        <input formControlName="category" placeholder="Category" class="field" />
+      </div>
+      <button type="submit" class="btn-primary">{{ isEdit() ? 'Save changes' : 'Create event' }}</button>
     </form>
   `,
 })

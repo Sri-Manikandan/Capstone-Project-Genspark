@@ -24,41 +24,52 @@ import { CurrencyInrPipe } from '../../../shared/pipes/currency-inr.pipe';
     <ems-loading-spinner *ngIf="loading()" />
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
 
-    <article *ngIf="event() as ev" class="space-y-6">
-      <img [src]="ev.imageUrl" [alt]="ev.title" class="aspect-[3/1] w-full rounded-lg object-cover" />
-      <header>
-        <span class="text-xs font-medium text-indigo-600">{{ ev.category }}</span>
-        <h1 class="text-2xl font-semibold text-gray-900">{{ ev.title }}</h1>
-        <p class="text-gray-600">{{ ev.startTime | istDate }}</p>
-      </header>
-      <p class="text-gray-700">{{ ev.description }}</p>
+    <article *ngIf="event() as ev" class="space-y-8 pb-24">
+      <div class="relative overflow-hidden rounded-2xl">
+        <img [src]="ev.imageUrl" [alt]="ev.title" class="aspect-[5/2] w-full object-cover" />
+        <div class="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/20 to-transparent"></div>
+        <header class="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+          <span class="eyebrow text-white/80">{{ ev.category }}</span>
+          <h1 class="mt-1 font-display text-3xl font-semibold leading-tight text-white sm:text-4xl">{{ ev.title }}</h1>
+          <p class="mt-2 font-mono text-sm text-white/90">{{ ev.startTime | istDate }}</p>
+        </header>
+      </div>
+
+      <p class="max-w-2xl text-base leading-relaxed text-ink-soft">{{ ev.description }}</p>
 
       <section>
-        <h2 class="mb-2 text-lg font-semibold text-gray-900">Tickets</h2>
+        <h2 class="section-title mb-3">Choose your ticket</h2>
         <div class="flex flex-wrap gap-3">
           <button *ngFor="let t of ticketTypes()" type="button"
                   (click)="activeTicketTypeId.set(t.id)"
-                  class="rounded-lg border px-4 py-2 text-left"
-                  [class.border-indigo-600]="activeTicketTypeId() === t.id"
-                  [class.border-gray-300]="activeTicketTypeId() !== t.id">
-            <span class="block font-medium text-gray-900">{{ t.name }}</span>
-            <span class="block text-sm text-gray-600">{{ t.price | inr }} · {{ t.availableQuantity }} left</span>
+                  class="rounded-2xl border-2 px-5 py-3 text-left transition"
+                  [class.border-plum]="activeTicketTypeId() === t.id"
+                  [class.bg-plum-tint]="activeTicketTypeId() === t.id"
+                  [class.border-line]="activeTicketTypeId() !== t.id"
+                  [class.bg-surface]="activeTicketTypeId() !== t.id">
+            <span class="block font-display text-lg font-semibold text-ink">{{ t.name }}</span>
+            <span class="block font-mono text-xs text-ink-soft">{{ t.price | inr }} · {{ t.availableQuantity }} left</span>
           </button>
         </div>
       </section>
 
       <section *ngIf="activeTicketTypeId()">
-        <h2 class="mb-2 text-lg font-semibold text-gray-900">Select seats</h2>
-        <ems-seat-map [eventId]="ev.id" [venueId]="ev.venueId"
-                      [selectedSeatIds]="selectedSeatIds()" (seatToggled)="onSeatToggled($event)" />
+        <h2 class="section-title mb-3">Select your seats</h2>
+        <div class="card p-5">
+          <ems-seat-map [eventId]="ev.id" [venueId]="ev.venueId"
+                        [selectedSeatIds]="selectedSeatIds()" (seatToggled)="onSeatToggled($event)" />
+        </div>
       </section>
 
-      <div class="flex items-center justify-between border-t border-gray-200 pt-4">
-        <span class="text-gray-700">{{ selected().length }} seat(s) selected</span>
-        <button [disabled]="selected().length === 0" (click)="checkout()"
-                class="rounded-lg bg-indigo-600 px-5 py-2 text-white hover:bg-indigo-700 disabled:opacity-50">
-          Proceed to Checkout
-        </button>
+      <div class="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-paper/90 backdrop-blur">
+        <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5">
+          <span class="font-mono text-sm text-ink-soft">
+            {{ selected().length }} seat{{ selected().length === 1 ? '' : 's' }} selected
+          </span>
+          <button [disabled]="selected().length === 0" (click)="checkout()" class="btn-primary">
+            Proceed to checkout
+          </button>
+        </div>
       </div>
     </article>
   `,

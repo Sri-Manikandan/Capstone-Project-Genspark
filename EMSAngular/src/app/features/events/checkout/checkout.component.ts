@@ -18,27 +18,33 @@ import { CurrencyInrPipe } from '../../../shared/pipes/currency-inr.pipe';
     <ems-loading-spinner *ngIf="loading()" />
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
 
-    <div *ngIf="booking() as b" class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <section class="rounded-lg border border-gray-200 bg-white p-6">
-        <h2 class="mb-3 text-lg font-semibold text-gray-900">Order summary</h2>
-        <p class="font-medium text-gray-900">{{ b.eventTitle }}</p>
-        <ul class="mt-3 space-y-1 text-sm text-gray-600">
-          <li *ngFor="let item of b.items" class="flex justify-between">
-            <span>{{ item.ticketTypeName }} · {{ item.seatLabel }}</span>
-            <span>{{ item.unitPrice | inr }}</span>
-          </li>
-        </ul>
-        <div class="mt-3 flex justify-between border-t border-gray-200 pt-3 font-semibold text-gray-900">
-          <span>Total</span><span>{{ b.totalAmount | inr }}</span>
-        </div>
-      </section>
+    <div *ngIf="booking() as b">
+      <p class="eyebrow text-plum">Final step</p>
+      <h1 class="page-title mt-2 mb-7">Checkout</h1>
 
-      <section class="rounded-lg border border-gray-200 bg-white p-6">
-        <h2 class="mb-3 text-lg font-semibold text-gray-900">Payment</h2>
-        <ems-stripe-payment *ngIf="clientSecret()" [clientSecret]="clientSecret()!"
-                            (paymentSucceeded)="onPaymentSucceeded($event)"
-                            (paymentFailed)="error.set($event)" />
-      </section>
+      <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section class="card p-6">
+          <h2 class="eyebrow mb-4">Order summary</h2>
+          <p class="font-display text-lg font-semibold text-ink">{{ b.eventTitle }}</p>
+          <ul class="mt-4 space-y-2 text-sm text-ink-soft">
+            <li *ngFor="let item of b.items" class="flex justify-between gap-4">
+              <span>{{ item.ticketTypeName }} · {{ item.seatLabel }}</span>
+              <span class="font-mono">{{ item.unitPrice | inr }}</span>
+            </li>
+          </ul>
+          <div class="mt-5 flex items-center justify-between border-t border-dashed border-line pt-5">
+            <span class="eyebrow">Total due</span>
+            <span class="font-display text-2xl font-semibold text-ink">{{ b.totalAmount | inr }}</span>
+          </div>
+        </section>
+
+        <section class="card p-6">
+          <h2 class="eyebrow mb-4">Payment</h2>
+          <ems-stripe-payment *ngIf="clientSecret()" [clientSecret]="clientSecret()!"
+                              (paymentSucceeded)="onPaymentSucceeded($event)"
+                              (paymentFailed)="error.set($event)" />
+        </section>
+      </div>
     </div>
   `,
 })

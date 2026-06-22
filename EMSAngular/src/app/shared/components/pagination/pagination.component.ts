@@ -7,17 +7,18 @@ import { CommonModule } from '@angular/common';
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <nav class="flex items-center justify-center gap-1 py-4" *ngIf="totalPages > 1">
-      <button class="px-3 py-1 rounded-lg border border-gray-300 text-gray-700 disabled:opacity-40"
+    <nav class="flex items-center justify-center gap-1.5 py-8" *ngIf="totalPages > 1" aria-label="Pagination">
+      <button class="rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-medium text-ink-soft transition hover:border-ink/30 disabled:opacity-40"
               [disabled]="currentPage <= 1" (click)="goTo(currentPage - 1)">Prev</button>
       <button *ngFor="let p of pages()"
-              class="px-3 py-1 rounded-lg border"
-              [class.bg-indigo-600]="p === currentPage"
+              class="h-9 w-9 rounded-full border text-sm font-medium transition"
+              [class.bg-plum]="p === currentPage"
               [class.text-white]="p === currentPage"
-              [class.border-indigo-600]="p === currentPage"
-              [class.border-gray-300]="p !== currentPage"
+              [class.border-plum]="p === currentPage"
+              [class.border-line]="p !== currentPage"
+              [class.text-ink-soft]="p !== currentPage"
               (click)="goTo(p)">{{ p }}</button>
-      <button class="px-3 py-1 rounded-lg border border-gray-300 text-gray-700 disabled:opacity-40"
+      <button class="rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-medium text-ink-soft transition hover:border-ink/30 disabled:opacity-40"
               [disabled]="currentPage >= totalPages" (click)="goTo(currentPage + 1)">Next</button>
     </nav>
   `,

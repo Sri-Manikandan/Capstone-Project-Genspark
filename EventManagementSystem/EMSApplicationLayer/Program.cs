@@ -28,7 +28,11 @@ builder.Host.UseSerilog((ctx, config) =>
     config.ReadFrom.Configuration(ctx.Configuration));
 
 // ── Stripe ────────────────────────────────────────────────────────────────────
-Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"]!;
+// Secret comes from the environment variable Stripe__SecretKey (double underscore
+// maps to the Stripe:SecretKey config key). Never commit the key to appsettings.
+Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"]
+    ?? throw new InvalidOperationException(
+        "Stripe:SecretKey is not configured. Set the Stripe__SecretKey environment variable.");
 
 // ── Controllers ──────────────────────────────────────────────────────────────
 builder.Services.AddControllers();

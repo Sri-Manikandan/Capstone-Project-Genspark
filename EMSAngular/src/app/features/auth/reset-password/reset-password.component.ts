@@ -11,14 +11,18 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
   imports: [CommonModule, ReactiveFormsModule, AlertComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="mx-auto max-w-sm rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-      <h1 class="mb-4 text-xl font-semibold text-gray-900">Set new password</h1>
-      <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
-      <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
-        <input formControlName="token" placeholder="Reset token" class="w-full rounded-lg border border-gray-300 px-3 py-2" />
-        <input formControlName="newPassword" type="password" placeholder="New password (min 8)" class="w-full rounded-lg border border-gray-300 px-3 py-2" />
-        <button type="submit" class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">Reset password</button>
-      </form>
+    <div class="mx-auto max-w-sm">
+      <div class="card p-7">
+        <p class="eyebrow text-plum">Almost in</p>
+        <h1 class="mt-2 font-display text-2xl font-semibold text-ink">Set new password</h1>
+        <p class="mt-1 mb-5 text-sm text-muted">Paste your reset token and choose a new password.</p>
+        <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
+        <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-3">
+          <input formControlName="token" placeholder="Reset token" class="field" />
+          <input formControlName="newPassword" type="password" placeholder="New password (min 8)" class="field" />
+          <button type="submit" class="btn-primary w-full">Reset password</button>
+        </form>
+      </div>
     </div>
   `,
 })

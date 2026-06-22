@@ -13,23 +13,24 @@ import { IstDatePipe } from '../../../shared/pipes/ist-date.pipe';
   imports: [CommonModule, FormsModule, LoadingSpinnerComponent, AlertComponent, IstDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h1 class="mb-4 text-2xl font-semibold text-gray-900">Pending Events</h1>
+    <p class="eyebrow text-plum">Admin</p>
+    <h1 class="page-title mt-2 mb-6">Pending events</h1>
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <ems-loading-spinner *ngIf="loading()" />
 
     <div *ngIf="!loading()" class="space-y-3">
-      <div *ngFor="let ev of events()" class="rounded-lg border border-gray-200 bg-white p-4">
-        <p class="font-medium text-gray-900">{{ ev.title }}</p>
-        <p class="text-sm text-gray-500">{{ ev.startTime | istDate }} · {{ ev.category }}</p>
-        <p class="mt-1 text-sm text-gray-700">{{ ev.description }}</p>
-        <div class="mt-3 flex flex-wrap items-center gap-2">
-          <button (click)="approve(ev.id)" class="rounded-lg bg-green-600 px-3 py-1 text-sm text-white hover:bg-green-700">Approve</button>
+      <div *ngFor="let ev of events()" class="card p-5">
+        <p class="font-display text-lg font-semibold text-ink">{{ ev.title }}</p>
+        <p class="font-mono text-xs text-muted">{{ ev.startTime | istDate }} · {{ ev.category }}</p>
+        <p class="mt-2 text-sm text-ink-soft">{{ ev.description }}</p>
+        <div class="mt-4 flex flex-wrap items-center gap-2">
+          <button (click)="approve(ev.id)" class="btn-primary btn-sm">Approve</button>
           <input [ngModel]="reasons()[ev.id] ?? ''" (ngModelChange)="setReason(ev.id, $event)"
-                 placeholder="Rejection reason" class="flex-1 rounded-lg border border-gray-300 px-3 py-1 text-sm" />
-          <button (click)="reject(ev.id)" class="rounded-lg bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700">Reject</button>
+                 placeholder="Rejection reason" class="field flex-1 py-1.5" />
+          <button (click)="reject(ev.id)" class="btn-danger btn-sm">Reject</button>
         </div>
       </div>
-      <p *ngIf="events().length === 0" class="py-10 text-center text-gray-500">No pending events.</p>
+      <p *ngIf="events().length === 0" class="card px-6 py-16 text-center text-muted">No pending events.</p>
     </div>
   `,
 })

@@ -26,24 +26,31 @@ interface SeatSection { section: string; rows: SeatRow[]; }
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="overflow-x-auto">
-      <div class="mb-4 flex flex-wrap gap-4 text-xs text-gray-600">
-        <span class="flex items-center gap-1"><i class="h-3 w-3 rounded border border-indigo-600 bg-white"></i> Available</span>
-        <span class="flex items-center gap-1"><i class="h-3 w-3 rounded bg-indigo-600"></i> Selected</span>
-        <span class="flex items-center gap-1"><i class="h-3 w-3 rounded bg-gray-400"></i> Taken</span>
+      <div class="mb-5 rounded-xl bg-paper py-2 text-center font-mono text-[0.66rem] uppercase tracking-eyebrow text-muted">
+        Stage / Screen
+      </div>
+      <div class="mb-5 flex flex-wrap gap-4 font-mono text-xs text-ink-soft">
+        <span class="flex items-center gap-1.5"><i class="h-3.5 w-3.5 rounded border border-plum bg-surface"></i> Available</span>
+        <span class="flex items-center gap-1.5"><i class="h-3.5 w-3.5 rounded bg-plum"></i> Selected</span>
+        <span class="flex items-center gap-1.5"><i class="h-3.5 w-3.5 rounded bg-line"></i> Taken</span>
       </div>
       <div class="space-y-6">
         <div *ngFor="let section of sections()">
-          <h4 class="mb-2 text-sm font-semibold text-gray-700">Section {{ section.section }}</h4>
-          <div class="space-y-1">
-            <div *ngFor="let r of section.rows" class="flex items-center gap-1">
-              <span class="w-6 text-xs text-gray-400">{{ r.row }}</span>
+          <h4 class="eyebrow mb-2">Section {{ section.section }}</h4>
+          <div class="space-y-1.5">
+            <div *ngFor="let r of section.rows" class="flex items-center gap-1.5">
+              <span class="w-6 font-mono text-xs text-muted">{{ r.row }}</span>
               <button *ngFor="let seat of r.seats" type="button"
-                      class="h-8 w-8 rounded border text-xs"
-                      [class.border-indigo-600]="seatState(seat) === 'available'"
-                      [class.bg-white]="seatState(seat) === 'available'"
-                      [class.bg-indigo-600]="seatState(seat) === 'selected'"
+                      class="h-8 w-8 rounded-md border text-xs font-medium transition"
+                      [class.border-plum]="seatState(seat) === 'available'"
+                      [class.text-plum]="seatState(seat) === 'available'"
+                      [class.bg-surface]="seatState(seat) === 'available'"
+                      [class.bg-plum]="seatState(seat) === 'selected'"
+                      [class.border-plum]="seatState(seat) === 'selected'"
                       [class.text-white]="seatState(seat) === 'selected'"
-                      [class.bg-gray-400]="seatState(seat) === 'taken'"
+                      [class.bg-line]="seatState(seat) === 'taken'"
+                      [class.border-line]="seatState(seat) === 'taken'"
+                      [class.text-muted]="seatState(seat) === 'taken'"
                       [class.cursor-not-allowed]="seatState(seat) === 'taken'"
                       [disabled]="seatState(seat) === 'taken'"
                       (click)="onSeatClick(seat)">{{ seat.seatNumber }}</button>

@@ -19,12 +19,8 @@ import { environment } from '../../../../environments/environment';
   template: `
     <form (ngSubmit)="pay()" class="space-y-4">
       <div id="payment-element"></div>
-      <p *ngIf="errorMessage()" class="text-sm text-red-600">{{ errorMessage() }}</p>
-      <button
-        type="submit"
-        [disabled]="submitting()"
-        class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 disabled:opacity-50"
-      >
+      <p *ngIf="errorMessage()" class="text-sm text-rose">{{ errorMessage() }}</p>
+      <button type="submit" [disabled]="submitting()" class="btn-primary w-full">
         {{ submitting() ? 'Processing…' : 'Pay now' }}
       </button>
     </form>

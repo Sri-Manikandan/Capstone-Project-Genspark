@@ -12,18 +12,20 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
   imports: [CommonModule, ReactiveFormsModule, AlertComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h1 class="mb-4 text-2xl font-semibold text-gray-900">Validate Ticket</h1>
+    <p class="eyebrow text-plum">At the door</p>
+    <h1 class="page-title mt-2 mb-6">Validate ticket</h1>
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <ems-alert type="success" [message]="success()" (dismissed)="success.set('')" />
 
-    <form [formGroup]="form" (ngSubmit)="validate()" class="flex max-w-xl gap-3">
-      <input formControlName="qrPayload" placeholder="Paste QR payload" class="flex-1 rounded-lg border border-gray-300 px-3 py-2" />
-      <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">Validate</button>
+    <form [formGroup]="form" (ngSubmit)="validate()" class="flex max-w-xl flex-col gap-3 sm:flex-row">
+      <input formControlName="qrPayload" placeholder="Paste QR payload" class="field flex-1" />
+      <button type="submit" class="btn-primary">Validate</button>
     </form>
 
-    <div *ngIf="result() as b" class="mt-4 rounded-lg border border-gray-200 bg-white p-4">
-      <p class="font-medium text-gray-900">{{ b.eventTitle }} — {{ b.bookingReference }}</p>
-      <p class="text-sm text-gray-600">Status: {{ b.bookingStatus }}</p>
+    <div *ngIf="result() as b" class="card mt-5 max-w-xl p-5">
+      <p class="font-display text-lg font-semibold text-ink">{{ b.eventTitle }}</p>
+      <p class="font-mono text-xs text-muted">{{ b.bookingReference }}</p>
+      <p class="mt-2 text-sm text-ink-soft">Status: <span class="font-semibold text-teal-dark">{{ b.bookingStatus }}</span></p>
     </div>
   `,
 })

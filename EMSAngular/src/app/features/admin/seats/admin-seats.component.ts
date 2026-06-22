@@ -13,25 +13,26 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
   imports: [CommonModule, ReactiveFormsModule, LoadingSpinnerComponent, AlertComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h1 class="mb-4 text-2xl font-semibold text-gray-900">Seats</h1>
+    <p class="eyebrow text-plum">Admin</p>
+    <h1 class="page-title mt-2 mb-6">Seats</h1>
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <ems-loading-spinner *ngIf="loading()" />
 
-    <form [formGroup]="form" (ngSubmit)="bulkCreate()" class="mb-6 grid max-w-xl grid-cols-2 gap-3">
-      <input formControlName="section" placeholder="Section" class="rounded-lg border border-gray-300 px-3 py-2" />
-      <input formControlName="row" placeholder="Row" class="rounded-lg border border-gray-300 px-3 py-2" />
-      <input formControlName="startNumber" type="number" placeholder="Start #" class="rounded-lg border border-gray-300 px-3 py-2" />
-      <input formControlName="endNumber" type="number" placeholder="End #" class="rounded-lg border border-gray-300 px-3 py-2" />
-      <input formControlName="seatType" placeholder="Seat type" class="col-span-2 rounded-lg border border-gray-300 px-3 py-2" />
-      <button type="submit" class="col-span-2 rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">Bulk create row</button>
+    <form [formGroup]="form" (ngSubmit)="bulkCreate()" class="card mb-8 grid max-w-xl grid-cols-1 gap-3 p-6 sm:grid-cols-2">
+      <input formControlName="section" placeholder="Section" class="field" />
+      <input formControlName="row" placeholder="Row" class="field" />
+      <input formControlName="startNumber" type="number" placeholder="Start #" class="field" />
+      <input formControlName="endNumber" type="number" placeholder="End #" class="field" />
+      <input formControlName="seatType" placeholder="Seat type" class="field sm:col-span-2" />
+      <button type="submit" class="btn-primary sm:col-span-2">Bulk create row</button>
     </form>
 
     <div *ngIf="!loading()" class="flex flex-wrap gap-2">
-      <span *ngFor="let s of seats()" class="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm">
+      <span *ngFor="let s of seats()" class="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1 font-mono text-xs text-ink-soft">
         {{ s.section }}-{{ s.row }}-{{ s.seatNumber }}
-        <button (click)="remove(s.id)" class="text-red-600">×</button>
+        <button (click)="remove(s.id)" class="text-rose transition hover:text-rose-dark" aria-label="Remove seat">×</button>
       </span>
-      <p *ngIf="seats().length === 0" class="text-gray-500">No seats yet.</p>
+      <p *ngIf="seats().length === 0" class="text-muted">No seats yet.</p>
     </div>
   `,
 })

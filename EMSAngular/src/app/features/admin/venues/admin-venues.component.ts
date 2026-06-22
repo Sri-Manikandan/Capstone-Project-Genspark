@@ -13,28 +13,29 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
   imports: [CommonModule, ReactiveFormsModule, RouterLink, LoadingSpinnerComponent, AlertComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h1 class="mb-4 text-2xl font-semibold text-gray-900">Venues</h1>
+    <p class="eyebrow text-plum">Admin</p>
+    <h1 class="page-title mt-2 mb-6">Venues</h1>
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <ems-loading-spinner *ngIf="loading()" />
 
-    <ul *ngIf="!loading()" class="mb-6 space-y-2">
-      <li *ngFor="let v of venues()" class="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3">
-        <span><span class="font-medium text-gray-900">{{ v.name }}</span> — {{ v.city }} (cap {{ v.totalCapacity }})</span>
+    <ul *ngIf="!loading()" class="mb-8 space-y-2">
+      <li *ngFor="let v of venues()" class="flex items-center justify-between gap-4 rounded-xl border border-line bg-surface p-4">
+        <span class="text-sm text-ink-soft"><span class="font-display text-base font-semibold text-ink">{{ v.name }}</span> — {{ v.city }} <span class="font-mono text-xs text-muted">(cap {{ v.totalCapacity }})</span></span>
         <span class="flex gap-3">
-          <a [routerLink]="['/admin/venues', v.id, 'seats']" class="text-indigo-600 hover:underline">Seats</a>
-          <button (click)="remove(v.id)" class="text-red-600 hover:underline">Delete</button>
+          <a [routerLink]="['/admin/venues', v.id, 'seats']" class="link-action">Seats</a>
+          <button (click)="remove(v.id)" class="link-danger">Delete</button>
         </span>
       </li>
-      <li *ngIf="venues().length === 0" class="text-gray-500">No venues yet.</li>
+      <li *ngIf="venues().length === 0" class="card px-6 py-12 text-center text-muted">No venues yet.</li>
     </ul>
 
-    <form [formGroup]="form" (ngSubmit)="add()" class="grid max-w-xl grid-cols-2 gap-3">
-      <input formControlName="name" placeholder="Name" class="rounded-lg border border-gray-300 px-3 py-2" />
-      <input formControlName="city" placeholder="City" class="rounded-lg border border-gray-300 px-3 py-2" />
-      <input formControlName="address" placeholder="Address" class="col-span-2 rounded-lg border border-gray-300 px-3 py-2" />
-      <input formControlName="totalCapacity" type="number" placeholder="Capacity" class="rounded-lg border border-gray-300 px-3 py-2" />
-      <input formControlName="layoutConfig" placeholder="Layout config" class="rounded-lg border border-gray-300 px-3 py-2" />
-      <button type="submit" class="col-span-2 rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">Add venue</button>
+    <form [formGroup]="form" (ngSubmit)="add()" class="card grid max-w-xl grid-cols-1 gap-3 p-6 sm:grid-cols-2">
+      <input formControlName="name" placeholder="Name" class="field" />
+      <input formControlName="city" placeholder="City" class="field" />
+      <input formControlName="address" placeholder="Address" class="field sm:col-span-2" />
+      <input formControlName="totalCapacity" type="number" placeholder="Capacity" class="field" />
+      <input formControlName="layoutConfig" placeholder="Layout config" class="field" />
+      <button type="submit" class="btn-primary sm:col-span-2">Add venue</button>
     </form>
   `,
 })

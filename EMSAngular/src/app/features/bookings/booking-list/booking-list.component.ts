@@ -15,29 +15,34 @@ import { CurrencyInrPipe } from '../../../shared/pipes/currency-inr.pipe';
   imports: [CommonModule, RouterLink, PaginationComponent, LoadingSpinnerComponent, AlertComponent, IstDatePipe, CurrencyInrPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h1 class="mb-4 text-2xl font-semibold text-gray-900">My Bookings</h1>
+    <p class="eyebrow text-plum">Your tickets</p>
+    <h1 class="page-title mt-2 mb-6">My bookings</h1>
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <ems-loading-spinner *ngIf="loading()" />
 
     <div *ngIf="!loading()" class="space-y-3">
       <a *ngFor="let b of bookings()" [routerLink]="['/bookings', b.id]"
-         class="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 hover:shadow-sm">
+         class="flex items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-5 transition hover:-translate-y-0.5 hover:shadow-card">
         <div>
-          <p class="font-medium text-gray-900">{{ b.eventTitle }}</p>
-          <p class="text-sm text-gray-500">{{ b.bookingReference }} · {{ b.createdAt | istDate }}</p>
+          <p class="font-display text-lg font-semibold text-ink">{{ b.eventTitle }}</p>
+          <p class="font-mono text-xs text-muted">{{ b.bookingReference }} · {{ b.createdAt | istDate }}</p>
         </div>
         <div class="text-right">
-          <span class="rounded-full px-2 py-0.5 text-xs font-medium"
-                [class.bg-green-50]="b.bookingStatus === 'Confirmed'" [class.text-green-700]="b.bookingStatus === 'Confirmed'"
-                [class.bg-amber-50]="b.bookingStatus === 'Pending'" [class.text-amber-700]="b.bookingStatus === 'Pending'"
-                [class.bg-red-50]="b.bookingStatus === 'Cancelled'" [class.text-red-700]="b.bookingStatus === 'Cancelled'"
-                [class.bg-gray-100]="b.bookingStatus === 'Attended'" [class.text-gray-700]="b.bookingStatus === 'Attended'">
+          <span class="badge"
+                [class.bg-teal-tint]="b.bookingStatus === 'Confirmed'" [class.text-teal-dark]="b.bookingStatus === 'Confirmed'"
+                [class.bg-gold-tint]="b.bookingStatus === 'Pending'" [class.text-gold]="b.bookingStatus === 'Pending'"
+                [class.bg-rose-tint]="b.bookingStatus === 'Cancelled'" [class.text-rose-dark]="b.bookingStatus === 'Cancelled'"
+                [class.bg-paper]="b.bookingStatus === 'Attended'" [class.text-ink-soft]="b.bookingStatus === 'Attended'">
             {{ b.bookingStatus }}
           </span>
-          <p class="mt-1 text-sm text-gray-900">{{ b.totalAmount | inr }}</p>
+          <p class="mt-1.5 font-mono text-sm text-ink">{{ b.totalAmount | inr }}</p>
         </div>
       </a>
-      <p *ngIf="bookings().length === 0" class="py-10 text-center text-gray-500">No bookings yet.</p>
+      <div *ngIf="bookings().length === 0" class="card px-6 py-16 text-center">
+        <p class="font-display text-xl text-ink">No bookings yet</p>
+        <p class="mt-1 text-sm text-muted">When you book an event, your tickets show up here.</p>
+        <a routerLink="/events" class="btn-primary mt-5">Browse events</a>
+      </div>
     </div>
 
     <ems-pagination [currentPage]="page()" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />

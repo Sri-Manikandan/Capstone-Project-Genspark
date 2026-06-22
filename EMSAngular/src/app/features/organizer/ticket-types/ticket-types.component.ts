@@ -13,25 +13,27 @@ import { CurrencyInrPipe } from '../../../shared/pipes/currency-inr.pipe';
   imports: [CommonModule, ReactiveFormsModule, AlertComponent, CurrencyInrPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h1 class="mb-4 text-2xl font-semibold text-gray-900">Ticket Types</h1>
+    <p class="eyebrow text-plum">Organizer</p>
+    <h1 class="page-title mt-2 mb-6">Ticket types</h1>
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
 
-    <ul class="mb-6 space-y-2">
-      <li *ngFor="let t of ticketTypes()" class="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3">
-        <span>{{ t.name }} ({{ t.seatType }}) · {{ t.price | inr }} · {{ t.availableQuantity }}/{{ t.totalQuantity }}</span>
-        <button (click)="remove(t.id)" class="text-red-600 hover:underline">Delete</button>
+    <ul class="mb-8 space-y-2">
+      <li *ngFor="let t of ticketTypes()" class="flex items-center justify-between gap-4 rounded-xl border border-line bg-surface p-4">
+        <span class="text-sm text-ink"><span class="font-display text-base font-semibold">{{ t.name }}</span>
+          <span class="font-mono text-xs text-muted"> · {{ t.seatType }} · {{ t.price | inr }} · {{ t.availableQuantity }}/{{ t.totalQuantity }} left</span></span>
+        <button (click)="remove(t.id)" class="link-danger">Delete</button>
       </li>
-      <li *ngIf="ticketTypes().length === 0" class="text-gray-500">No ticket types yet.</li>
+      <li *ngIf="ticketTypes().length === 0" class="card px-6 py-12 text-center text-muted">No ticket types yet.</li>
     </ul>
 
-    <form [formGroup]="form" (ngSubmit)="add()" class="grid max-w-xl grid-cols-2 gap-3">
-      <input formControlName="name" placeholder="Name" class="rounded-lg border border-gray-300 px-3 py-2" />
-      <input formControlName="seatType" placeholder="Seat type" class="rounded-lg border border-gray-300 px-3 py-2" />
-      <input formControlName="price" type="number" placeholder="Price" class="rounded-lg border border-gray-300 px-3 py-2" />
-      <input formControlName="totalQuantity" type="number" placeholder="Quantity" class="rounded-lg border border-gray-300 px-3 py-2" />
-      <label class="text-sm text-gray-600">Sale start<input formControlName="saleStart" type="datetime-local" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" /></label>
-      <label class="text-sm text-gray-600">Sale end<input formControlName="saleEnd" type="datetime-local" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" /></label>
-      <button type="submit" class="col-span-2 rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">Add ticket type</button>
+    <form [formGroup]="form" (ngSubmit)="add()" class="card grid max-w-xl grid-cols-1 gap-3 p-6 sm:grid-cols-2">
+      <input formControlName="name" placeholder="Name" class="field" />
+      <input formControlName="seatType" placeholder="Seat type" class="field" />
+      <input formControlName="price" type="number" placeholder="Price" class="field" />
+      <input formControlName="totalQuantity" type="number" placeholder="Quantity" class="field" />
+      <label class="space-y-1"><span class="field-label">Sale start</span><input formControlName="saleStart" type="datetime-local" class="field" /></label>
+      <label class="space-y-1"><span class="field-label">Sale end</span><input formControlName="saleEnd" type="datetime-local" class="field" /></label>
+      <button type="submit" class="btn-primary sm:col-span-2">Add ticket type</button>
     </form>
   `,
 })

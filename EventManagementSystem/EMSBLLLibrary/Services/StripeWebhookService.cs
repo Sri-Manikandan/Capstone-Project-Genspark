@@ -16,7 +16,8 @@ namespace EMSBLLLibrary.Services
         {
             _paymentRepo = paymentRepo;
             _bookingRepo = bookingRepo;
-            _webhookSecret = config["Stripe:WebhookSecret"] ?? throw new Exception("Stripe webhook secret not configured.");
+            _webhookSecret = config["Stripe:WebhookSecret"]
+                ?? throw new Exception("Stripe:WebhookSecret is not configured. Set the Stripe__WebhookSecret environment variable.");
         }
 
         protected virtual Stripe.Event ConstructStripeEvent(string payload, string signature) =>

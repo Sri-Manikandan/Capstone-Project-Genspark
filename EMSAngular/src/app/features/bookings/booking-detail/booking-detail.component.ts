@@ -19,23 +19,24 @@ import { CurrencyInrPipe } from '../../../shared/pipes/currency-inr.pipe';
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
 
     <article *ngIf="booking() as b" class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <section class="rounded-lg border border-gray-200 bg-white p-6">
-        <h1 class="text-xl font-semibold text-gray-900">{{ b.eventTitle }}</h1>
-        <p class="text-sm text-gray-500">{{ b.bookingReference }} · {{ b.createdAt | istDate }}</p>
-        <ul class="mt-4 space-y-1 text-sm text-gray-700">
-          <li *ngFor="let item of b.items" class="flex justify-between">
+      <section class="card p-6">
+        <span class="eyebrow text-plum">Ticket</span>
+        <h1 class="mt-2 font-display text-2xl font-semibold text-ink">{{ b.eventTitle }}</h1>
+        <p class="mt-1 font-mono text-xs text-muted">{{ b.bookingReference }} · {{ b.createdAt | istDate }}</p>
+        <ul class="mt-5 space-y-2 text-sm text-ink-soft">
+          <li *ngFor="let item of b.items" class="flex justify-between gap-4">
             <span>{{ item.ticketTypeName }} · {{ item.seatLabel }}</span>
-            <span>{{ item.unitPrice | inr }}</span>
+            <span class="font-mono">{{ item.unitPrice | inr }}</span>
           </li>
         </ul>
-        <div class="mt-3 flex justify-between border-t border-gray-200 pt-3 font-semibold text-gray-900">
-          <span>Total</span><span>{{ b.totalAmount | inr }}</span>
+        <div class="mt-5 flex items-center justify-between border-t border-dashed border-line pt-5">
+          <span class="eyebrow">Total paid</span>
+          <span class="font-display text-2xl font-semibold text-ink">{{ b.totalAmount | inr }}</span>
         </div>
-        <button *ngIf="canCancel(b)" (click)="cancel(b.id)"
-                class="mt-4 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700">Cancel booking</button>
+        <button *ngIf="canCancel(b)" (click)="cancel(b.id)" class="btn-danger mt-6">Cancel booking</button>
       </section>
 
-      <section class="flex items-center justify-center rounded-lg border border-gray-200 bg-white p-6">
+      <section class="card flex items-center justify-center p-6">
         <ems-booking-qr [qrCode]="b.qrCode" />
       </section>
     </article>
