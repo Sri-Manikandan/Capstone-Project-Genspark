@@ -21,6 +21,7 @@ namespace EMSTests.Services
         private Mock<ISeatReservationRepository> _reservationRepo;
         private Mock<IEventRepository> _eventRepo;
         private Mock<ISeatRepository> _seatRepo;
+        private Mock<ITicketTypeRepository> _ticketTypeRepo;
         private Mock<ISeatNotifier> _notifier;
         private IMapper _mapper;
 
@@ -32,8 +33,11 @@ namespace EMSTests.Services
             _reservationRepo = new Mock<ISeatReservationRepository>();
             _eventRepo = new Mock<IEventRepository>();
             _seatRepo = new Mock<ISeatRepository>();
+            _ticketTypeRepo = new Mock<ITicketTypeRepository>();
+            _ticketTypeRepo.Setup(r => r.GetById(It.IsAny<int>()))
+                .ReturnsAsync(new TicketType { Id = 1, EventId = 1 });
             _notifier = new Mock<ISeatNotifier>();
-            _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>()).CreateMapper();
+            _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
         }
 
         private EventContext CreateContext()
@@ -47,7 +51,7 @@ namespace EMSTests.Services
 
         private SeatReservationService CreateSut(EventContext context) =>
             new SeatReservationService(_reservationRepo.Object, _eventRepo.Object, _seatRepo.Object,
-                _notifier.Object, context, _mapper);
+                _ticketTypeRepo.Object, _notifier.Object, context, _mapper);
 
         private Event PublishedEvent() => new Event
         {

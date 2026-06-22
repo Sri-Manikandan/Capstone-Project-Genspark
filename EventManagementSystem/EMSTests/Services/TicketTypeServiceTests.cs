@@ -28,7 +28,7 @@ namespace EMSTests.Services
             _eventRepo = new Mock<IEventRepository>();
             _venueRepo = new Mock<IVenueRepository>();
             _seatRepo = new Mock<ISeatRepository>();
-            _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>()).CreateMapper();
+            _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
             _sut = new TicketTypeService(_ttRepo.Object, _eventRepo.Object, _venueRepo.Object, _seatRepo.Object, _mapper);
         }
 

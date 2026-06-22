@@ -22,7 +22,7 @@ namespace EMSTests.Services
         public void SetUp()
         {
             _seatRepo = new Mock<ISeatRepository>();
-            _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>()).CreateMapper();
+            _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
             _sut = new SeatService(_seatRepo.Object, _mapper);
         }
 

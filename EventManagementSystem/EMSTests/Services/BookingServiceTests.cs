@@ -43,7 +43,7 @@ namespace EMSTests.Services
             _notifier = new Mock<ISeatNotifier>();
             _paymentRepo = new Mock<IPaymentRepository>();
             _refundClient = new Mock<IStripeRefundClient>();
-            _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>()).CreateMapper();
+            _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
 
             _sut = new BookingService(
                 _bookingRepo.Object, _bookingItemRepo.Object, _ticketTypeRepo.Object,

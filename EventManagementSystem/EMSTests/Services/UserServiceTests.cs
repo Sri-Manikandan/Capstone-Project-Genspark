@@ -27,7 +27,7 @@ namespace EMSTests.Services
             _userRepo = new Mock<IUserRepository>();
             _orgRequestRepo = new Mock<IOrganizerRequestRepository>();
             _refreshTokenRepo = new Mock<IRefreshTokenRepository>();
-            _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>()).CreateMapper();
+            _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
             _sut = new UserService(_userRepo.Object, _orgRequestRepo.Object, _refreshTokenRepo.Object, _mapper);
         }
 

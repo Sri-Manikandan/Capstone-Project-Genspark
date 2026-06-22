@@ -22,7 +22,7 @@ namespace EMSTests.Services
         public void SetUp()
         {
             _venueRepo = new Mock<IVenueRepository>();
-            _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>()).CreateMapper();
+            _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
             _sut = new VenueService(_venueRepo.Object, _mapper);
         }
 

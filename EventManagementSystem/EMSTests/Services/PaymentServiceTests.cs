@@ -28,7 +28,7 @@ namespace EMSTests.Services
             _paymentRepo = new Mock<IPaymentRepository>();
             _bookingRepo = new Mock<IBookingRepository>();
             _stripeClient = new Mock<IStripePaymentIntentClient>();
-            _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>()).CreateMapper();
+            _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
             _sut = new PaymentService(_paymentRepo.Object, _bookingRepo.Object, _stripeClient.Object, _mapper);
         }
 

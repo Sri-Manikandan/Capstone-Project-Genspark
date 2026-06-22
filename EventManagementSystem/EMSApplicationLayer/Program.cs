@@ -87,9 +87,7 @@ builder.Services.AddScoped<ISeatNotifier, SignalRSeatNotifier>();
 builder.Services.AddHostedService<BookingExpiryService>();
 
 // ── AutoMapper ────────────────────────────────────────────────────────────────
-builder.Services.AddSingleton<AutoMapper.IMapper>(_ =>
-    new AutoMapper.Mapper(new AutoMapper.MapperConfiguration(cfg =>
-        cfg.AddProfile<MappingProfile>())));
+builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
 
 
 // ── Memory Cache (used by IdempotencyFilter) ──────────────────────────────────

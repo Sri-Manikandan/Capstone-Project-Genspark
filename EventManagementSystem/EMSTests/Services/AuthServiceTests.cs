@@ -40,7 +40,7 @@ namespace EMSTests.Services
             };
             _config = new ConfigurationBuilder().AddInMemoryCollection(configData).Build();
 
-            _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>()).CreateMapper();
+            _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
             _sut = new AuthService(_userRepo.Object, _refreshTokenRepo.Object, _config, _mapper, _cache);
         }
 
