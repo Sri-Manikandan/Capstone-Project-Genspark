@@ -43,7 +43,9 @@ namespace EMSDALLibrary.Repositories
             if (eventEntity == null) return new List<Seat>();
 
             return await _context.Seats
-                .Where(s => s.VenueId == eventEntity.VenueId && !unavailableSeatIds.Contains(s.Id))
+                .Where(s => s.VenueId == eventEntity.VenueId
+                            && !unavailableSeatIds.Contains(s.Id)
+                            && (eventEntity.Screen == "" || s.Section == eventEntity.Screen))
                 .ToListAsync();
         }
     }
