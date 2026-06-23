@@ -52,4 +52,9 @@ export class SeatService {
     return this.http.put<SeatDto[]>(`${this.base}/screen`, req)
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
+
+  deleteScreen(venueId: number, screen: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/screen?venueId=${venueId}&screen=${encodeURIComponent(screen)}`)
+      .pipe(catchError(e => throwError(() => extractError(e))));
+  }
 }

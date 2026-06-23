@@ -91,6 +91,7 @@ const AISLE = 'Aisle';
           <div class="mt-4 flex gap-3">
             <button type="button" (click)="save()" class="btn-primary">Save screen</button>
             <span class="self-center text-sm text-muted">{{ seatCount() }} seats</span>
+            <button type="button" (click)="deleteScreen()" class="link-danger self-center">Delete screen</button>
           </div>
         </div>
       </section>
@@ -176,6 +177,16 @@ export class AdminSeatsComponent implements OnInit {
     if (seats.length === 0) { this.error.set('Add at least one seat before saving.'); return; }
     this.seatService.setScreenSeats({ venueId: this.venueId, screen, seats }).subscribe({
       next: () => { this.success.set('Screen saved.'); this.load(); },
+      error: (m: string) => this.error.set(m),
+    });
+  }
+
+  protected deleteScreen(): void {
+    const screen = this.selectedScreen();
+    if (!screen) return;
+    if (!confirm(`Delete screen "${screen}" and all its seats?`)) return;
+    this.seatService.deleteScreen(this.venueId, screen).subscribe({
+      next: () => { this.success.set('Screen deleted.'); this.selectedScreen.set(null); this.grid.set([]); this.load(); },
       error: (m: string) => this.error.set(m),
     });
   }
