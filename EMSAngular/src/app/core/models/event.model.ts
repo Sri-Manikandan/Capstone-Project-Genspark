@@ -17,6 +17,7 @@ export interface EventDto {
   endTime: string;
   imageUrl: string;
   category: string;
+  screen: string;
   slug: string;
   createdAt: string;
 }
@@ -29,6 +30,7 @@ export interface CreateEventRequest {
   endTime: string;
   imageUrl: string;
   category: string;
+  screen: string;
 }
 
 export interface UpdateEventRequest {
@@ -38,6 +40,7 @@ export interface UpdateEventRequest {
   endTime: string;
   imageUrl: string;
   category: string;
+  screen: string;
 }
 
 export interface EventSearchRequest {

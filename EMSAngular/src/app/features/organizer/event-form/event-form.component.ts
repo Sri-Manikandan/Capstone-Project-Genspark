@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EventService } from '../../../core/services/event.service';
 import { VenueService } from '../../../core/services/venue.service';
+import { SeatService } from '../../../core/services/seat.service';
 import { VenueDto } from '../../../core/models/venue.model';
 import { AlertComponent } from '../../../shared/components/alert/alert.component';
 
@@ -18,9 +19,13 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <form [formGroup]="form" (ngSubmit)="submit()" class="max-w-xl space-y-4">
       <div class="card space-y-4 p-6">
-        <select formControlName="venueId" class="field" [class.hidden]="isEdit()">
+        <select formControlName="venueId" class="field" [class.hidden]="isEdit()" (change)="loadScreens(form.controls.venueId.value)">
           <option [ngValue]="0" disabled>Select venue…</option>
           <option *ngFor="let v of venues()" [ngValue]="v.id">{{ v.name }} — {{ v.city }}</option>
+        </select>
+        <select formControlName="screen" class="field">
+          <option value="">Whole venue (all screens)</option>
+          <option *ngFor="let s of screens()" [value]="s">{{ s }}</option>
         </select>
         <input formControlName="title" placeholder="Title" class="field" />
         <textarea formControlName="description" placeholder="Description" rows="4" class="field"></textarea>
@@ -45,16 +50,19 @@ export class EventFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private eventService = inject(EventService);
   private venueService = inject(VenueService);
+  private seatService = inject(SeatService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
   protected venues = signal<VenueDto[]>([]);
+  protected screens = signal<string[]>([]);
   protected error = signal('');
   private eventId = signal<number | null>(null);
   protected isEdit = computed(() => this.eventId() !== null);
 
   form = this.fb.nonNullable.group({
     venueId: [0, [Validators.min(1)]],
+    screen: [''],
     title: ['', [Validators.required, Validators.minLength(2)]],
     description: ['', [Validators.required, Validators.minLength(1)]],
     startTime: ['', Validators.required],
@@ -69,14 +77,25 @@ export class EventFormComponent implements OnInit {
     if (idParam) {
       this.eventId.set(Number(idParam));
       this.eventService.getById(Number(idParam)).subscribe({
-        next: ev => this.form.patchValue({
-          venueId: ev.venueId, title: ev.title, description: ev.description,
-          startTime: ev.startTime.slice(0, 16), endTime: ev.endTime.slice(0, 16),
-          imageUrl: ev.imageUrl, category: ev.category,
-        }),
+        next: ev => {
+          this.form.patchValue({
+            venueId: ev.venueId, title: ev.title, description: ev.description,
+            startTime: ev.startTime.slice(0, 16), endTime: ev.endTime.slice(0, 16),
+            imageUrl: ev.imageUrl, category: ev.category, screen: ev.screen,
+          });
+          this.loadScreens(ev.venueId);
+        },
         error: (m: string) => this.error.set(m),
       });
     }
+  }
+
+  protected loadScreens(venueId: number): void {
+    if (!venueId) { this.screens.set([]); return; }
+    this.seatService.getByVenue(venueId).subscribe({
+      next: seats => this.screens.set([...new Set(seats.map(s => s.section))].sort()),
+      error: () => this.screens.set([]),
+    });
   }
 
   submit(): void {
@@ -87,7 +106,7 @@ export class EventFormComponent implements OnInit {
     if (id !== null) {
       this.eventService.update(id, {
         title: v.title, description: v.description, startTime: v.startTime,
-        endTime: v.endTime, imageUrl: v.imageUrl, category: v.category,
+        endTime: v.endTime, imageUrl: v.imageUrl, category: v.category, screen: v.screen,
       }).subscribe(done);
     } else {
       this.eventService.create(v).subscribe(done);
