@@ -9,5 +9,6 @@ namespace EMSBLLLibrary.Interfaces
         Task<List<SeatDto>> GetByVenueId(int venueId);
         Task<List<SeatDto>> GetAvailableByEventId(int eventId);
         Task Delete(int id);
+        Task<List<SeatDto>> SetScreenSeats(SetScreenSeatsRequest request);
     }
 }

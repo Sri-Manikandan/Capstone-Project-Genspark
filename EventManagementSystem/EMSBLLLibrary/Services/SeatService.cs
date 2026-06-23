@@ -95,5 +95,30 @@ namespace EMSBLLLibrary.Services
                 ?? throw new NotFoundException($"Seat {id} not found.");
             await _seatRepo.Delete(seat.Id);
         }
+
+        public async Task<List<SeatDto>> SetScreenSeats(SetScreenSeatsRequest request)
+        {
+            if (request.VenueId <= 0)
+                throw new ValidationException("VenueId must be greater than zero.");
+            if (string.IsNullOrWhiteSpace(request.Screen))
+                throw new ValidationException("Screen is required.");
+            if (request.Seats == null || request.Seats.Count == 0)
+                throw new ValidationException("At least one seat is required.");
+
+            if (await _seatRepo.ScreenHasActiveSeatUsage(request.VenueId, request.Screen))
+                throw new ValidationException("Cannot edit a screen that already has bookings.");
+
+            var seats = request.Seats.Select(s => new Seat
+            {
+                VenueId = request.VenueId,
+                Section = request.Screen,
+                Row = s.Row,
+                SeatNumber = s.SeatNumber,
+                SeatType = s.SeatType
+            }).ToList();
+
+            await _seatRepo.ReplaceScreenSeats(request.VenueId, request.Screen, seats);
+            return _mapper.Map<List<SeatDto>>(seats);
+        }
     }
 }

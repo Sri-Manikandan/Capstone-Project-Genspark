@@ -53,5 +53,47 @@ namespace EMSTests.Repositories
 
             result.Should().HaveCount(2);
         }
+
+        [Test]
+        public async Task ReplaceScreenSeats_RemovesOldAndAddsNew()
+        {
+            using var ctx = CreateContext();
+            ctx.Seats.Add(new Seat { Id = 5, VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 1, SeatType = "Normal" });
+            await ctx.SaveChangesAsync();
+            var repo = new SeatRepository(ctx);
+
+            await repo.ReplaceScreenSeats(1, "Screen 1", new List<Seat>
+            {
+                new Seat { VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 1, SeatType = "Premium" },
+                new Seat { VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 2, SeatType = "Premium" },
+            });
+
+            var remaining = await repo.GetByVenueId(1);
+            remaining.Should().HaveCount(2).And.OnlyContain(s => s.SeatType == "Premium");
+        }
+
+        [Test]
+        public async Task ScreenHasActiveSeatUsage_True_WhenSeatBooked()
+        {
+            using var ctx = CreateContext();
+            ctx.Seats.Add(new Seat { Id = 7, VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 1, SeatType = "Normal" });
+            ctx.Bookings.Add(new Booking { Id = 3, EventId = 1, BookingStatus = "Confirmed" });
+            ctx.BookingItems.Add(new BookingItem { Id = 9, BookingId = 3, SeatId = 7 });
+            await ctx.SaveChangesAsync();
+            var repo = new SeatRepository(ctx);
+
+            (await repo.ScreenHasActiveSeatUsage(1, "Screen 1")).Should().BeTrue();
+        }
+
+        [Test]
+        public async Task ScreenHasActiveSeatUsage_False_WhenNoUsage()
+        {
+            using var ctx = CreateContext();
+            ctx.Seats.Add(new Seat { Id = 8, VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 1, SeatType = "Normal" });
+            await ctx.SaveChangesAsync();
+            var repo = new SeatRepository(ctx);
+
+            (await repo.ScreenHasActiveSeatUsage(1, "Screen 1")).Should().BeFalse();
+        }
     }
 }

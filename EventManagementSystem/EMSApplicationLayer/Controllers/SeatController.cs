@@ -51,6 +51,14 @@ namespace EMSApplicationLayer.Controllers
             return Ok(seats);
         }
 
+        [HttpPut("screen")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> SetScreen([FromBody] SetScreenSeatsRequest request)
+        {
+            var seats = await _seatService.SetScreenSeats(request);
+            return Ok(seats);
+        }
+
         [HttpDelete("{id:int}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)

@@ -202,5 +202,41 @@ namespace EMSTests.Services
                 VenueId = 1, Section = "A", Row = "1", SeatType = "VIP", StartNumber = 1, EndNumber = 1001
             })).Should().ThrowAsync<ValidationException>().WithMessage("*1000*");
         }
+
+        [Test]
+        public async Task SetScreenSeats_ReplacesSeats_WhenNoActiveUsage()
+        {
+            _seatRepo.Setup(r => r.ScreenHasActiveSeatUsage(1, "Screen 1")).ReturnsAsync(false);
+            _seatRepo.Setup(r => r.ReplaceScreenSeats(1, "Screen 1", It.IsAny<List<Seat>>())).Returns(Task.CompletedTask);
+
+            var req = new SetScreenSeatsRequest
+            {
+                VenueId = 1, Screen = "Screen 1",
+                Seats = new() { new ScreenSeatDto { Row = "A", SeatNumber = 1, SeatType = "Normal" } }
+            };
+
+            var result = await _sut.SetScreenSeats(req);
+
+            result.Should().HaveCount(1);
+            _seatRepo.Verify(r => r.ReplaceScreenSeats(1, "Screen 1",
+                It.Is<List<Seat>>(l => l.Count == 1 && l[0].Section == "Screen 1" && l[0].SeatType == "Normal")), Times.Once);
+        }
+
+        [Test]
+        public async Task SetScreenSeats_Throws_WhenScreenInUse()
+        {
+            _seatRepo.Setup(r => r.ScreenHasActiveSeatUsage(1, "Screen 1")).ReturnsAsync(true);
+
+            var req = new SetScreenSeatsRequest
+            {
+                VenueId = 1, Screen = "Screen 1",
+                Seats = new() { new ScreenSeatDto { Row = "A", SeatNumber = 1, SeatType = "Normal" } }
+            };
+
+            var act = async () => await _sut.SetScreenSeats(req);
+
+            await act.Should().ThrowAsync<ValidationException>().WithMessage("*bookings*");
+            _seatRepo.Verify(r => r.ReplaceScreenSeats(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<List<Seat>>()), Times.Never);
+        }
     }
 }

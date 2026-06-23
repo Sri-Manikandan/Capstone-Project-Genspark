@@ -48,5 +48,33 @@ namespace EMSDALLibrary.Repositories
                             && (eventEntity.Screen == "" || s.Section == eventEntity.Screen))
                 .ToListAsync();
         }
+
+        public async Task<bool> ScreenHasActiveSeatUsage(int venueId, string section)
+        {
+            var seatIds = await _context.Seats
+                .Where(s => s.VenueId == venueId && s.Section == section)
+                .Select(s => s.Id)
+                .ToListAsync();
+            if (seatIds.Count == 0) return false;
+
+            var booked = await _context.BookingItems
+                .Join(_context.Bookings, bi => bi.BookingId, b => b.Id, (bi, b) => new { bi.SeatId, b.BookingStatus })
+                .AnyAsync(x => seatIds.Contains(x.SeatId) && x.BookingStatus != "Cancelled");
+            if (booked) return true;
+
+            var now = DateTime.UtcNow;
+            return await _context.SeatReservations
+                .AnyAsync(sr => seatIds.Contains(sr.SeatId) && sr.Status == "Active" && sr.ReservedUntil > now);
+        }
+
+        public async Task ReplaceScreenSeats(int venueId, string section, List<Seat> seats)
+        {
+            var existing = await _context.Seats
+                .Where(s => s.VenueId == venueId && s.Section == section)
+                .ToListAsync();
+            _context.Seats.RemoveRange(existing);
+            await _context.Seats.AddRangeAsync(seats);
+            await _context.SaveChangesAsync();
+        }
     }
 }

@@ -56,4 +56,30 @@ namespace EMSModelLibrary.DTOs
         [StringLength(50, MinimumLength = 2)]
         public string SeatType { get; set; } = string.Empty;
     }
+
+    public class ScreenSeatDto
+    {
+        [Required]
+        [StringLength(10, MinimumLength = 1)]
+        public string Row { get; set; } = string.Empty;
+
+        [Range(1, 10000)]
+        public int SeatNumber { get; set; }
+
+        [Required]
+        [StringLength(50, MinimumLength = 2)]
+        public string SeatType { get; set; } = string.Empty;
+    }
+
+    public class SetScreenSeatsRequest
+    {
+        [Range(1, int.MaxValue)]
+        public int VenueId { get; set; }
+
+        [Required]
+        [StringLength(50, MinimumLength = 1)]
+        public string Screen { get; set; } = string.Empty;
+
+        public List<ScreenSeatDto> Seats { get; set; } = new();
+    }
 }
