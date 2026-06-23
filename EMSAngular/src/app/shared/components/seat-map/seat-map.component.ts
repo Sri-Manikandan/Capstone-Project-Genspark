@@ -29,7 +29,7 @@ interface SeatSection { section: string; rows: SeatRow[]; }
   template: `
     <div class="overflow-x-auto">
       <div class="mb-5 rounded-xl bg-paper py-2 text-center font-mono text-[0.66rem] uppercase tracking-eyebrow text-muted">
-        Stage / Screen
+        {{ screenName ? screenName : 'Stage / Screen' }}
       </div>
       <div class="mb-5 flex flex-wrap gap-4 font-mono text-xs text-ink-soft">
         <span class="flex items-center gap-1.5"><i class="h-3.5 w-3.5 rounded border border-plum bg-surface"></i> Available</span>
@@ -69,6 +69,7 @@ export class SeatMapComponent implements OnInit, OnDestroy {
 
   @Input({ required: true }) eventId!: number;
   @Input({ required: true }) venueId!: number;
+  @Input() screenName = '';
   @Input() selectedSeatIds: number[] = [];
   @Input() ticketTypes: TicketTypeDto[] = [];
   @Output() seatToggled = new EventEmitter<SeatDto>();

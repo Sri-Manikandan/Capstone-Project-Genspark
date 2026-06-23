@@ -90,6 +90,7 @@ interface SelectedSeat { reservation: SeatReservationDto; seat: SeatDto; ticketT
           <p class="mb-4 text-sm text-ink-soft">Pick {{ quantity() }} seat{{ quantity() === 1 ? '' : 's' }} — the section sets the category and price.</p>
           <div class="card p-5">
             <ems-seat-map [eventId]="ev.id" [venueId]="ev.venueId" [ticketTypes]="ticketTypes()"
+                          [screenName]="ev.screen ?? ''"
                           [selectedSeatIds]="selectedSeatIds()" (seatToggled)="onSeatToggled($event)" />
           </div>
         </section>
