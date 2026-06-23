@@ -59,6 +59,14 @@ namespace EMSApplicationLayer.Controllers
             return Ok(seats);
         }
 
+        [HttpDelete("screen")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> DeleteScreen([FromQuery] int venueId, [FromQuery] string screen)
+        {
+            await _seatService.DeleteScreen(venueId, screen);
+            return NoContent();
+        }
+
         [HttpDelete("{id:int}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)

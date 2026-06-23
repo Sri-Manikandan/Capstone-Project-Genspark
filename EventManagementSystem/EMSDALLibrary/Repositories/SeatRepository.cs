@@ -1,5 +1,6 @@
 using EMSDALLibrary.Contexts;
 using EMSDALLibrary.Interfaces;
+using EMSModelLibrary.Exceptions;
 using EMSModelLibrary.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -69,12 +70,27 @@ namespace EMSDALLibrary.Repositories
 
         public async Task ReplaceScreenSeats(int venueId, string section, List<Seat> seats)
         {
+            await using var tx = await _context.Database.BeginTransactionAsync();
+
+            if (await ScreenHasActiveSeatUsage(venueId, section))
+                throw new ValidationException("Cannot edit a screen that already has bookings.");
+
             var existing = await _context.Seats
                 .Where(s => s.VenueId == venueId && s.Section == section)
                 .ToListAsync();
             _context.Seats.RemoveRange(existing);
             await _context.Seats.AddRangeAsync(seats);
-            await _context.SaveChangesAsync();
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                throw new ValidationException("Cannot edit a screen that already has bookings.");
+            }
+
+            await tx.CommitAsync();
         }
     }
 }

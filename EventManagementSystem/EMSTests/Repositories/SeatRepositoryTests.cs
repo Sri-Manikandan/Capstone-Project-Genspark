@@ -95,5 +95,24 @@ namespace EMSTests.Repositories
 
             (await repo.ScreenHasActiveSeatUsage(1, "Screen 1")).Should().BeFalse();
         }
+
+        [Test]
+        public async Task ReplaceScreenSeats_Throws_WhenScreenInUse()
+        {
+            using var ctx = CreateContext();
+            ctx.Seats.Add(new Seat { Id = 11, VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 1, SeatType = "Normal" });
+            ctx.Bookings.Add(new Booking { Id = 4, EventId = 1, BookingStatus = "Confirmed" });
+            ctx.BookingItems.Add(new BookingItem { Id = 12, BookingId = 4, SeatId = 11 });
+            await ctx.SaveChangesAsync();
+            var repo = new SeatRepository(ctx);
+
+            var act = async () => await repo.ReplaceScreenSeats(1, "Screen 1", new List<Seat>
+            {
+                new Seat { VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 1, SeatType = "Premium" },
+            });
+
+            await act.Should().ThrowAsync<EMSModelLibrary.Exceptions.ValidationException>().WithMessage("*bookings*");
+            (await repo.GetByVenueId(1)).Should().ContainSingle(s => s.SeatType == "Normal"); // unchanged
+        }
     }
 }

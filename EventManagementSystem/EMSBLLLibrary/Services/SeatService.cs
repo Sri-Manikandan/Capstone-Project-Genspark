@@ -120,5 +120,18 @@ namespace EMSBLLLibrary.Services
             await _seatRepo.ReplaceScreenSeats(request.VenueId, request.Screen, seats);
             return _mapper.Map<List<SeatDto>>(seats);
         }
+
+        public async Task DeleteScreen(int venueId, string screen)
+        {
+            if (venueId <= 0)
+                throw new ValidationException("VenueId must be greater than zero.");
+            if (string.IsNullOrWhiteSpace(screen))
+                throw new ValidationException("Screen is required.");
+
+            if (await _seatRepo.ScreenHasActiveSeatUsage(venueId, screen))
+                throw new ValidationException("Cannot delete a screen that already has bookings.");
+
+            await _seatRepo.ReplaceScreenSeats(venueId, screen, new List<Seat>());
+        }
     }
 }

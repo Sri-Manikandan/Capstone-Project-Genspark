@@ -238,5 +238,28 @@ namespace EMSTests.Services
             await act.Should().ThrowAsync<ValidationException>().WithMessage("*bookings*");
             _seatRepo.Verify(r => r.ReplaceScreenSeats(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<List<Seat>>()), Times.Never);
         }
+
+        [Test]
+        public async Task DeleteScreen_RemovesSeats_WhenNoActiveUsage()
+        {
+            _seatRepo.Setup(r => r.ScreenHasActiveSeatUsage(1, "Screen 1")).ReturnsAsync(false);
+            _seatRepo.Setup(r => r.ReplaceScreenSeats(1, "Screen 1", It.IsAny<List<Seat>>())).Returns(Task.CompletedTask);
+
+            await _sut.DeleteScreen(1, "Screen 1");
+
+            _seatRepo.Verify(r => r.ReplaceScreenSeats(1, "Screen 1",
+                It.Is<List<Seat>>(l => l.Count == 0)), Times.Once);
+        }
+
+        [Test]
+        public async Task DeleteScreen_Throws_WhenScreenInUse()
+        {
+            _seatRepo.Setup(r => r.ScreenHasActiveSeatUsage(1, "Screen 1")).ReturnsAsync(true);
+
+            var act = async () => await _sut.DeleteScreen(1, "Screen 1");
+
+            await act.Should().ThrowAsync<ValidationException>().WithMessage("*bookings*");
+            _seatRepo.Verify(r => r.ReplaceScreenSeats(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<List<Seat>>()), Times.Never);
+        }
     }
 }
