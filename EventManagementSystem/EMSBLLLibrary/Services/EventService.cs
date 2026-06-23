@@ -53,7 +53,8 @@ namespace EMSBLLLibrary.Services
                 EndTime = endUtc,
                 ImageUrl = request.ImageUrl,
                 Category = request.Category,
-                Slug = await GenerateUniqueSlug(request.Title)
+                Slug = await GenerateUniqueSlug(request.Title),
+                Screen = request.Screen ?? string.Empty
             };
             await _eventRepo.Add(ev);
             return _mapper.Map<EventDto>(ev);
@@ -138,6 +139,7 @@ namespace EMSBLLLibrary.Services
             ev.EndTime = endUtc;
             ev.ImageUrl = request.ImageUrl;
             ev.Category = request.Category;
+            ev.Screen = request.Screen ?? string.Empty;
             ev.UpdatedAt = DateTime.UtcNow;
 
             await _eventRepo.Update(ev);

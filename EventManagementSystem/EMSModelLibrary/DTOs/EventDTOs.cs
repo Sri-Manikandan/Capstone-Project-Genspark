@@ -16,6 +16,7 @@ namespace EMSModelLibrary.DTOs
         public string ImageUrl { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;
         public string Slug { get; set; } = string.Empty;
+        public string Screen { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
     }
 
@@ -45,6 +46,8 @@ namespace EMSModelLibrary.DTOs
         [Required]
         [StringLength(100, MinimumLength = 2)]
         public string Category { get; set; } = string.Empty;
+
+        public string Screen { get; set; } = string.Empty;
     }
 
     public class UpdateEventRequest
@@ -70,6 +73,8 @@ namespace EMSModelLibrary.DTOs
         [Required]
         [StringLength(100, MinimumLength = 2)]
         public string Category { get; set; } = string.Empty;
+
+        public string Screen { get; set; } = string.Empty;
     }
 
     public class EventSearchRequest

@@ -521,5 +521,28 @@ namespace EMSTests.Services
 
             await _sut.Invoking(s => s.AdminReject(1, null)).Should().ThrowAsync<ValidationException>().WithMessage("*not pending*");
         }
+
+        // ── Screen ───────────────────────────────────────────────────────────────
+
+        [Test]
+        public async Task Create_WithScreen_PersistsScreen()
+        {
+            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(new Venue { Id = 1 });
+            Event? saved = null;
+            _eventRepo.Setup(r => r.Add(It.IsAny<Event>()))
+                .Callback<Event>(e => saved = e)
+                .ReturnsAsync((Event e) => e);
+
+            var req = new CreateEventRequest
+            {
+                VenueId = 1, Title = "Show", Description = ValidDescription, Category = ValidCategory,
+                ImageUrl = ValidImageUrl, StartTime = Start, EndTime = End, Screen = "Screen 2"
+            };
+
+            var result = await _sut.Create(10, req);
+
+            saved!.Screen.Should().Be("Screen 2");
+            result.Screen.Should().Be("Screen 2");
+        }
     }
 }

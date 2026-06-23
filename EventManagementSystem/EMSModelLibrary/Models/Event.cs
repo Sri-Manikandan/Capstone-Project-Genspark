@@ -16,6 +16,7 @@ namespace EMSModelLibrary.Models
         public string Category { get; set; } = string.Empty;
         public string Slug { get; set; } = string.Empty;
         public string? RejectionReason { get; set; }
+        public string Screen { get; set; } = string.Empty;
 
         public Event()
         {
