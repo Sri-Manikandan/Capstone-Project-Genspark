@@ -27,7 +27,7 @@ import { IstDatePipe } from '../../../shared/pipes/ist-date.pipe';
         <div class="mt-4 flex flex-wrap items-center gap-2">
           <button (click)="approve(ev.id)" class="btn-primary btn-sm">Approve</button>
           <input [ngModel]="reasons()[ev.id] ?? ''" (ngModelChange)="setReason(ev.id, $event)"
-                 placeholder="Rejection reason" class="field flex-1 py-1.5" />
+                 aria-label="Rejection reason" placeholder="Rejection reason" class="field flex-1 py-1.5" />
           <button (click)="reject(ev.id)" class="btn-danger btn-sm">Reject</button>
         </div>
       </div>

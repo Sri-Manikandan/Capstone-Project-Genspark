@@ -26,9 +26,9 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
 
       <form [formGroup]="filters" (ngSubmit)="applyFilters()"
             class="mt-7 flex flex-col gap-2 rounded-2xl border border-line bg-surface p-2 shadow-card sm:flex-row sm:items-center">
-        <input formControlName="query" placeholder="Search events, artists, venues…"
+        <input formControlName="query" aria-label="Search events, artists, venues" placeholder="Search events, artists, venues…"
                class="flex-1 rounded-xl border-0 bg-transparent px-3 py-2.5 text-sm text-ink placeholder:text-muted/70 focus:outline-none focus:ring-0" />
-        <input formControlName="category" placeholder="Category"
+        <input formControlName="category" aria-label="Filter by category" placeholder="Category"
                class="rounded-xl border-0 bg-paper px-3 py-2.5 text-sm text-ink placeholder:text-muted/70 focus:outline-none focus:ring-0 sm:w-44" />
         <button type="submit" class="btn-primary">Search</button>
       </form>

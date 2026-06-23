@@ -18,7 +18,10 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
         <p class="mt-1 mb-5 text-sm text-muted">Enter your email and we'll send a reset token.</p>
         <ems-alert [type]="resetToken() ? 'success' : 'error'" [message]="message()" (dismissed)="message.set('')" />
         <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-3">
-          <input formControlName="email" type="email" placeholder="Email" class="field" />
+          <label class="block space-y-1">
+            <span class="field-label">Email</span>
+            <input formControlName="email" type="email" placeholder="you@example.com" class="field" />
+          </label>
           <button type="submit" class="btn-primary w-full">Send reset token</button>
         </form>
         <a *ngIf="resetToken()" [routerLink]="['/auth/reset-password']" [queryParams]="{ token: resetToken() }"

@@ -19,16 +19,28 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <form [formGroup]="form" (ngSubmit)="submit()" class="max-w-xl space-y-4">
       <div class="card space-y-4 p-6">
-        <select formControlName="venueId" class="field" [class.hidden]="isEdit()" (change)="loadScreens(form.controls.venueId.value)">
-          <option [ngValue]="0" disabled>Select venue…</option>
-          <option *ngFor="let v of venues()" [ngValue]="v.id">{{ v.name }} — {{ v.city }}</option>
-        </select>
-        <select formControlName="screen" class="field">
-          <option value="">Whole venue (all screens)</option>
-          <option *ngFor="let s of screens()" [value]="s">{{ s }}</option>
-        </select>
-        <input formControlName="title" placeholder="Title" class="field" />
-        <textarea formControlName="description" placeholder="Description" rows="4" class="field"></textarea>
+        <label class="block space-y-1" [class.hidden]="isEdit()">
+          <span class="field-label">Venue</span>
+          <select formControlName="venueId" class="field" (change)="loadScreens(form.controls.venueId.value)">
+            <option [ngValue]="0" disabled>Select venue…</option>
+            <option *ngFor="let v of venues()" [ngValue]="v.id">{{ v.name }} — {{ v.city }}</option>
+          </select>
+        </label>
+        <label class="block space-y-1">
+          <span class="field-label">Screen</span>
+          <select formControlName="screen" class="field">
+            <option value="">Whole venue (all screens)</option>
+            <option *ngFor="let s of screens()" [value]="s">{{ s }}</option>
+          </select>
+        </label>
+        <label class="block space-y-1">
+          <span class="field-label">Title</span>
+          <input formControlName="title" placeholder="Title" class="field" />
+        </label>
+        <label class="block space-y-1">
+          <span class="field-label">Description</span>
+          <textarea formControlName="description" placeholder="Description" rows="4" class="field"></textarea>
+        </label>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label class="block space-y-1">
             <span class="field-label">Start time</span>
@@ -39,8 +51,14 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
             <input formControlName="endTime" type="datetime-local" class="field" />
           </label>
         </div>
-        <input formControlName="imageUrl" placeholder="Image URL" class="field" />
-        <input formControlName="category" placeholder="Category" class="field" />
+        <label class="block space-y-1">
+          <span class="field-label">Image URL</span>
+          <input formControlName="imageUrl" placeholder="Image URL" class="field" />
+        </label>
+        <label class="block space-y-1">
+          <span class="field-label">Category</span>
+          <input formControlName="category" placeholder="Category" class="field" />
+        </label>
       </div>
       <button type="submit" class="btn-primary">{{ isEdit() ? 'Save changes' : 'Create event' }}</button>
     </form>

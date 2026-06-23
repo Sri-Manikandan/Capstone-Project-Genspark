@@ -18,7 +18,7 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
     <ems-alert type="success" [message]="success()" (dismissed)="success.set('')" />
 
     <form [formGroup]="form" (ngSubmit)="validate()" class="flex max-w-xl flex-col gap-3 sm:flex-row">
-      <input formControlName="qrPayload" placeholder="Paste QR payload" class="field flex-1" />
+      <input formControlName="qrPayload" aria-label="QR payload" placeholder="Paste QR payload" class="field flex-1" />
       <button type="submit" class="btn-primary">Validate</button>
     </form>
 

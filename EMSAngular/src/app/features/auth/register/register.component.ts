@@ -18,10 +18,22 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
         <p class="mt-1 mb-5 text-sm text-muted">Book tickets and keep them all in one place.</p>
         <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
         <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-3">
-          <input formControlName="name" placeholder="Full name" class="field" />
-          <input formControlName="email" type="email" placeholder="Email" class="field" />
-          <input formControlName="phone" placeholder="Phone" class="field" />
-          <input formControlName="password" type="password" placeholder="Password (min 8)" class="field" />
+          <label class="block space-y-1">
+            <span class="field-label">Full name</span>
+            <input formControlName="name" placeholder="Full name" class="field" />
+          </label>
+          <label class="block space-y-1">
+            <span class="field-label">Email</span>
+            <input formControlName="email" type="email" placeholder="you@example.com" class="field" />
+          </label>
+          <label class="block space-y-1">
+            <span class="field-label">Phone</span>
+            <input formControlName="phone" placeholder="Phone" class="field" />
+          </label>
+          <label class="block space-y-1">
+            <span class="field-label">Password</span>
+            <input formControlName="password" type="password" placeholder="Password (min 8)" class="field" />
+          </label>
           <button type="submit" [disabled]="submitting()" class="btn-primary w-full">
             {{ submitting() ? 'Creating…' : 'Create account' }}
           </button>

@@ -18,8 +18,14 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
         <p class="mt-1 mb-5 text-sm text-muted">Paste your reset token and choose a new password.</p>
         <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
         <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-3">
-          <input formControlName="token" placeholder="Reset token" class="field" />
-          <input formControlName="newPassword" type="password" placeholder="New password (min 8)" class="field" />
+          <label class="block space-y-1">
+            <span class="field-label">Reset token</span>
+            <input formControlName="token" placeholder="Reset token" class="field" />
+          </label>
+          <label class="block space-y-1">
+            <span class="field-label">New password</span>
+            <input formControlName="newPassword" type="password" placeholder="New password (min 8)" class="field" />
+          </label>
           <button type="submit" class="btn-primary w-full">Reset password</button>
         </form>
       </div>

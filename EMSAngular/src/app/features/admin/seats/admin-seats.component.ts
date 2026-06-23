@@ -33,7 +33,7 @@ const AISLE = 'Aisle';
                 [class.border-line]="s !== selectedScreen()"
                 (click)="selectScreen(s)">{{ s }}</button>
         <div class="flex gap-2 pt-2">
-          <input [(ngModel)]="newScreenName" placeholder="New screen" class="field flex-1" />
+          <input [(ngModel)]="newScreenName" aria-label="New screen name" placeholder="New screen" class="field flex-1" />
           <button type="button" (click)="addScreen()" class="btn-ghost">Add</button>
         </div>
       </aside>
@@ -62,7 +62,7 @@ const AISLE = 'Aisle';
                     [class.text-white]="t === paint()"
                     [class.border-line]="t !== paint()"
                     (click)="paint.set(t)">{{ t }}</button>
-            <input [(ngModel)]="newType" placeholder="+ type" class="field w-28" />
+            <input [(ngModel)]="newType" aria-label="New seat type name" placeholder="+ type" class="field w-28" />
             <button type="button" (click)="addType()" class="btn-ghost">Add type</button>
           </div>
 

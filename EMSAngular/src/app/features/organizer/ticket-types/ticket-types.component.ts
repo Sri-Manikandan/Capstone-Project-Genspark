@@ -27,10 +27,10 @@ import { CurrencyInrPipe } from '../../../shared/pipes/currency-inr.pipe';
     </ul>
 
     <form [formGroup]="form" (ngSubmit)="add()" class="card grid max-w-xl grid-cols-1 gap-3 p-6 sm:grid-cols-2">
-      <input formControlName="name" placeholder="Name" class="field" />
-      <input formControlName="seatType" placeholder="Seat type" class="field" />
-      <input formControlName="price" type="number" placeholder="Price" class="field" />
-      <input formControlName="totalQuantity" type="number" placeholder="Quantity" class="field" />
+      <label class="space-y-1"><span class="field-label">Name</span><input formControlName="name" placeholder="Name" class="field" /></label>
+      <label class="space-y-1"><span class="field-label">Seat type</span><input formControlName="seatType" placeholder="Seat type" class="field" /></label>
+      <label class="space-y-1"><span class="field-label">Price</span><input formControlName="price" type="number" placeholder="Price" class="field" /></label>
+      <label class="space-y-1"><span class="field-label">Quantity</span><input formControlName="totalQuantity" type="number" placeholder="Quantity" class="field" /></label>
       <label class="space-y-1"><span class="field-label">Sale start</span><input formControlName="saleStart" type="datetime-local" class="field" /></label>
       <label class="space-y-1"><span class="field-label">Sale end</span><input formControlName="saleEnd" type="datetime-local" class="field" /></label>
       <button type="submit" class="btn-primary sm:col-span-2">Add ticket type</button>

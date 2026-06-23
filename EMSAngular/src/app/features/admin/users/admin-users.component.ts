@@ -17,7 +17,7 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
     <h1 class="page-title mt-2 mb-6">Users</h1>
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <form [formGroup]="filters" (ngSubmit)="applyFilters()" class="mb-5 flex gap-3">
-      <input formControlName="query" placeholder="Search name or email…" class="field flex-1" />
+      <input formControlName="query" aria-label="Search users by name or email" placeholder="Search name or email…" class="field flex-1" />
       <button type="submit" class="btn-primary">Search</button>
     </form>
     <ems-loading-spinner *ngIf="loading()" />

@@ -40,10 +40,22 @@ import { ModalComponent } from '../../../shared/components/modal/modal.component
 
     <ems-modal [open]="dialogOpen()" [title]="editingId() ? 'Edit venue' : 'Add venue'" (closed)="closeDialog()">
       <form [formGroup]="form" (ngSubmit)="save()" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <input formControlName="name" placeholder="Name" class="field" />
-        <input formControlName="city" placeholder="City" class="field" />
-        <input formControlName="address" placeholder="Address" class="field sm:col-span-2" />
-        <input formControlName="totalCapacity" type="number" placeholder="Capacity" class="field sm:col-span-2" />
+        <label class="block space-y-1">
+          <span class="field-label">Name</span>
+          <input formControlName="name" placeholder="Name" class="field" />
+        </label>
+        <label class="block space-y-1">
+          <span class="field-label">City</span>
+          <input formControlName="city" placeholder="City" class="field" />
+        </label>
+        <label class="block space-y-1 sm:col-span-2">
+          <span class="field-label">Address</span>
+          <input formControlName="address" placeholder="Address" class="field" />
+        </label>
+        <label class="block space-y-1 sm:col-span-2">
+          <span class="field-label">Capacity</span>
+          <input formControlName="totalCapacity" type="number" placeholder="Capacity" class="field" />
+        </label>
         <div class="flex gap-3 sm:col-span-2">
           <button type="submit" class="btn-primary">{{ editingId() ? 'Save changes' : 'Add venue' }}</button>
           <button type="button" (click)="closeDialog()" class="btn-ghost">Cancel</button>

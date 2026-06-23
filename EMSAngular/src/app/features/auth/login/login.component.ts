@@ -18,8 +18,14 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
         <p class="mt-1 mb-5 text-sm text-muted">Sign in to see your tickets and bookings.</p>
         <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
         <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-3">
-          <input formControlName="email" type="email" placeholder="Email" class="field" />
-          <input formControlName="password" type="password" placeholder="Password" class="field" />
+          <label class="block space-y-1">
+            <span class="field-label">Email</span>
+            <input formControlName="email" type="email" placeholder="you@example.com" class="field" />
+          </label>
+          <label class="block space-y-1">
+            <span class="field-label">Password</span>
+            <input formControlName="password" type="password" placeholder="Password" class="field" />
+          </label>
           <button type="submit" [disabled]="submitting()" class="btn-primary w-full">
             {{ submitting() ? 'Signing in…' : 'Sign in' }}
           </button>
