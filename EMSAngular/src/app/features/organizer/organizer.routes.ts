@@ -3,12 +3,14 @@ import { OrganizerEventListComponent } from './event-list/organizer-event-list.c
 import { EventFormComponent } from './event-form/event-form.component';
 import { TicketTypesComponent } from './ticket-types/ticket-types.component';
 import { ScannerComponent } from './scanner/scanner.component';
+import { EventBookingsComponent } from './event-bookings/event-bookings.component';
 
 export const ORGANIZER_ROUTES: Routes = [
   { path: 'events', component: OrganizerEventListComponent },
   { path: 'events/new', component: EventFormComponent },
   { path: 'events/:id/edit', component: EventFormComponent },
   { path: 'events/:id/tickets', component: TicketTypesComponent },
+  { path: 'events/:id/orders', component: EventBookingsComponent },
   { path: 'events/:id/bookings', component: ScannerComponent },
   { path: '', pathMatch: 'full', redirectTo: 'events' },
 ];

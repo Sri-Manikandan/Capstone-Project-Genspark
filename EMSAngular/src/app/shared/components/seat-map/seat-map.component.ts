@@ -15,6 +15,8 @@ import { CommonModule } from '@angular/common';
 import { SeatService } from '../../../core/services/seat.service';
 import { SeatHubService } from '../../../core/services/seat-hub.service';
 import { SeatDto } from '../../../core/models/seat.model';
+import { TicketTypeDto } from '../../../core/models/ticket-type.model';
+import { CurrencyInrPipe } from '../../pipes/currency-inr.pipe';
 
 interface SeatRow { row: string; seats: SeatDto[]; }
 interface SeatSection { section: string; rows: SeatRow[]; }
@@ -22,7 +24,7 @@ interface SeatSection { section: string; rows: SeatRow[]; }
 @Component({
   selector: 'ems-seat-map',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, CurrencyInrPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="overflow-x-auto">
@@ -36,7 +38,7 @@ interface SeatSection { section: string; rows: SeatRow[]; }
       </div>
       <div class="space-y-6">
         <div *ngFor="let section of sections()">
-          <h4 class="eyebrow mb-2">Section {{ section.section }}</h4>
+          <h4 class="eyebrow mb-2">Section {{ section.section }}<ng-container *ngIf="sectionMeta(section) as m"><span class="text-plum"> · {{ m.name }} · {{ m.price | inr }}</span></ng-container></h4>
           <div class="space-y-1.5">
             <div *ngFor="let r of section.rows" class="flex items-center gap-1.5">
               <span class="w-6 font-mono text-xs text-muted">{{ r.row }}</span>
@@ -68,6 +70,7 @@ export class SeatMapComponent implements OnInit, OnDestroy {
   @Input({ required: true }) eventId!: number;
   @Input({ required: true }) venueId!: number;
   @Input() selectedSeatIds: number[] = [];
+  @Input() ticketTypes: TicketTypeDto[] = [];
   @Output() seatToggled = new EventEmitter<SeatDto>();
 
   private allSeats = signal<SeatDto[]>([]);
@@ -102,6 +105,12 @@ export class SeatMapComponent implements OnInit, OnDestroy {
   protected seatState(seat: SeatDto): 'selected' | 'available' | 'taken' {
     if (this.selectedSeatIds.includes(seat.id)) return 'selected';
     return this.availableIds().has(seat.id) ? 'available' : 'taken';
+  }
+
+  protected sectionMeta(section: SeatSection): TicketTypeDto | undefined {
+    const seatType = section.rows[0]?.seats[0]?.seatType;
+    if (!seatType) return undefined;
+    return this.ticketTypes.find(t => t.seatType.toLowerCase() === seatType.toLowerCase());
   }
 
   protected onSeatClick(seat: SeatDto): void {

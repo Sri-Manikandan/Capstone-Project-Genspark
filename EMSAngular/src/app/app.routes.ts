@@ -3,7 +3,11 @@ import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'events' },
+  {
+    path: '',
+    pathMatch: 'full',
+    loadComponent: () => import('./features/home/home.component').then(m => m.HomeComponent),
+  },
   {
     path: 'events',
     loadChildren: () => import('./features/events/events.routes').then(m => m.EVENTS_ROUTES),
@@ -16,6 +20,11 @@ export const routes: Routes = [
     path: 'bookings',
     canActivate: [authGuard],
     loadChildren: () => import('./features/bookings/bookings.routes').then(m => m.BOOKINGS_ROUTES),
+  },
+  {
+    path: 'profile',
+    canActivate: [authGuard],
+    loadChildren: () => import('./features/profile/profile.routes').then(m => m.PROFILE_ROUTES),
   },
   {
     path: 'checkout',

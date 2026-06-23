@@ -62,7 +62,7 @@ export class AdminUsersComponent implements OnInit {
 
   private load(): void {
     this.loading.set(true);
-    this.admin.getUsers({ query: this.filters.getRawValue().query, page: this.page(), pageSize: 20 }).subscribe({
+    this.admin.getUsers({ query: this.filters.getRawValue().query, page: this.page(), pageSize: 10 }).subscribe({
       next: res => { this.users.set(res.items); this.totalPages.set(res.totalPages); this.loading.set(false); },
       error: (m: string) => { this.error.set(m); this.loading.set(false); },
     });

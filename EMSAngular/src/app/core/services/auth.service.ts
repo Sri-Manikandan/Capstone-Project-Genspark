@@ -59,6 +59,11 @@ export class AuthService {
     return this.http.post<void>(`${this.base}/reset-password`, req);
   }
 
+  setCurrentUser(user: User): void {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    this.userSignal.set(user);
+  }
+
   private applyAuth(res: AuthResponse): void {
     localStorage.setItem(ACCESS_KEY, res.accessToken);
     localStorage.setItem(REFRESH_KEY, res.refreshToken);

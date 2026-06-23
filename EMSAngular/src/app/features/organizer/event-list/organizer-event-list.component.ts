@@ -38,6 +38,7 @@ import { IstDatePipe } from '../../../shared/pipes/ist-date.pipe';
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <a [routerLink]="['/organizer/events', ev.id, 'edit']" class="link-action">Edit</a>
                 <a [routerLink]="['/organizer/events', ev.id, 'tickets']" class="link-action">Tickets</a>
+                <a [routerLink]="['/organizer/events', ev.id, 'orders']" class="link-action">Bookings</a>
                 <a [routerLink]="['/organizer/events', ev.id, 'bookings']" class="link-action">Scan</a>
                 <button *ngIf="ev.status === 'Draft' || ev.status === 'Rejected'" (click)="submitEvent(ev.id)" class="link-go">Submit</button>
                 <button *ngIf="ev.status !== 'Cancelled'" (click)="cancelEvent(ev.id)" class="link-danger">Cancel</button>

@@ -11,7 +11,7 @@ import { AuthService } from '../../../core/services/auth.service';
   template: `
     <header class="sticky top-0 z-30 border-b border-line bg-paper/85 backdrop-blur">
       <nav class="relative mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5">
-        <a routerLink="/events" (click)="menuOpen.set(false)" class="group flex items-center gap-2" aria-label="EventHub home">
+        <a routerLink="/" (click)="menuOpen.set(false)" class="group flex items-center gap-2" aria-label="EventHub home">
           <span class="grid h-7 w-7 place-items-center rounded-md bg-plum font-mono text-xs font-bold text-white">E</span>
           <span class="font-display text-xl font-semibold tracking-tight text-ink">EventHub</span>
         </a>
@@ -31,7 +31,7 @@ import { AuthService } from '../../../core/services/auth.service';
             <a routerLink="/bookings" routerLinkActive="text-plum" (click)="menuOpen.set(false)" class="nav-link">My Bookings</a>
             <a *ngIf="canOrganize()" routerLink="/organizer/events" routerLinkActive="text-plum" (click)="menuOpen.set(false)" class="nav-link">My Events</a>
             <a *ngIf="auth.role() === 'Admin'" routerLink="/admin/events" routerLinkActive="text-plum" (click)="menuOpen.set(false)" class="nav-link">Admin</a>
-            <span class="px-3 py-1 text-sm text-muted sm:ml-2 sm:px-0 sm:py-0">{{ auth.currentUser()?.name }}</span>
+            <a routerLink="/profile" routerLinkActive="text-plum" (click)="menuOpen.set(false)" class="nav-link sm:ml-2">{{ auth.currentUser()?.name }}</a>
             <button (click)="logout()" class="btn-ghost btn-sm mt-1 sm:ml-1 sm:mt-0">Logout</button>
           </ng-container>
 

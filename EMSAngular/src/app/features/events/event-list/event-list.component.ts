@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { EventService } from '../../../core/services/event.service';
 import { EventDto } from '../../../core/models/event.model';
 import { EventCardComponent } from '../../../shared/components/event-card/event-card.component';
@@ -55,6 +56,7 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
 })
 export class EventListComponent implements OnInit {
   private eventService = inject(EventService);
+  private route = inject(ActivatedRoute);
   private fb = inject(FormBuilder);
 
   protected events = signal<EventDto[]>([]);
@@ -64,7 +66,11 @@ export class EventListComponent implements OnInit {
   protected totalPages = signal(1);
   protected filters = this.fb.nonNullable.group({ query: '', category: '' });
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void {
+    const category = this.route.snapshot.queryParamMap.get('category');
+    if (category) this.filters.patchValue({ category });
+    this.load();
+  }
 
   protected applyFilters(): void { this.page.set(1); this.load(); }
   protected goToPage(p: number): void { this.page.set(p); this.load(); }
