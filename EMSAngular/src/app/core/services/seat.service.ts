@@ -4,6 +4,7 @@ import { Observable, catchError, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   SeatDto, CreateSeatRequest, BulkCreateSeatsRequest, ReserveSeatRequest, SeatReservationDto,
+  SetScreenSeatsRequest,
 } from '../models/seat.model';
 import { extractError } from './http-error';
 
@@ -44,6 +45,11 @@ export class SeatService {
 
   releaseReservation(reservationId: number): Observable<void> {
     return this.http.post<void>(`${this.base}/reserve/${reservationId}/release`, {})
+      .pipe(catchError(e => throwError(() => extractError(e))));
+  }
+
+  setScreenSeats(req: SetScreenSeatsRequest): Observable<SeatDto[]> {
+    return this.http.put<SeatDto[]>(`${this.base}/screen`, req)
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 }

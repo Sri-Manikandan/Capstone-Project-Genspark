@@ -40,3 +40,15 @@ export interface SeatReservationDto {
   reservedUntil: string;
   createdAt: string;
 }
+
+export interface ScreenSeat {
+  row: string;
+  seatNumber: number;
+  seatType: string;
+}
+
+export interface SetScreenSeatsRequest {
+  venueId: number;
+  screen: string;
+  seats: ScreenSeat[];
+}
