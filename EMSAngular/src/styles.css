@@ -118,6 +118,20 @@
     @apply border-t border-line;
   }
 
+  /* Horizontal-scroll wrapper for wide tables on mobile, with a right-edge
+     fade that appears only while more content is scrollable. */
+  .table-scroll-wrap {
+    @apply overflow-x-auto;
+    background:
+      linear-gradient(to right, theme(colors.surface) 30%, rgba(255, 255, 255, 0)) left center,
+      linear-gradient(to left, theme(colors.surface) 30%, rgba(255, 255, 255, 0)) right center,
+      radial-gradient(farthest-side at 0 50%, rgba(36, 27, 46, 0.12), rgba(36, 27, 46, 0)) left center,
+      radial-gradient(farthest-side at 100% 50%, rgba(36, 27, 46, 0.12), rgba(36, 27, 46, 0)) right center;
+    background-repeat: no-repeat;
+    background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+    background-attachment: local, local, scroll, scroll;
+  }
+
   /* Ticket-stub perforation — the signature detail. The notch circles are
      painted in the page colour so they read as punched holes in the card. */
   .perf {
