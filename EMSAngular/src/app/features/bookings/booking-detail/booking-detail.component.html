@@ -1,0 +1,26 @@
+    <ems-loading-spinner *ngIf="loading()" />
+    <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
+
+    <article *ngIf="booking() as b" class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <section class="card p-6">
+        <span class="eyebrow text-plum">Ticket</span>
+        <h1 class="mt-2 font-display text-2xl font-semibold text-ink">{{ b.eventTitle }}</h1>
+        <p class="mt-1 font-mono text-xs text-muted">{{ b.bookingReference }} · {{ b.createdAt | istDate }}</p>
+        <ul class="mt-5 space-y-2 text-sm text-ink-soft">
+          <li *ngFor="let item of b.items" class="flex justify-between gap-2 sm:gap-4">
+            <span>{{ item.ticketTypeName }} · {{ item.seatLabel }}</span>
+            <span class="font-mono">{{ item.unitPrice | inr }}</span>
+          </li>
+        </ul>
+        <div class="mt-5 flex items-center justify-between border-t border-dashed border-line pt-5">
+          <span class="eyebrow">Total paid</span>
+          <span class="font-display text-2xl font-semibold text-ink">{{ b.totalAmount | inr }}</span>
+        </div>
+        <button *ngIf="canCancel(b)" (click)="cancel(b.id)" class="btn-danger mt-6">Cancel booking</button>
+      </section>
+
+      <section class="card flex items-center justify-center p-4 sm:p-6">
+        <ems-booking-qr [qrCode]="b.qrCode" />
+      </section>
+    </article>
+  
