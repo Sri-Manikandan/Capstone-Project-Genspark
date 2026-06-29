@@ -1,0 +1,37 @@
+    <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="eyebrow text-plum">Organizer</p>
+        <h1 class="page-title mt-2">My events</h1>
+      </div>
+      <a routerLink="/organizer/events/new" class="btn-primary">+ New event</a>
+    </div>
+    <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
+    <ems-loading-spinner *ngIf="loading()" />
+
+    <div *ngIf="!loading()" class="table-scroll-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Title</th><th>Start</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let ev of events()">
+            <td class="font-medium text-ink">{{ ev.title }}</td>
+            <td class="font-mono text-xs">{{ ev.startTime | istDate }}</td>
+            <td><span class="badge bg-paper text-ink-soft">{{ ev.status }}</span></td>
+            <td>
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <a [routerLink]="['/organizer/events', ev.id, 'edit']" class="link-action">Edit</a>
+                <a [routerLink]="['/organizer/events', ev.id, 'tickets']" class="link-action">Tickets</a>
+                <a [routerLink]="['/organizer/events', ev.id, 'orders']" class="link-action">Bookings</a>
+                <a [routerLink]="['/organizer/events', ev.id, 'bookings']" class="link-action">Scan</a>
+                <button *ngIf="ev.status === 'Draft' || ev.status === 'Rejected'" (click)="submitEvent(ev.id)" class="link-go">Submit</button>
+                <button *ngIf="ev.status !== 'Cancelled'" (click)="cancelEvent(ev.id)" class="link-danger">Cancel</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p *ngIf="!loading() && events().length === 0" class="card mt-2 px-6 py-16 text-center text-muted">No events yet — create your first one.</p>
+    <ems-pagination [currentPage]="page()" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
+  

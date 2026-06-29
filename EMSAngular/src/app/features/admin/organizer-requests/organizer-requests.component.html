@@ -1,0 +1,25 @@
+    <p class="eyebrow text-plum">Admin</p>
+    <h1 class="page-title mt-2 mb-6">Organizer requests</h1>
+    <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
+    <ems-loading-spinner *ngIf="loading()" />
+
+    <div *ngIf="!loading()" class="table-scroll-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>User</th><th>Requested</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of requests()">
+            <td><span class="font-medium text-ink">{{ r.userName }}</span><br /><span class="text-muted">{{ r.userEmail }}</span></td>
+            <td class="font-mono text-xs">{{ r.requestedAt | istDate }}</td>
+            <td>
+              <button (click)="approve(r.id)" class="link-go mr-3">Approve</button>
+              <button (click)="reject(r.id)" class="link-danger">Reject</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p *ngIf="!loading() && requests().length === 0" class="card mt-2 px-6 py-16 text-center text-muted">No pending requests.</p>
+    <ems-pagination [currentPage]="page()" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
+  
