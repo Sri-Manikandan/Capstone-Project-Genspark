@@ -36,6 +36,21 @@ ng build
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
 
+## Production configuration
+
+A production build (`ng build`, which defaults to the `production` configuration) swaps
+`src/environments/environment.ts` for `src/environments/environment.prod.ts` via the
+`fileReplacements` entry in `angular.json`. Before deploying, replace the placeholders in
+`environment.prod.ts`:
+
+| Field | Replace with | Example |
+| --- | --- | --- |
+| `apiBaseUrl` | Base URL of the deployed API (no trailing slash) | `https://api.your-domain.com` |
+| `stripePublishableKey` | Stripe **publishable** key for the live account (public, safe to ship) | `pk_live_...` |
+
+Never put the Stripe **secret** key or any server-side secret in this file — it is bundled
+into the client and visible to users.
+
 ## Running unit tests
 
 To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
