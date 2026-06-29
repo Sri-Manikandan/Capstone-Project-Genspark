@@ -1,0 +1,38 @@
+    <div class="flex flex-col gap-8 lg:flex-row">
+      <!-- Mobile drawer toggle (hidden on lg+) -->
+      <button type="button" (click)="toggleDrawer()"
+              class="btn-ghost self-start lg:hidden"
+              aria-label="Open admin menu" [attr.aria-expanded]="drawerOpen()">
+        <span class="font-mono text-xs uppercase tracking-eyebrow">☰ Admin menu</span>
+      </button>
+
+      <!-- Backdrop (mobile only, when open) -->
+      @if (drawerOpen()) {
+        <div class="fixed inset-0 z-30 bg-ink/40 lg:hidden" (click)="closeDrawer()" aria-hidden="true"></div>
+      }
+
+      <!-- Sidebar: static column on lg+, slide-in drawer on mobile -->
+      <aside
+        class="fixed inset-y-0 left-0 z-40 w-64 transform bg-surface p-5 shadow-lift transition-transform
+               lg:static lg:z-auto lg:w-56 lg:shrink-0 lg:transform-none lg:bg-transparent lg:p-0 lg:shadow-none"
+        [class.translate-x-0]="drawerOpen()"
+        [class.-translate-x-full]="!drawerOpen()"
+        [class.lg:translate-x-0]="true"
+      >
+        <p class="eyebrow mb-3 px-3">Admin</p>
+        <nav class="flex flex-col gap-1">
+          @for (item of links; track item.path) {
+            <a
+              [routerLink]="item.path"
+              routerLinkActive="bg-surface text-ink lg:bg-surface"
+              (click)="closeDrawer()"
+              class="side-link"
+            >{{ item.label }}</a>
+          }
+        </nav>
+      </aside>
+
+      <section class="min-w-0 flex-1">
+        <router-outlet />
+      </section>
+    </div>

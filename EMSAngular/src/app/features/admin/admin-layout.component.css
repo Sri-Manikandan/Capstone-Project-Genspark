@@ -1,0 +1,4 @@
+    .side-link {
+      @apply whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface hover:text-ink;
+    }
+  
