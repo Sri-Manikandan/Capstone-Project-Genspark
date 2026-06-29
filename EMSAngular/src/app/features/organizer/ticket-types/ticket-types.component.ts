@@ -5,37 +5,15 @@ import { ActivatedRoute } from '@angular/router';
 import { TicketTypeService } from '../../../core/services/ticket-type.service';
 import { TicketTypeDto } from '../../../core/models/ticket-type.model';
 import { AlertComponent } from '../../../shared/components/alert/alert.component';
+import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner/loading-spinner.component';
 import { CurrencyInrPipe } from '../../../shared/pipes/currency-inr.pipe';
 
 @Component({
   selector: 'ems-ticket-types',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, AlertComponent, CurrencyInrPipe],
+  imports: [CommonModule, ReactiveFormsModule, AlertComponent, LoadingSpinnerComponent, CurrencyInrPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <p class="eyebrow text-plum">Organizer</p>
-    <h1 class="page-title mt-2 mb-6">Ticket types</h1>
-    <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
-
-    <ul class="mb-8 space-y-2">
-      <li *ngFor="let t of ticketTypes()" class="flex items-center justify-between gap-4 rounded-xl border border-line bg-surface p-4">
-        <span class="text-sm text-ink"><span class="font-display text-base font-semibold">{{ t.name }}</span>
-          <span class="font-mono text-xs text-muted"> · {{ t.seatType }} · {{ t.price | inr }} · {{ t.availableQuantity }}/{{ t.totalQuantity }} left</span></span>
-        <button (click)="remove(t.id)" class="link-danger">Delete</button>
-      </li>
-      <li *ngIf="ticketTypes().length === 0" class="card px-6 py-12 text-center text-muted">No ticket types yet.</li>
-    </ul>
-
-    <form [formGroup]="form" (ngSubmit)="add()" class="card grid max-w-xl grid-cols-1 gap-3 p-6 sm:grid-cols-2">
-      <label class="space-y-1"><span class="field-label">Name</span><input formControlName="name" placeholder="Name" class="field" /></label>
-      <label class="space-y-1"><span class="field-label">Seat type</span><input formControlName="seatType" placeholder="Seat type" class="field" /></label>
-      <label class="space-y-1"><span class="field-label">Price</span><input formControlName="price" type="number" placeholder="Price" class="field" /></label>
-      <label class="space-y-1"><span class="field-label">Quantity</span><input formControlName="totalQuantity" type="number" placeholder="Quantity" class="field" /></label>
-      <label class="space-y-1"><span class="field-label">Sale start</span><input formControlName="saleStart" type="datetime-local" class="field" /></label>
-      <label class="space-y-1"><span class="field-label">Sale end</span><input formControlName="saleEnd" type="datetime-local" class="field" /></label>
-      <button type="submit" class="btn-primary sm:col-span-2">Add ticket type</button>
-    </form>
-  `,
+  templateUrl: './ticket-types.component.html',
 })
 export class TicketTypesComponent implements OnInit {
   private fb = inject(FormBuilder);
@@ -43,6 +21,7 @@ export class TicketTypesComponent implements OnInit {
   private service = inject(TicketTypeService);
 
   protected ticketTypes = signal<TicketTypeDto[]>([]);
+  protected loading = signal(false);
   protected error = signal('');
   private eventId = Number(this.route.snapshot.paramMap.get('id'));
 
@@ -70,8 +49,10 @@ export class TicketTypesComponent implements OnInit {
   }
 
   private load(): void {
+    this.loading.set(true);
     this.service.getByEvent(this.eventId).subscribe({
-      next: t => this.ticketTypes.set(t), error: (m: string) => this.error.set(m),
+      next: t => { this.ticketTypes.set(t); this.loading.set(false); },
+      error: (m: string) => { this.error.set(m); this.loading.set(false); },
     });
   }
 }

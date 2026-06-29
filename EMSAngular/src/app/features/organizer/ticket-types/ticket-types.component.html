@@ -2,7 +2,8 @@
     <h1 class="page-title mt-2 mb-6">Ticket types</h1>
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
 
-    <ul class="mb-8 space-y-2">
+    <ems-loading-spinner *ngIf="loading()" />
+    <ul *ngIf="!loading()" class="mb-8 space-y-2">
       <li *ngFor="let t of ticketTypes()" class="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <span class="text-sm text-ink"><span class="font-display text-base font-semibold">{{ t.name }}</span>
           <span class="font-mono text-xs text-muted"> · {{ t.seatType }} · {{ t.price | inr }} · {{ t.availableQuantity }}/{{ t.totalQuantity }} left</span></span>

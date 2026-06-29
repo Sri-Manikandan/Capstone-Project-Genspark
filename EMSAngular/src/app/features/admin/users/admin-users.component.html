@@ -23,5 +23,6 @@
         </tbody>
       </table>
     </div>
+    <p *ngIf="!loading() && users().length === 0" class="card mt-2 px-6 py-16 text-center text-muted">No users found.</p>
     <ems-pagination [currentPage]="page()" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
   
