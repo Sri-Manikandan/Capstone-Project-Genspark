@@ -45,7 +45,7 @@ export class CheckoutComponent implements OnInit {
 
   protected onPaymentSucceeded(intentId: string): void {
     this.paymentService.confirm({ stripePaymentIntentId: intentId }).subscribe({
-      next: () => this.router.navigate(['/bookings', this.booking()!.id]),
+      next: () => this.router.navigate(['/bookings', this.booking()!.id], { queryParams: { confirmed: 1 } }),
       error: (msg: string) => this.error.set(msg),
     });
   }

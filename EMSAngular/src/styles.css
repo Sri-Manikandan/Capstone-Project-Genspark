@@ -76,6 +76,15 @@
     @apply rounded-lg px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:bg-surface hover:text-ink;
   }
 
+  /* Contextual tab navigation for per-entity sub-pages */
+  .tab-link {
+    @apply -mb-px whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-sm font-medium
+           text-muted transition touch-manipulation hover:text-ink;
+  }
+  .tab-link-active {
+    @apply border-plum text-plum;
+  }
+
   /* Quiet inline text actions (used inside tables/rows). */
   .link-action {
     @apply font-medium text-plum underline-offset-2 transition hover:text-plum-dark hover:underline;

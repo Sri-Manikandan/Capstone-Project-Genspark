@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { BookingService } from '../../../core/services/booking.service';
 import { EventService } from '../../../core/services/event.service';
 import { BookingDto } from '../../../core/models/booking.model';
@@ -8,11 +8,12 @@ import { PaginationComponent } from '../../../shared/components/pagination/pagin
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner/loading-spinner.component';
 import { AlertComponent } from '../../../shared/components/alert/alert.component';
 import { IstDatePipe } from '../../../shared/pipes/ist-date.pipe';
+import { OrganizerEventNavComponent } from '../event-nav/organizer-event-nav.component';
 
 @Component({
   selector: 'ems-event-bookings',
   standalone: true,
-  imports: [CommonModule, RouterLink, PaginationComponent, LoadingSpinnerComponent, AlertComponent, IstDatePipe],
+  imports: [CommonModule, PaginationComponent, LoadingSpinnerComponent, AlertComponent, IstDatePipe, OrganizerEventNavComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './event-bookings.component.html',
 })
@@ -28,7 +29,7 @@ export class EventBookingsComponent implements OnInit {
   protected page = signal(1);
   protected totalPages = signal(1);
 
-  private eventId = 0;
+  protected eventId = 0;
 
   ngOnInit(): void {
     this.eventId = Number(this.route.snapshot.paramMap.get('id'));

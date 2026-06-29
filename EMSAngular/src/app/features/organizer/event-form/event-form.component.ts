@@ -7,11 +7,13 @@ import { VenueService } from '../../../core/services/venue.service';
 import { SeatService } from '../../../core/services/seat.service';
 import { VenueDto } from '../../../core/models/venue.model';
 import { AlertComponent } from '../../../shared/components/alert/alert.component';
+import { RouterLink } from '@angular/router';
+import { OrganizerEventNavComponent } from '../event-nav/organizer-event-nav.component';
 
 @Component({
   selector: 'ems-event-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, AlertComponent],
+  imports: [CommonModule, ReactiveFormsModule, AlertComponent, RouterLink, OrganizerEventNavComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './event-form.component.html',
 })
@@ -26,7 +28,7 @@ export class EventFormComponent implements OnInit {
   protected venues = signal<VenueDto[]>([]);
   protected screens = signal<string[]>([]);
   protected error = signal('');
-  private eventId = signal<number | null>(null);
+  protected eventId = signal<number | null>(null);
   protected isEdit = computed(() => this.eventId() !== null);
 
   form = this.fb.nonNullable.group({

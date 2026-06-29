@@ -1,4 +1,8 @@
-    <p class="eyebrow text-plum">Organizer</p>
+    <ems-organizer-event-nav *ngIf="isEdit(); else newBack" [eventId]="eventId()!" />
+    <ng-template #newBack>
+      <a routerLink="/organizer/events" class="link-action text-sm">← My events</a>
+    </ng-template>
+    <p class="eyebrow text-plum mt-4">Organizer</p>
     <h1 class="page-title mt-2 mb-6">{{ isEdit() ? 'Edit' : 'Create' }} event</h1>
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <form [formGroup]="form" (ngSubmit)="submit()" class="max-w-xl space-y-4">
@@ -44,6 +48,9 @@
           <input formControlName="category" placeholder="Category" class="field" />
         </label>
       </div>
-      <button type="submit" class="btn-primary">{{ isEdit() ? 'Save changes' : 'Create event' }}</button>
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <button type="submit" class="btn-primary">{{ isEdit() ? 'Save changes' : 'Create event' }}</button>
+        <a routerLink="/organizer/events" class="btn-ghost text-center">Cancel</a>
+      </div>
     </form>
   

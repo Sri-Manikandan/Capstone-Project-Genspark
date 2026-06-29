@@ -1,7 +1,13 @@
+    <a routerLink="/bookings" class="link-action text-sm">← My bookings</a>
+
+    <div *ngIf="justConfirmed()" class="mt-4 rounded-xl border border-teal/30 bg-teal-tint px-4 py-3 text-sm font-medium text-teal-dark">
+      🎉 Booking confirmed — your ticket is ready. Show the QR code below at the door.
+    </div>
+
     <ems-loading-spinner *ngIf="loading()" />
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
 
-    <article *ngIf="booking() as b" class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <article *ngIf="booking() as b" class="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
       <section class="card p-6">
         <span class="eyebrow text-plum">Ticket</span>
         <h1 class="mt-2 font-display text-2xl font-semibold text-ink">{{ b.eventTitle }}</h1>

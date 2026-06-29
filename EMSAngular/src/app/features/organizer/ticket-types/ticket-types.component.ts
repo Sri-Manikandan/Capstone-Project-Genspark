@@ -7,11 +7,12 @@ import { TicketTypeDto } from '../../../core/models/ticket-type.model';
 import { AlertComponent } from '../../../shared/components/alert/alert.component';
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner/loading-spinner.component';
 import { CurrencyInrPipe } from '../../../shared/pipes/currency-inr.pipe';
+import { OrganizerEventNavComponent } from '../event-nav/organizer-event-nav.component';
 
 @Component({
   selector: 'ems-ticket-types',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, AlertComponent, LoadingSpinnerComponent, CurrencyInrPipe],
+  imports: [CommonModule, ReactiveFormsModule, AlertComponent, LoadingSpinnerComponent, CurrencyInrPipe, OrganizerEventNavComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ticket-types.component.html',
 })
@@ -23,7 +24,7 @@ export class TicketTypesComponent implements OnInit {
   protected ticketTypes = signal<TicketTypeDto[]>([]);
   protected loading = signal(false);
   protected error = signal('');
-  private eventId = Number(this.route.snapshot.paramMap.get('id'));
+  protected eventId = Number(this.route.snapshot.paramMap.get('id'));
 
   protected form = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.minLength(2)]],

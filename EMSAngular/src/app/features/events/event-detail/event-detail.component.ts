@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { EventService } from '../../../core/services/event.service';
 import { TicketTypeService } from '../../../core/services/ticket-type.service';
 import { SeatService } from '../../../core/services/seat.service';
@@ -21,7 +21,7 @@ interface SelectedSeat { reservation: SeatReservationDto; seat: SeatDto; ticketT
 @Component({
   selector: 'ems-event-detail',
   standalone: true,
-  imports: [CommonModule, SeatMapComponent, LoadingSpinnerComponent, AlertComponent, IstDatePipe, CurrencyInrPipe],
+  imports: [CommonModule, RouterLink, SeatMapComponent, LoadingSpinnerComponent, AlertComponent, IstDatePipe, CurrencyInrPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './event-detail.component.html',
 })

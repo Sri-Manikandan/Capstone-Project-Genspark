@@ -1,0 +1,9 @@
+<nav class="mb-6">
+  <a routerLink="/organizer/events" class="link-action text-sm">← My events</a>
+  <div class="table-scroll-wrap mt-3 flex gap-1 border-b border-line">
+    <a [routerLink]="['/organizer/events', eventId(), 'edit']" routerLinkActive="tab-link-active" class="tab-link">Details</a>
+    <a [routerLink]="['/organizer/events', eventId(), 'tickets']" routerLinkActive="tab-link-active" class="tab-link">Tickets</a>
+    <a [routerLink]="['/organizer/events', eventId(), 'orders']" routerLinkActive="tab-link-active" class="tab-link">Bookings</a>
+    <a [routerLink]="['/organizer/events', eventId(), 'bookings']" routerLinkActive="tab-link-active" class="tab-link">Scan</a>
+  </div>
+</nav>

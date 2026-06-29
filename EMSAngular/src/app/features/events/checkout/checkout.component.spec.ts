@@ -45,6 +45,6 @@ describe('CheckoutComponent', () => {
     const nav = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     component['onPaymentSucceeded']('pi_123');
     expect(payment.confirm).toHaveBeenCalledWith({ stripePaymentIntentId: 'pi_123' });
-    expect(nav).toHaveBeenCalledWith(['/bookings', 123]);
+    expect(nav).toHaveBeenCalledWith(['/bookings', 123], { queryParams: { confirmed: 1 } });
   });
 });

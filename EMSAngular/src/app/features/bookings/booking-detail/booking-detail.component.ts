@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { BookingService } from '../../../core/services/booking.service';
 import { BookingDto } from '../../../core/models/booking.model';
 import { BookingQrComponent } from '../../../shared/components/booking-qr/booking-qr.component';
@@ -12,7 +12,7 @@ import { CurrencyInrPipe } from '../../../shared/pipes/currency-inr.pipe';
 @Component({
   selector: 'ems-booking-detail',
   standalone: true,
-  imports: [CommonModule, BookingQrComponent, LoadingSpinnerComponent, AlertComponent, IstDatePipe, CurrencyInrPipe],
+  imports: [CommonModule, RouterLink, BookingQrComponent, LoadingSpinnerComponent, AlertComponent, IstDatePipe, CurrencyInrPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './booking-detail.component.html',
 })
@@ -23,8 +23,10 @@ export class BookingDetailComponent implements OnInit {
   protected booking = signal<BookingDto | null>(null);
   protected loading = signal(false);
   protected error = signal('');
+  protected justConfirmed = signal(false);
 
   ngOnInit(): void {
+    this.justConfirmed.set(this.route.snapshot.queryParamMap.get('confirmed') === '1');
     const id = Number(this.route.snapshot.paramMap.get('id'));
     this.loading.set(true);
     this.bookingService.getById(id).subscribe({
