@@ -9,7 +9,7 @@ import { EventDto } from '../../../core/models/event.model';
 const page: PagedResult<EventDto> = {
   items: [{ id: 1, organizerId: 1, venueId: 1, title: 'Jazz', description: '', status: 'Published',
     startTime: '2026-07-01T19:00:00', endTime: '2026-07-01T22:00:00', imageUrl: '', category: 'Music',
-    slug: 'jazz', createdAt: '2026-06-01T00:00:00' }],
+    screen: 'Screen 1', slug: 'jazz', createdAt: '2026-06-01T00:00:00' }],
   totalCount: 1, page: 1, pageSize: 10, totalPages: 1,
 };
 

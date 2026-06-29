@@ -14,55 +14,7 @@ import { ModalComponent } from '../../../shared/components/modal/modal.component
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink, LoadingSpinnerComponent, AlertComponent, PaginationComponent, ModalComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <p class="eyebrow text-plum">Admin</p>
-    <h1 class="page-title mt-2 mb-6">Venues</h1>
-    <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
-    <ems-loading-spinner *ngIf="loading()" />
-
-    <div class="mb-6 flex justify-end">
-      <button type="button" (click)="openAdd()" class="btn-primary">+ Add venue</button>
-    </div>
-
-    <ul *ngIf="!loading()" class="mb-2 space-y-2">
-      <li *ngFor="let v of pagedVenues()" class="flex items-center justify-between gap-4 rounded-xl border border-line bg-surface p-4">
-        <span class="text-sm text-ink-soft"><span class="font-display text-base font-semibold text-ink">{{ v.name }}</span> — {{ v.city }} <span class="font-mono text-xs text-muted">(cap {{ v.totalCapacity }})</span></span>
-        <span class="flex gap-3">
-          <a [routerLink]="['/admin/venues', v.id, 'seats']" class="link-action">Seats</a>
-          <button (click)="edit(v)" class="link-action">Edit</button>
-          <button (click)="remove(v.id)" class="link-danger">Delete</button>
-        </span>
-      </li>
-      <li *ngIf="venues().length === 0" class="card px-6 py-12 text-center text-muted">No venues yet.</li>
-    </ul>
-    <ems-pagination [currentPage]="page()" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
-    <div class="mb-8"></div>
-
-    <ems-modal [open]="dialogOpen()" [title]="editingId() ? 'Edit venue' : 'Add venue'" (closed)="closeDialog()">
-      <form [formGroup]="form" (ngSubmit)="save()" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <label class="block space-y-1">
-          <span class="field-label">Name</span>
-          <input formControlName="name" placeholder="Name" class="field" />
-        </label>
-        <label class="block space-y-1">
-          <span class="field-label">City</span>
-          <input formControlName="city" placeholder="City" class="field" />
-        </label>
-        <label class="block space-y-1 sm:col-span-2">
-          <span class="field-label">Address</span>
-          <input formControlName="address" placeholder="Address" class="field" />
-        </label>
-        <label class="block space-y-1 sm:col-span-2">
-          <span class="field-label">Capacity</span>
-          <input formControlName="totalCapacity" type="number" placeholder="Capacity" class="field" />
-        </label>
-        <div class="flex gap-3 sm:col-span-2">
-          <button type="submit" class="btn-primary">{{ editingId() ? 'Save changes' : 'Add venue' }}</button>
-          <button type="button" (click)="closeDialog()" class="btn-ghost">Cancel</button>
-        </div>
-      </form>
-    </ems-modal>
-  `,
+  templateUrl: './admin-venues.component.html',
 })
 export class AdminVenuesComponent implements OnInit {
   private venueService = inject(VenueService);

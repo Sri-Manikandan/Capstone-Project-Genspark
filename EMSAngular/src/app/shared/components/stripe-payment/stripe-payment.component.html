@@ -1,0 +1,8 @@
+    <form (ngSubmit)="pay()" class="space-y-4">
+      <div id="payment-element"></div>
+      <p *ngIf="errorMessage()" class="text-sm text-rose">{{ errorMessage() }}</p>
+      <button type="submit" [disabled]="submitting()" class="btn-primary w-full">
+        {{ submitting() ? 'Processing…' : 'Pay now' }}
+      </button>
+    </form>
+  

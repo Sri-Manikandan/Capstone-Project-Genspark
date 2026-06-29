@@ -10,27 +10,7 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, AlertComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="mx-auto max-w-sm">
-      <div class="card p-7">
-        <p class="eyebrow text-plum">Almost in</p>
-        <h1 class="mt-2 font-display text-2xl font-semibold text-ink">Set new password</h1>
-        <p class="mt-1 mb-5 text-sm text-muted">Paste your reset token and choose a new password.</p>
-        <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
-        <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-3">
-          <label class="block space-y-1">
-            <span class="field-label">Reset token</span>
-            <input formControlName="token" placeholder="Reset token" class="field" />
-          </label>
-          <label class="block space-y-1">
-            <span class="field-label">New password</span>
-            <input formControlName="newPassword" type="password" placeholder="New password (min 8)" class="field" />
-          </label>
-          <button type="submit" class="btn-primary w-full">Reset password</button>
-        </form>
-      </div>
-    </div>
-  `,
+  templateUrl: './reset-password.component.html',
 })
 export class ResetPasswordComponent {
   private fb = inject(FormBuilder);

@@ -14,6 +14,7 @@ const ev: EventDto = {
   endTime: '2026-07-01T22:00:00',
   imageUrl: 'http://img/x.jpg',
   category: 'Music',
+  screen: 'Screen 1',
   slug: 'rock-night',
   createdAt: '2026-06-01T00:00:00',
 };

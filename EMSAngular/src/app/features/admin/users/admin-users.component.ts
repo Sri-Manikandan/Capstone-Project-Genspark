@@ -12,34 +12,7 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, PaginationComponent, LoadingSpinnerComponent, AlertComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <p class="eyebrow text-plum">Admin</p>
-    <h1 class="page-title mt-2 mb-6">Users</h1>
-    <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
-    <form [formGroup]="filters" (ngSubmit)="applyFilters()" class="mb-5 flex gap-3">
-      <input formControlName="query" aria-label="Search users by name or email" placeholder="Search name or email…" class="field flex-1" />
-      <button type="submit" class="btn-primary">Search</button>
-    </form>
-    <ems-loading-spinner *ngIf="loading()" />
-
-    <div *ngIf="!loading()" class="overflow-x-auto">
-      <table class="data-table">
-        <thead>
-          <tr><th>Name</th><th>Email</th><th>Role</th><th>Active</th><th></th></tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let u of users()">
-            <td class="font-medium text-ink">{{ u.name }}</td>
-            <td>{{ u.email }}</td>
-            <td><span class="badge bg-paper text-ink-soft">{{ u.role }}</span></td>
-            <td>{{ u.isActive ? 'Yes' : 'No' }}</td>
-            <td><button (click)="remove(u.id)" class="link-danger">Delete</button></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <ems-pagination [currentPage]="page()" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
-  `,
+  templateUrl: './admin-users.component.html',
 })
 export class AdminUsersComponent implements OnInit {
   private admin = inject(AdminService);

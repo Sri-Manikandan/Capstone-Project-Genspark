@@ -42,7 +42,7 @@ describe('EventFormComponent (create mode)', () => {
     component.form.setValue({
       venueId: 1, title: 'My Event', description: 'A great event',
       startTime: '2026-07-01T19:00', endTime: '2026-07-01T22:00',
-      imageUrl: 'http://img/x.jpg', category: 'Music',
+      imageUrl: 'http://img/x.jpg', category: 'Music', screen: 'Screen 1',
     });
     component.submit();
     expect(eventService.create).toHaveBeenCalled();

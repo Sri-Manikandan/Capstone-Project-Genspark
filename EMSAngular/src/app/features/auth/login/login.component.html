@@ -1,0 +1,26 @@
+    <div class="mx-auto max-w-sm">
+      <div class="card p-7">
+        <p class="eyebrow text-plum">Box office</p>
+        <h1 class="mt-2 font-display text-2xl font-semibold text-ink">Welcome back</h1>
+        <p class="mt-1 mb-5 text-sm text-muted">Sign in to see your tickets and bookings.</p>
+        <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
+        <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-3">
+          <label class="block space-y-1">
+            <span class="field-label">Email</span>
+            <input formControlName="email" type="email" placeholder="you@example.com" class="field" />
+          </label>
+          <label class="block space-y-1">
+            <span class="field-label">Password</span>
+            <input formControlName="password" type="password" placeholder="Password" class="field" />
+          </label>
+          <button type="submit" [disabled]="submitting()" class="btn-primary w-full">
+            {{ submitting() ? 'Signing in…' : 'Sign in' }}
+          </button>
+        </form>
+        <div class="mt-4 flex justify-between text-sm">
+          <a routerLink="/auth/register" class="link-action">Create account</a>
+          <a routerLink="/auth/forgot-password" class="link-action">Forgot password?</a>
+        </div>
+      </div>
+    </div>
+  

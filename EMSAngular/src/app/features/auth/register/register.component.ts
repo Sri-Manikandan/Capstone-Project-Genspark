@@ -10,38 +10,7 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink, AlertComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="mx-auto max-w-sm">
-      <div class="card p-7">
-        <p class="eyebrow text-plum">Join the queue</p>
-        <h1 class="mt-2 font-display text-2xl font-semibold text-ink">Create your account</h1>
-        <p class="mt-1 mb-5 text-sm text-muted">Book tickets and keep them all in one place.</p>
-        <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
-        <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-3">
-          <label class="block space-y-1">
-            <span class="field-label">Full name</span>
-            <input formControlName="name" placeholder="Full name" class="field" />
-          </label>
-          <label class="block space-y-1">
-            <span class="field-label">Email</span>
-            <input formControlName="email" type="email" placeholder="you@example.com" class="field" />
-          </label>
-          <label class="block space-y-1">
-            <span class="field-label">Phone</span>
-            <input formControlName="phone" placeholder="Phone" class="field" />
-          </label>
-          <label class="block space-y-1">
-            <span class="field-label">Password</span>
-            <input formControlName="password" type="password" placeholder="Password (min 8)" class="field" />
-          </label>
-          <button type="submit" [disabled]="submitting()" class="btn-primary w-full">
-            {{ submitting() ? 'Creating…' : 'Create account' }}
-          </button>
-        </form>
-        <a routerLink="/auth/login" class="mt-4 block text-sm link-action">Already have an account?</a>
-      </div>
-    </div>
-  `,
+  templateUrl: './register.component.html',
 })
 export class RegisterComponent {
   private fb = inject(FormBuilder);

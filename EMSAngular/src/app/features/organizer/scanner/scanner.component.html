@@ -1,0 +1,16 @@
+    <p class="eyebrow text-plum">At the door</p>
+    <h1 class="page-title mt-2 mb-6">Validate ticket</h1>
+    <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
+    <ems-alert type="success" [message]="success()" (dismissed)="success.set('')" />
+
+    <form [formGroup]="form" (ngSubmit)="validate()" class="flex max-w-xl flex-col gap-3 sm:flex-row">
+      <input formControlName="qrPayload" aria-label="QR payload" placeholder="Paste QR payload" class="field flex-1" />
+      <button type="submit" class="btn-primary">Validate</button>
+    </form>
+
+    <div *ngIf="result() as b" class="card mt-5 max-w-xl p-5">
+      <p class="font-display text-lg font-semibold text-ink">{{ b.eventTitle }}</p>
+      <p class="font-mono text-xs text-muted">{{ b.bookingReference }}</p>
+      <p class="mt-2 text-sm text-ink-soft">Status: <span class="font-semibold text-teal-dark">{{ b.bookingStatus }}</span></p>
+    </div>
+  

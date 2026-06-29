@@ -16,15 +16,7 @@ import { environment } from '../../../../environments/environment';
   standalone: true,
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <form (ngSubmit)="pay()" class="space-y-4">
-      <div id="payment-element"></div>
-      <p *ngIf="errorMessage()" class="text-sm text-rose">{{ errorMessage() }}</p>
-      <button type="submit" [disabled]="submitting()" class="btn-primary w-full">
-        {{ submitting() ? 'Processing…' : 'Pay now' }}
-      </button>
-    </form>
-  `,
+  templateUrl: './stripe-payment.component.html',
 })
 export class StripePaymentComponent implements AfterViewInit {
   @Input({ required: true }) clientSecret!: string;

@@ -14,32 +14,7 @@ import { IstDatePipe } from '../../../shared/pipes/ist-date.pipe';
   standalone: true,
   imports: [CommonModule, RouterLink, PaginationComponent, LoadingSpinnerComponent, AlertComponent, IstDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <a routerLink="/organizer/events" class="link-action">← Back to my events</a>
-    <p class="eyebrow text-plum mt-4">Organizer</p>
-    <h1 class="page-title mt-2 mb-6">Bookings<span *ngIf="eventTitle()"> · {{ eventTitle() }}</span></h1>
-    <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
-    <ems-loading-spinner *ngIf="loading()" />
-
-    <div *ngIf="!loading()" class="overflow-x-auto">
-      <table class="data-table">
-        <thead>
-          <tr><th>Reference</th><th>Status</th><th>Tickets</th><th>Amount</th><th>Booked</th></tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let b of bookings()">
-            <td class="font-mono text-xs text-ink">{{ b.bookingReference }}</td>
-            <td><span class="badge bg-paper text-ink-soft">{{ b.bookingStatus }}</span></td>
-            <td>{{ b.items.length }}</td>
-            <td class="font-mono">₹{{ b.totalAmount }}</td>
-            <td class="font-mono text-xs">{{ b.createdAt | istDate }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <p *ngIf="!loading() && bookings().length === 0" class="card mt-2 px-6 py-16 text-center text-muted">No bookings yet.</p>
-    <ems-pagination [currentPage]="page()" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
-  `,
+  templateUrl: './event-bookings.component.html',
 })
 export class EventBookingsComponent implements OnInit {
   private route = inject(ActivatedRoute);

@@ -71,16 +71,14 @@ describe('EventDetailComponent', () => {
   });
 
   it('reserves a seat and tracks it in selected', () => {
-    component['activeTicketTypeId'].set(9);
     component['onSeatToggled']({ id: 1, venueId: 2, section: 'A', row: '1', seatNumber: 1, seatType: 'VIP' });
     expect(component['selected']().length).toBe(1);
-    expect(component['selected']()[0].id).toBe(77);
+    expect(component['selected']()[0].reservation.id).toBe(77);
   });
 
   it('checkout creates a booking and navigates', () => {
     const router = TestBed.inject(Router);
     const nav = vi.spyOn(router, 'navigate').mockResolvedValue(true);
-    component['activeTicketTypeId'].set(9);
     component['onSeatToggled']({ id: 1, venueId: 2, section: 'A', row: '1', seatNumber: 1, seatType: 'VIP' });
     component['checkout']();
     expect(bookingCreate).toHaveBeenCalled();
