@@ -7,6 +7,7 @@ namespace EMSDALLibrary.Interfaces
         Task<(List<Event> Items, int TotalCount)> GetByOrganizerId(int organizerId, int page, int pageSize);
         Task<List<Event>> GetByStatus(string status);
         Task<List<Event>> GetByCategory(string category);
+        Task<List<string>> GetCategories(string status);
         Task<Event?> GetBySlug(string slug);
         Task<(List<Event> Items, int TotalCount)> Search(
             string? query, string? category, string? status,

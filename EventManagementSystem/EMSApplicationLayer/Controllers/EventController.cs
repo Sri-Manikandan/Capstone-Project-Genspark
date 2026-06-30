@@ -31,6 +31,14 @@ namespace EMSApplicationLayer.Controllers
             return Ok(events);
         }
 
+        // Public — distinct categories of Published events (for filter dropdown)
+        [HttpGet("categories")]
+        public async Task<IActionResult> GetCategories()
+        {
+            var categories = await _eventService.GetCategories();
+            return Ok(categories);
+        }
+
         // Public detail — Admin sees all; Organizer sees own + Published; others Published only
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)

@@ -96,6 +96,11 @@ namespace EMSBLLLibrary.Services
             };
         }
 
+        public Task<List<string>> GetCategories()
+        {
+            return _eventRepo.GetCategories(EventStatus.Published);
+        }
+
         public async Task<PagedResult<EventDto>> GetByOrganizer(int organizerId, int page, int pageSize)
         {
             var (items, total) = await _eventRepo.GetByOrganizerId(organizerId, page, pageSize);

@@ -18,6 +18,11 @@ export class EventService {
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 
+  getCategories(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.base}/categories`)
+      .pipe(catchError(e => throwError(() => extractError(e))));
+  }
+
   getById(id: number): Observable<EventDto> {
     return this.http.get<EventDto>(`${this.base}/${id}`)
       .pipe(catchError(e => throwError(() => extractError(e))));

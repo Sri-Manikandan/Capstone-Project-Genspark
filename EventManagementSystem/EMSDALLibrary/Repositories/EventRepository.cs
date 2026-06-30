@@ -30,6 +30,16 @@ namespace EMSDALLibrary.Repositories
             return await _context.Events.Where(e => e.Category == category).ToListAsync();
         }
 
+        public async Task<List<string>> GetCategories(string status)
+        {
+            return await _context.Events
+                .Where(e => e.Status == status)
+                .Select(e => e.Category)
+                .Distinct()
+                .OrderBy(c => c)
+                .ToListAsync();
+        }
+
         public async Task<Event?> GetBySlug(string slug)
         {
             return await _context.Events.FirstOrDefaultAsync(e => e.Slug == slug);
