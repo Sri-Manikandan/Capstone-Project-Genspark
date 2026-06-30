@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -23,6 +24,10 @@ namespace EMSApplicationLayer.Filters
         private const string HeaderName = "Idempotency-Key";
         private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(24);
 
+        // Serializes concurrent requests that share a key so a near-simultaneous
+        // double-submit can't both execute before either result is cached.
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new();
+
         private readonly IMemoryCache _cache;
 
         public IdempotencyFilter(IMemoryCache cache)
@@ -40,29 +45,48 @@ namespace EMSApplicationLayer.Filters
             }
 
             var cacheKey = $"idempotency:{key}";
+            var gate = Locks.GetOrAdd(cacheKey, _ => new SemaphoreSlim(1, 1));
 
-            if (_cache.TryGetValue(cacheKey, out IdempotencyEntry? entry) && entry != null)
+            await gate.WaitAsync(context.HttpContext.RequestAborted);
+            try
             {
-                context.HttpContext.Response.Headers["X-Idempotent-Replayed"] = "true";
-                context.Result = new ContentResult
+                if (TryReplay(context, cacheKey))
                 {
-                    StatusCode = entry.StatusCode,
-                    Content = entry.Body,
-                    ContentType = "application/json"
-                };
-                return;
+                    return;
+                }
+
+                var executed = await next();
+
+                if (executed.Result is ObjectResult { StatusCode: >= 200 and < 300 } objectResult)
+                {
+                    _cache.Set(cacheKey, new IdempotencyEntry
+                    {
+                        StatusCode = objectResult.StatusCode!.Value,
+                        Body = JsonSerializer.Serialize(objectResult.Value)
+                    }, CacheDuration);
+                }
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
+        private bool TryReplay(ActionExecutingContext context, string cacheKey)
+        {
+            if (!_cache.TryGetValue(cacheKey, out IdempotencyEntry? entry) || entry == null)
+            {
+                return false;
             }
 
-            var executed = await next();
-
-            if (executed.Result is ObjectResult { StatusCode: >= 200 and < 300 } objectResult)
+            context.HttpContext.Response.Headers["X-Idempotent-Replayed"] = "true";
+            context.Result = new ContentResult
             {
-                _cache.Set(cacheKey, new IdempotencyEntry
-                {
-                    StatusCode = objectResult.StatusCode!.Value,
-                    Body = JsonSerializer.Serialize(objectResult.Value)
-                }, CacheDuration);
-            }
+                StatusCode = entry.StatusCode,
+                Content = entry.Body,
+                ContentType = "application/json"
+            };
+            return true;
         }
     }
 

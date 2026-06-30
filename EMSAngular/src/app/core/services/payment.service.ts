@@ -6,6 +6,7 @@ import {
   PaymentDto, PaymentInitiateDto, InitiatePaymentRequest, ConfirmPaymentRequest,
 } from '../models/payment.model';
 import { extractError } from './http-error';
+import { idempotencyHeader } from './idempotency-key';
 
 @Injectable({ providedIn: 'root' })
 export class PaymentService {
@@ -13,12 +14,14 @@ export class PaymentService {
   private base = `${environment.apiBaseUrl}/api/v1/Payment`;
 
   initiate(req: InitiatePaymentRequest): Observable<PaymentInitiateDto> {
-    return this.http.post<PaymentInitiateDto>(`${this.base}/initiate`, req)
+    return this.http.post<PaymentInitiateDto>(`${this.base}/initiate`, req,
+      idempotencyHeader(`payment-initiate-${req.bookingId}`))
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 
   confirm(req: ConfirmPaymentRequest): Observable<PaymentDto> {
-    return this.http.post<PaymentDto>(`${this.base}/confirm`, req)
+    return this.http.post<PaymentDto>(`${this.base}/confirm`, req,
+      idempotencyHeader(`payment-confirm-${req.stripePaymentIntentId}`))
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 
