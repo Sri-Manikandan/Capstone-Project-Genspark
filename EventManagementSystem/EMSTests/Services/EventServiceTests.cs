@@ -220,6 +220,18 @@ namespace EMSTests.Services
             result.TotalCount.Should().Be(1);
         }
 
+        [Test]
+        public async Task GetCategories_ReturnsPublishedCategories()
+        {
+            _eventRepo.Setup(r => r.GetCategories(EventStatus.Published))
+                      .ReturnsAsync(new List<string> { "Music", "Tech" });
+
+            var result = await _sut.GetCategories();
+
+            result.Should().Equal("Music", "Tech");
+            _eventRepo.Verify(r => r.GetCategories(EventStatus.Published), Times.Once);
+        }
+
         // ── Update ───────────────────────────────────────────────────────────────
 
         [Test]
