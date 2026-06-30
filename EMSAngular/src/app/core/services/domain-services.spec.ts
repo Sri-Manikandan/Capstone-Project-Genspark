@@ -33,16 +33,19 @@ describe('domain services', () => {
 
   afterEach(() => http.verify());
 
-  it('BookingService.create posts to /Booking', () => {
-    TestBed.inject(BookingService).create({ eventId: 1, items: [] }).subscribe();
+  it('BookingService.create posts to /Booking with an idempotency key', () => {
+    TestBed.inject(BookingService).create({ eventId: 1, items: [] }, 'key-123').subscribe();
     const req = http.expectOne(`${root}/Booking`);
     expect(req.request.method).toBe('POST');
+    expect(req.request.headers.get('Idempotency-Key')).toBe('key-123');
     req.flush({});
   });
 
-  it('PaymentService.initiate posts to /Payment/initiate', () => {
+  it('PaymentService.initiate posts to /Payment/initiate with an idempotency key', () => {
     TestBed.inject(PaymentService).initiate({ bookingId: 1, currency: 'inr' }).subscribe();
-    http.expectOne(`${root}/Payment/initiate`).flush({});
+    const req = http.expectOne(`${root}/Payment/initiate`);
+    expect(req.request.headers.get('Idempotency-Key')).toBe('payment-initiate-1');
+    req.flush({});
   });
 
   it('SeatService.reserve posts to /Seat/reserve', () => {

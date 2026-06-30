@@ -7,14 +7,15 @@ import {
   BookingDto, CreateBookingRequest, BookingQueryRequest, ValidateQrRequest,
 } from '../models/booking.model';
 import { extractError, toHttpParams } from './http-error';
+import { idempotencyHeader } from './idempotency-key';
 
 @Injectable({ providedIn: 'root' })
 export class BookingService {
   private http = inject(HttpClient);
   private base = `${environment.apiBaseUrl}/api/v1/Booking`;
 
-  create(req: CreateBookingRequest): Observable<BookingDto> {
-    return this.http.post<BookingDto>(this.base, req)
+  create(req: CreateBookingRequest, idempotencyKey: string): Observable<BookingDto> {
+    return this.http.post<BookingDto>(this.base, req, idempotencyHeader(idempotencyKey))
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 

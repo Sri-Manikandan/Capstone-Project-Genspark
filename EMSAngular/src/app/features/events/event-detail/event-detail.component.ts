@@ -5,6 +5,7 @@ import { EventService } from '../../../core/services/event.service';
 import { TicketTypeService } from '../../../core/services/ticket-type.service';
 import { SeatService } from '../../../core/services/seat.service';
 import { BookingService } from '../../../core/services/booking.service';
+import { newIdempotencyKey } from '../../../core/services/idempotency-key';
 import { AuthService } from '../../../core/services/auth.service';
 import { EventDto } from '../../../core/models/event.model';
 import { TicketTypeDto } from '../../../core/models/ticket-type.model';
@@ -43,6 +44,9 @@ export class EventDetailComponent implements OnInit {
   protected step = signal<Step>('intro');
   protected quantity = signal(1);
   protected selected = signal<SelectedSeat[]>([]);
+
+  // Stable across retries of the same booking attempt so a double-submit can't double-book.
+  private bookingKey = '';
 
   protected selectedSeatIds = computed(() => this.selected().map(s => s.seat.id));
   protected total = computed(() => this.selected().reduce((sum, s) => sum + s.ticketType.price, 0));
@@ -111,7 +115,8 @@ export class EventDetailComponent implements OnInit {
 
   protected checkout(): void {
     const items = this.selected().map(s => ({ ticketTypeId: s.ticketType.id, seatId: s.seat.id }));
-    this.bookingService.create({ eventId: this.event()!.id, items }).subscribe({
+    if (!this.bookingKey) this.bookingKey = newIdempotencyKey();
+    this.bookingService.create({ eventId: this.event()!.id, items }, this.bookingKey).subscribe({
       next: booking => this.router.navigate(['/checkout', booking.id]),
       error: (msg: string) => this.error.set(msg),
     });
