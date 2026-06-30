@@ -3,6 +3,7 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { BookingListComponent } from './booking-list.component';
 import { BookingService } from '../../../core/services/booking.service';
+import { BookingFilterStore } from '../booking-filter.store';
 
 const paged = {
   items: [{ id: 1, userId: 1, eventId: 5, eventTitle: 'Show', bookingReference: 'BK1', qrCode: '',
@@ -13,12 +14,17 @@ const paged = {
 describe('BookingListComponent', () => {
   let fixture: ComponentFixture<BookingListComponent>;
   let component: BookingListComponent;
+  let store: BookingFilterStore;
+  let getMyBookings: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    getMyBookings = vi.fn().mockReturnValue(of(paged));
     TestBed.configureTestingModule({
       imports: [BookingListComponent],
-      providers: [provideRouter([]), { provide: BookingService, useValue: { getMyBookings: () => of(paged) } }],
+      providers: [provideRouter([]), { provide: BookingService, useValue: { getMyBookings } }],
     });
+    store = TestBed.inject(BookingFilterStore);
+    store.reset();
     fixture = TestBed.createComponent(BookingListComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
@@ -27,5 +33,12 @@ describe('BookingListComponent', () => {
   it('loads my bookings on init', () => {
     expect(component['bookings']().length).toBe(1);
     expect(component['loading']()).toBe(false);
+  });
+
+  it('re-loads when the status filter changes', () => {
+    getMyBookings.mockClear();
+    store.patch({ status: 'Confirmed' });
+    fixture.detectChanges();
+    expect(getMyBookings).toHaveBeenCalledWith(expect.objectContaining({ status: 'Confirmed' }));
   });
 });

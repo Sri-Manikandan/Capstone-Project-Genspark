@@ -1,8 +1,11 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { debounceTime, distinctUntilChanged } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AdminService } from '../../../core/services/admin.service';
-import { User } from '../../../core/models/user.model';
+import { Role, User, UserSearchRequest } from '../../../core/models/user.model';
+import { UserFilterStore, UserFilters } from './user-filter.store';
 import { PaginationComponent } from '../../../shared/components/pagination/pagination.component';
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner/loading-spinner.component';
 import { AlertComponent } from '../../../shared/components/alert/alert.component';
@@ -14,28 +17,44 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-users.component.html',
 })
-export class AdminUsersComponent implements OnInit {
+export class AdminUsersComponent {
   private admin = inject(AdminService);
   private fb = inject(FormBuilder);
+  protected store = inject(UserFilterStore);
 
   protected users = signal<User[]>([]);
   protected loading = signal(false);
   protected error = signal('');
-  protected page = signal(1);
   protected totalPages = signal(1);
-  protected filters = this.fb.nonNullable.group({ query: '' });
+  protected search = this.fb.nonNullable.control(this.store.filters().query);
 
-  ngOnInit(): void { this.load(); }
-  protected applyFilters(): void { this.page.set(1); this.load(); }
-  protected goToPage(p: number): void { this.page.set(p); this.load(); }
+  constructor() {
+    this.search.valueChanges
+      .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed())
+      .subscribe(query => this.store.patch({ query }));
 
-  protected remove(id: number): void {
-    this.admin.deleteUser(id).subscribe({ next: () => this.load(), error: (m: string) => this.error.set(m) });
+    effect(() => {
+      const req = this.store.request();
+      this.load(req);
+    });
   }
 
-  private load(): void {
+  protected setRole(role: string): void { this.store.patch({ role: role as Role | '' }); }
+  protected setActive(active: string): void { this.store.patch({ active: active as UserFilters['active'] }); }
+  protected goToPage(p: number): void { this.store.setPage(p); }
+
+  protected clearFilters(): void {
+    this.store.reset();
+    this.search.setValue('', { emitEvent: false });
+  }
+
+  protected remove(id: number): void {
+    this.admin.deleteUser(id).subscribe({ next: () => this.load(this.store.request()), error: (m: string) => this.error.set(m) });
+  }
+
+  private load(req: UserSearchRequest): void {
     this.loading.set(true);
-    this.admin.getUsers({ query: this.filters.getRawValue().query, page: this.page(), pageSize: 10 }).subscribe({
+    this.admin.getUsers(req).subscribe({
       next: res => { this.users.set(res.items); this.totalPages.set(res.totalPages); this.loading.set(false); },
       error: (m: string) => { this.error.set(m); this.loading.set(false); },
     });

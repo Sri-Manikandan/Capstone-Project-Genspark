@@ -1,10 +1,21 @@
     <p class="eyebrow text-plum">Admin</p>
     <h1 class="page-title mt-2 mb-6">Users</h1>
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
-    <form [formGroup]="filters" (ngSubmit)="applyFilters()" class="mb-5 flex flex-col gap-3 sm:flex-row">
-      <input formControlName="query" aria-label="Search users by name or email" placeholder="Search name or email…" class="field flex-1" />
-      <button type="submit" class="btn-primary">Search</button>
-    </form>
+    <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <input [formControl]="search" aria-label="Search users by name or email" placeholder="Search name or email…" class="field flex-1" />
+      <select aria-label="Filter by role" [value]="store.filters().role" (change)="setRole($any($event.target).value)" class="field sm:w-40">
+        <option value="">All roles</option>
+        <option value="User">User</option>
+        <option value="Organizer">Organizer</option>
+        <option value="Admin">Admin</option>
+      </select>
+      <select aria-label="Filter by active status" [value]="store.filters().active" (change)="setActive($any($event.target).value)" class="field sm:w-40">
+        <option value="all">All</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+      <button type="button" (click)="clearFilters()" class="btn-ghost">Clear</button>
+    </div>
     <ems-loading-spinner *ngIf="loading()" />
 
     <div *ngIf="!loading()" class="table-scroll-wrap">
@@ -24,5 +35,5 @@
       </table>
     </div>
     <p *ngIf="!loading() && users().length === 0" class="card mt-2 px-6 py-16 text-center text-muted">No users found.</p>
-    <ems-pagination [currentPage]="page()" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
+    <ems-pagination [currentPage]="store.page()" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
   

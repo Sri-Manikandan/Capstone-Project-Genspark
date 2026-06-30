@@ -1,5 +1,18 @@
     <p class="eyebrow text-plum">Your tickets</p>
     <h1 class="page-title mt-2 mb-6">My bookings</h1>
+
+    <div class="mb-6 flex flex-col gap-2 rounded-2xl border border-line bg-surface p-2 shadow-card sm:flex-row sm:items-center">
+      <select aria-label="Filter by status" [value]="store.filters().status" (change)="setStatus($any($event.target).value)"
+              class="rounded-xl border-0 bg-paper px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-0 sm:w-48">
+        <option value="">All statuses</option>
+        <option value="Pending">Pending</option>
+        <option value="Confirmed">Confirmed</option>
+        <option value="Cancelled">Cancelled</option>
+        <option value="Attended">Attended</option>
+      </select>
+      <button type="button" (click)="clearFilters()" class="btn-ghost sm:ml-auto">Clear filters</button>
+    </div>
+
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <ems-loading-spinner *ngIf="loading()" />
 
@@ -28,5 +41,5 @@
       </div>
     </div>
 
-    <ems-pagination [currentPage]="page()" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
+    <ems-pagination [currentPage]="store.page()" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
   
