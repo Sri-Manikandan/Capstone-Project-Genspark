@@ -3,6 +3,7 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { EventListComponent } from './event-list.component';
 import { EventService } from '../../../core/services/event.service';
+import { LocationService } from '../../../core/services/location.service';
 import { EventFilterStore } from '../event-filter.store';
 import { PagedResult } from '../../../core/models/paged-result.model';
 import { EventDto } from '../../../core/models/event.model';
@@ -10,7 +11,7 @@ import { EventDto } from '../../../core/models/event.model';
 const page: PagedResult<EventDto> = {
   items: [{ id: 1, organizerId: 1, venueId: 1, title: 'Jazz', description: '', status: 'Published',
     startTime: '2026-07-01T19:00:00', endTime: '2026-07-01T22:00:00', imageUrl: '', category: 'Music',
-    screen: 'Screen 1', slug: 'jazz', createdAt: '2026-06-01T00:00:00' }],
+    screen: 'Screen 1', slug: 'jazz', city: 'Chennai', venueName: 'Nehru Stadium', createdAt: '2026-06-01T00:00:00' }],
   totalCount: 1, page: 1, pageSize: 9, totalPages: 1,
 };
 
@@ -20,13 +21,22 @@ describe('EventListComponent', () => {
   let store: EventFilterStore;
   let search: ReturnType<typeof vi.fn>;
   let getCategories: ReturnType<typeof vi.fn>;
+  let getCities: ReturnType<typeof vi.fn>;
+  let detectCity: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    localStorage.clear();
     search = vi.fn().mockReturnValue(of(page));
     getCategories = vi.fn().mockReturnValue(of(['Music', 'Tech']));
+    getCities = vi.fn().mockReturnValue(of(['Chennai', 'Coimbatore']));
+    detectCity = vi.fn().mockResolvedValue(null);
     TestBed.configureTestingModule({
       imports: [EventListComponent],
-      providers: [provideRouter([]), { provide: EventService, useValue: { search, getCategories } }],
+      providers: [
+        provideRouter([]),
+        { provide: EventService, useValue: { search, getCategories, getCities } },
+        { provide: LocationService, useValue: { detectCity } },
+      ],
     });
     store = TestBed.inject(EventFilterStore);
     store.reset();
@@ -59,5 +69,26 @@ describe('EventListComponent', () => {
     component['clearFilters']();
     expect(store.filters().category).toBe('');
     expect(store.page()).toBe(1);
+  });
+
+  it('loads cities and auto-detects location on init', () => {
+    expect(getCities).toHaveBeenCalled();
+    expect(store.cities()).toEqual(['Chennai', 'Coimbatore']);
+    expect(detectCity).toHaveBeenCalledWith(['Chennai', 'Coimbatore']);
+  });
+
+  it('setCity filters by city and remembers the choice', () => {
+    component['setCity']('Coimbatore');
+    expect(store.filters().city).toBe('Coimbatore');
+    expect(localStorage.getItem('ems-city')).toBe('Coimbatore');
+  });
+
+  it('skips auto-detection when a city is already remembered', () => {
+    localStorage.setItem('ems-city', 'Chennai');
+    detectCity.mockClear();
+    const f2 = TestBed.createComponent(EventListComponent);
+    f2.detectChanges();
+    expect(detectCity).not.toHaveBeenCalled();
+    expect(store.filters().city).toBe('Chennai');
   });
 });

@@ -64,32 +64,32 @@ namespace EMSBLLLibrary.Services
         {
             var ev = await _eventRepo.GetById(id)
                 ?? throw new NotFoundException($"Event {id} not found.");
-            return _mapper.Map<EventDto>(ev);
+            return await AddVenue(_mapper.Map<EventDto>(ev));
         }
 
         public async Task<EventDto?> GetBySlug(string slug)
         {
             var ev = await _eventRepo.GetBySlug(slug);
-            return ev == null ? null : _mapper.Map<EventDto>(ev);
+            return ev == null ? null : await AddVenue(_mapper.Map<EventDto>(ev));
         }
 
         public async Task<List<EventDto>> GetAll()
         {
             var events = await _eventRepo.GetAll();
-            return _mapper.Map<List<EventDto>>(events);
+            return await AddVenues(_mapper.Map<List<EventDto>>(events));
         }
 
         public async Task<PagedResult<EventDto>> Search(EventSearchRequest request)
         {
             var (items, total) = await _eventRepo.Search(
-                request.Query, request.Category, request.Status,
+                request.Query, request.Category, request.City, request.Status,
                 request.StartFrom, request.StartTo,
                 request.SortBy, request.SortOrder,
                 request.Page, request.PageSize);
 
             return new PagedResult<EventDto>
             {
-                Items = _mapper.Map<List<EventDto>>(items),
+                Items = await AddVenues(_mapper.Map<List<EventDto>>(items)),
                 TotalCount = total,
                 Page = request.Page,
                 PageSize = request.PageSize
@@ -101,12 +101,17 @@ namespace EMSBLLLibrary.Services
             return _eventRepo.GetCategories(EventStatus.Published);
         }
 
+        public Task<List<string>> GetCities()
+        {
+            return _eventRepo.GetCities(EventStatus.Published);
+        }
+
         public async Task<PagedResult<EventDto>> GetByOrganizer(int organizerId, int page, int pageSize)
         {
             var (items, total) = await _eventRepo.GetByOrganizerId(organizerId, page, pageSize);
             return new PagedResult<EventDto>
             {
-                Items = _mapper.Map<List<EventDto>>(items),
+                Items = await AddVenues(_mapper.Map<List<EventDto>>(items)),
                 TotalCount = total,
                 Page = page,
                 PageSize = pageSize
@@ -203,7 +208,7 @@ namespace EMSBLLLibrary.Services
         public async Task<List<EventDto>> GetPendingApproval()
         {
             var events = await _eventRepo.GetByStatus(EventStatus.PendingApproval);
-            return _mapper.Map<List<EventDto>>(events);
+            return await AddVenues(_mapper.Map<List<EventDto>>(events));
         }
 
         public async Task<EventDto> AdminApprove(int id)
@@ -237,6 +242,31 @@ namespace EMSBLLLibrary.Services
             ev.UpdatedAt = DateTime.UtcNow;
             await _eventRepo.Update(ev);
             return _mapper.Map<EventDto>(ev);
+        }
+
+        // City and VenueName live on the venue; fill them in after mapping.
+        private async Task<EventDto> AddVenue(EventDto dto)
+        {
+            var venue = await _venueRepo.GetById(dto.VenueId);
+            if (venue != null)
+            {
+                dto.City = venue.City;
+                dto.VenueName = venue.Name;
+            }
+            return dto;
+        }
+
+        private async Task<List<EventDto>> AddVenues(List<EventDto> dtos)
+        {
+            if (dtos.Count == 0) return dtos;
+            var venues = (await _venueRepo.GetAll() ?? new List<Venue>()).ToDictionary(v => v.Id);
+            foreach (var dto in dtos)
+                if (venues.TryGetValue(dto.VenueId, out var venue))
+                {
+                    dto.City = venue.City;
+                    dto.VenueName = venue.Name;
+                }
+            return dtos;
         }
 
         private async Task<string> GenerateUniqueSlug(string title)

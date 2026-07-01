@@ -7,6 +7,7 @@
       <div class="p-5">
         <span class="eyebrow text-plum">{{ event.category }}</span>
         <h3 class="mt-2 font-display text-xl font-semibold leading-snug text-ink">{{ event.title }}</h3>
+        <p *ngIf="event.city" class="mt-1 text-xs text-muted">{{ event.venueName }} · {{ event.city }}</p>
       </div>
       <div class="perf">
         <div class="flex items-center justify-between px-5 py-3">

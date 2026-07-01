@@ -177,6 +177,39 @@ public static class DataSeeder
             "Relive the romance of 96 starring Vijay Sethupathi and Trisha in this special re-release.",
             "Published", "Movies", "96-re-release-special", 20, imgMovie2, screen: "Screen 1");
 
+        // More Coimbatore events (Codissia)
+        var kovaiCarnival = Ev(carol.Id, codissia.Id, "Coimbatore Food & Music Carnival",
+            "A weekend carnival pairing Kongu cuisine with live Tamil bands across multiple stages in Coimbatore.",
+            "Published", "Concerts", "coimbatore-food-music-carnival", 22, imgConcert5);
+        var sidSriramKovai = Ev(bob.Id, codissia.Id, "Sid Sriram Live in Coimbatore",
+            "Sid Sriram brings his soulful voice and hit Tamil melodies to Coimbatore for an intimate live evening.",
+            "Published", "Concerts", "sid-sriram-live-coimbatore", 38, imgConcert2);
+        var kovaiComedyNight = Ev(carol.Id, codissia.Id, "Kovai Comedy Night",
+            "A line-up of Tamil stand-up comedians deliver a laugh-packed night in the heart of Coimbatore.",
+            "Published", "Comedy", "kovai-comedy-night", 15, imgComedy2);
+
+        // More Madurai events (Tamukkam)
+        var maduraiClassical = Ev(bob.Id, tamukkam.Id, "Madurai Classical Evening",
+            "An evening of Carnatic classical music by leading artists set against the temple city of Madurai.",
+            "Published", "Concerts", "madurai-classical-evening", 20, imgConcert4);
+        var thaikkudamMadurai = Ev(alice.Id, tamukkam.Id, "Thaikkudam Bridge Live",
+            "The multi-genre band Thaikkudam Bridge lights up Madurai with their signature fusion sound.",
+            "Published", "Concerts", "thaikkudam-bridge-live-madurai", 33, imgConcert3);
+        var maduraiStandUp = Ev(carol.Id, tamukkam.Id, "Madurai Stand-Up Special",
+            "A special showcase of Tamil stand-up talent bringing sharp, local humour to a Madurai audience.",
+            "Published", "Comedy", "madurai-standup-special", 17, imgComedy1);
+        var karthikMadurai = Ev(bob.Id, tamukkam.Id, "Karthik Live in Madurai",
+            "Playback singer Karthik performs his beloved Tamil chartbusters live with a full band in Madurai.",
+            "Published", "Concerts", "karthik-live-madurai", 44, imgConcert6);
+
+        // More Trichy events (Anna Auditorium)
+        var trichyFiesta = Ev(carol.Id, annaAuditorium.Id, "Trichy Music Fiesta",
+            "A vibrant celebration of Tamil music with bands and singers taking the Trichy stage all evening.",
+            "Published", "Concerts", "trichy-music-fiesta", 19, imgConcert1);
+        var trichyMovieMarathon = Ev(alice.Id, annaAuditorium.Id, "Trichy Movie Marathon: Classics",
+            "A back-to-back big-screen marathon of beloved Tamil classics for a full day of cinema in Trichy.",
+            "Published", "Movies", "trichy-movie-marathon-classics", 24, imgMovie3, screen: "Audi 2");
+
         // Non-published (dashboard realism)
         var ilaiyaraajaDraft = Ev(alice.Id, nehruStadium.Id, "Ilaiyaraaja 80: Live in Symphony",
             "A symphonic tribute concert celebrating the Maestro Ilaiyaraaja — details being finalised.",
@@ -196,6 +229,9 @@ public static class DataSeeder
             hiphopTamizha, anirudhLive, arivuEmbassy, santhoshLive, yuvanNight, indieFest,
             aravindSA, praveenKumar, alexanderBabu, rjVignesh, openMic,
             vikramRelease, ps2Screening, leoFanShow, masterRelease, ninetySix,
+            kovaiCarnival, sidSriramKovai, kovaiComedyNight,
+            maduraiClassical, thaikkudamMadurai, maduraiStandUp, karthikMadurai,
+            trichyFiesta, trichyMovieMarathon,
             ilaiyaraajaDraft, hiphopBattle, comedyBrawlRejected, maduraiCancelled);
         await db.SaveChangesAsync();
 
@@ -226,11 +262,23 @@ public static class DataSeeder
         var ttLeo       = Tiers(leoFanShow,     200m,  300m,  450m, 40, 30, 20);
         var ttMaster    = Tiers(masterRelease,  150m,  220m,  350m, 20, 10,  5);
         var ttNinety    = Tiers(ninetySix,      150m,  220m,  350m, 40, 30, 20);
+        var ttKovaiCar  = Tiers(kovaiCarnival,   699m, 1299m, 1999m, 30, 20, 10);
+        var ttSidKovai  = Tiers(sidSriramKovai, 1299m, 2499m, 3999m, 30, 20, 10);
+        var ttKovaiCom  = Tiers(kovaiComedyNight, 499m,  899m, 1399m, 30, 20, 10);
+        var ttMadClass  = Tiers(maduraiClassical, 599m, 1099m, 1799m, 30, 20, 10);
+        var ttThaikkudam= Tiers(thaikkudamMadurai, 999m, 1899m, 2999m, 30, 20, 10);
+        var ttMadStand  = Tiers(maduraiStandUp,   399m,  699m, 1099m, 30, 20, 10);
+        var ttKarthik   = Tiers(karthikMadurai,  1099m, 1999m, 3299m, 30, 20, 10);
+        var ttTrichyFst = Tiers(trichyFiesta,     599m,  999m, 1499m, 20, 10,  5);
+        var ttTrichyMov = Tiers(trichyMovieMarathon, 150m, 250m, 400m, 20, 10, 5);
 
         db.TicketTypes.AddRange(ttHiphop.Concat(ttAnirudh).Concat(ttArivu).Concat(ttSanthosh)
             .Concat(ttYuvan).Concat(ttIndie).Concat(ttAravind).Concat(ttPraveen).Concat(ttAlexander)
             .Concat(ttVignesh).Concat(ttOpenMic).Concat(ttVikram).Concat(ttPs2).Concat(ttLeo)
-            .Concat(ttMaster).Concat(ttNinety));
+            .Concat(ttMaster).Concat(ttNinety)
+            .Concat(ttKovaiCar).Concat(ttSidKovai).Concat(ttKovaiCom)
+            .Concat(ttMadClass).Concat(ttThaikkudam).Concat(ttMadStand).Concat(ttKarthik)
+            .Concat(ttTrichyFst).Concat(ttTrichyMov));
         await db.SaveChangesAsync();
 
         // ── 7. Bookings ───────────────────────────────────────────────────────

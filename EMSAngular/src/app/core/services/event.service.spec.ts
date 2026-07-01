@@ -30,6 +30,20 @@ describe('EventService', () => {
     req.flush(paged);
   });
 
+  it('search sends the city filter as a query param', () => {
+    service.search({ city: 'Chennai', page: 1, pageSize: 10 }).subscribe();
+    const req = http.expectOne(r => r.url === base);
+    expect(req.request.params.get('city')).toBe('Chennai');
+    req.flush({ items: [], totalCount: 0, page: 1, pageSize: 10, totalPages: 0 });
+  });
+
+  it('getCities hits cities endpoint', () => {
+    service.getCities().subscribe(cities => expect(cities).toEqual(['Chennai', 'Madurai']));
+    const req = http.expectOne(`${base}/cities`);
+    expect(req.request.method).toBe('GET');
+    req.flush(['Chennai', 'Madurai']);
+  });
+
   it('getBySlug hits slug endpoint', () => {
     service.getBySlug('my-event').subscribe();
     http.expectOne(`${base}/slug/my-event`).flush({} as EventDto);

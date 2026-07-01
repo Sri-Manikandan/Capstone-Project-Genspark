@@ -39,6 +39,14 @@ namespace EMSApplicationLayer.Controllers
             return Ok(categories);
         }
 
+        // Public — distinct cities of Published events (for the location switcher)
+        [HttpGet("cities")]
+        public async Task<IActionResult> GetCities()
+        {
+            var cities = await _eventService.GetCities();
+            return Ok(cities);
+        }
+
         // Public detail — Admin sees all; Organizer sees own + Published; others Published only
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)

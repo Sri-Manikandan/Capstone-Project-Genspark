@@ -16,6 +16,8 @@ const ev: EventDto = {
   category: 'Music',
   screen: 'Screen 1',
   slug: 'rock-night',
+  city: 'Chennai',
+  venueName: 'Nehru Stadium',
   createdAt: '2026-06-01T00:00:00',
 };
 

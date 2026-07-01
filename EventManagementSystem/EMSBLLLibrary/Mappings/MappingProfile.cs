@@ -17,9 +17,12 @@ namespace EMSBLLLibrary.Mappings
 
             CreateMap<Seat, SeatDto>();
 
+            // City and VenueName require a venue lookup — set manually after mapping
             CreateMap<Event, EventDto>()
                 .ForMember(d => d.StartTime, o => o.MapFrom(s => TimeHelper.UtcToIst(s.StartTime)))
                 .ForMember(d => d.EndTime, o => o.MapFrom(s => TimeHelper.UtcToIst(s.EndTime)))
+                .ForMember(d => d.City, o => o.Ignore())
+                .ForMember(d => d.VenueName, o => o.Ignore())
                 .ForMember(d => d.CreatedAt, o => o.MapFrom(s => TimeHelper.UtcToIst(s.CreatedAt)));
 
             CreateMap<TicketType, TicketTypeDto>()

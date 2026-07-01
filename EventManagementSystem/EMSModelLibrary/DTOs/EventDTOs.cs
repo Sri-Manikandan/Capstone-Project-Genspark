@@ -17,6 +17,8 @@ namespace EMSModelLibrary.DTOs
         public string Category { get; set; } = string.Empty;
         public string Slug { get; set; } = string.Empty;
         public string Screen { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string VenueName { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
     }
 
@@ -81,6 +83,7 @@ namespace EMSModelLibrary.DTOs
     {
         public string? Query { get; set; }
         public string? Category { get; set; }
+        public string? City { get; set; }
         public string? Status { get; set; }
         public DateTime? StartFrom { get; set; }
         public DateTime? StartTo { get; set; }

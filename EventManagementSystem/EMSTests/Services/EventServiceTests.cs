@@ -199,13 +199,36 @@ namespace EMSTests.Services
         [Test]
         public async Task Search_ReturnsMappedList()
         {
-            _eventRepo.Setup(r => r.Search(null, null, null, null, null, null, null, 1, 10))
+            _eventRepo.Setup(r => r.Search(null, null, null, null, null, null, null, null, 1, 10))
                       .ReturnsAsync((new List<Event> { MakeEvent() }, 1));
 
             var result = await _sut.Search(new EventSearchRequest { Page = 1, PageSize = 10 });
 
             result.Items.Should().HaveCount(1);
             result.TotalCount.Should().Be(1);
+        }
+
+        [Test]
+        public async Task Search_PassesCityFilter_ToRepository()
+        {
+            _eventRepo.Setup(r => r.Search(null, null, "Chennai", null, null, null, null, null, 1, 10))
+                      .ReturnsAsync((new List<Event> { MakeEvent() }, 1));
+
+            var result = await _sut.Search(new EventSearchRequest { City = "Chennai", Page = 1, PageSize = 10 });
+
+            result.Items.Should().HaveCount(1);
+            _eventRepo.Verify(r => r.Search(null, null, "Chennai", null, null, null, null, null, 1, 10), Times.Once);
+        }
+
+        [Test]
+        public async Task GetCities_ReturnsPublishedCities()
+        {
+            _eventRepo.Setup(r => r.GetCities(EventStatus.Published))
+                      .ReturnsAsync(new List<string> { "Chennai", "Coimbatore" });
+
+            var result = await _sut.GetCities();
+
+            result.Should().BeEquivalentTo(new[] { "Chennai", "Coimbatore" });
         }
 
         [Test]

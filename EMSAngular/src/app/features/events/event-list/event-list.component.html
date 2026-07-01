@@ -12,6 +12,12 @@
           <input [formControl]="search" aria-label="Search events, artists, venues" placeholder="Search events, artists, venues…"
                  class="flex-1 rounded-xl border-0 bg-transparent px-3 py-2.5 text-sm text-ink placeholder:text-muted/70 focus:outline-none focus:ring-0" />
 
+          <select aria-label="Filter by city" [value]="store.filters().city" (change)="setCity($any($event.target).value)"
+                  class="rounded-xl border-0 bg-paper px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-0 sm:w-44">
+            <option value="">All cities</option>
+            <option *ngFor="let c of store.cities()" [value]="c">{{ c }}</option>
+          </select>
+
           <select aria-label="Filter by category" [value]="store.filters().category" (change)="setCategory($any($event.target).value)"
                   class="rounded-xl border-0 bg-paper px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-0 sm:w-44">
             <option value="">All categories</option>
@@ -45,7 +51,17 @@
     </section>
 
     <div class="mb-5 flex items-baseline justify-between">
-      <h2 class="section-title">Upcoming events</h2>
+      <div>
+        <h2 class="section-title">Upcoming events</h2>
+        <p class="mt-1 text-sm text-muted">
+          <ng-container *ngIf="detectingLocation()">Detecting your location…</ng-container>
+          <ng-container *ngIf="!detectingLocation() && store.filters().city">
+            Showing events in <span class="font-medium text-ink">{{ store.filters().city }}</span> ·
+            <button type="button" (click)="setCity('')" class="text-plum hover:underline">show all cities</button>
+          </ng-container>
+          <ng-container *ngIf="!detectingLocation() && !store.filters().city">Showing events in all cities</ng-container>
+        </p>
+      </div>
       <span class="eyebrow hidden sm:block">Page {{ store.page() }} of {{ totalPages() }}</span>
     </div>
 

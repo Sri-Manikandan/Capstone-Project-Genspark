@@ -10,6 +10,7 @@ namespace EMSBLLLibrary.Interfaces
         Task<List<EventDto>> GetAll();
         Task<PagedResult<EventDto>> Search(EventSearchRequest request);
         Task<List<string>> GetCategories();
+        Task<List<string>> GetCities();
         Task<PagedResult<EventDto>> GetByOrganizer(int organizerId, int page, int pageSize);
         Task<EventDto> Update(int id, int organizerId, UpdateEventRequest request);
         Task Delete(int id, int requesterId, bool isAdmin = false);

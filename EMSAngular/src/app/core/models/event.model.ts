@@ -19,6 +19,8 @@ export interface EventDto {
   category: string;
   screen: string;
   slug: string;
+  city: string;
+  venueName: string;
   createdAt: string;
 }
 
@@ -46,6 +48,7 @@ export interface UpdateEventRequest {
 export interface EventSearchRequest {
   query?: string;
   category?: string;
+  city?: string;
   status?: string;
   startFrom?: string;
   startTo?: string;

@@ -5,6 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EventService } from '../../../core/services/event.service';
+import { LocationService } from '../../../core/services/location.service';
 import { EventDto, EventSearchRequest } from '../../../core/models/event.model';
 import { EventFilterStore } from '../event-filter.store';
 import { EventCardComponent } from '../../../shared/components/event-card/event-card.component';
@@ -21,14 +22,20 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
 })
 export class EventListComponent implements OnInit {
   private eventService = inject(EventService);
+  private locationService = inject(LocationService);
   private route = inject(ActivatedRoute);
   private fb = inject(FormBuilder);
   protected store = inject(EventFilterStore);
+
+  // Remembers the user's explicit city choice ('' = "All cities") so we only
+  // auto-detect location on their very first visit.
+  private static readonly CITY_KEY = 'ems-city';
 
   protected events = signal<EventDto[]>([]);
   protected loading = signal(false);
   protected error = signal('');
   protected totalPages = signal(1);
+  protected detectingLocation = signal(false);
   protected search = this.fb.nonNullable.control('');
 
   constructor() {
@@ -47,6 +54,34 @@ export class EventListComponent implements OnInit {
     if (category) this.store.patch({ category });
     this.search.setValue(this.store.filters().query, { emitEvent: false });
     this.store.loadCategories();
+    this.initCity();
+  }
+
+  // Load the city list for the switcher, then apply a remembered choice or
+  // auto-detect the user's city on their first visit.
+  private initCity(): void {
+    this.store.loadCities().subscribe(cities => {
+      const remembered = localStorage.getItem(EventListComponent.CITY_KEY);
+      if (remembered !== null) {
+        if (remembered && cities.includes(remembered)) this.store.patch({ city: remembered });
+        return;
+      }
+      if (this.store.filters().city) return;
+
+      this.detectingLocation.set(true);
+      this.locationService.detectCity(cities).then(city => {
+        this.detectingLocation.set(false);
+        if (city) {
+          this.store.patch({ city });
+          localStorage.setItem(EventListComponent.CITY_KEY, city);
+        }
+      });
+    });
+  }
+
+  protected setCity(city: string): void {
+    this.store.patch({ city });
+    localStorage.setItem(EventListComponent.CITY_KEY, city);
   }
 
   protected setCategory(category: string): void { this.store.patch({ category }); }

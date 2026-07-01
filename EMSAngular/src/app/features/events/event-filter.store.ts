@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { Observable, tap } from 'rxjs';
 import { EventSearchRequest } from '../../core/models/event.model';
 import { EventService } from '../../core/services/event.service';
 import { createFilterStore } from '../../core/state/filter-store';
@@ -6,6 +7,7 @@ import { createFilterStore } from '../../core/state/filter-store';
 export interface EventFilters {
   query: string;
   category: string;
+  city: string;
   sortBy: 'startTime' | 'title' | 'createdAt';
   sortOrder: 'asc' | 'desc';
   startFrom: string;
@@ -15,6 +17,7 @@ export interface EventFilters {
 const INITIAL: EventFilters = {
   query: '',
   category: '',
+  city: '',
   sortBy: 'startTime',
   sortOrder: 'asc',
   startFrom: '',
@@ -29,12 +32,14 @@ export class EventFilterStore {
   readonly filters = this.store.filters;
   readonly page = this.store.page;
   readonly categories = signal<string[]>([]);
+  readonly cities = signal<string[]>([]);
 
   readonly request = computed<EventSearchRequest>(() => {
     const f = this.store.filters();
     return {
       query: f.query || undefined,
       category: f.category || undefined,
+      city: f.city || undefined,
       startFrom: f.startFrom || undefined,
       startTo: f.startTo || undefined,
       sortBy: f.sortBy,
@@ -54,5 +59,9 @@ export class EventFilterStore {
       next: cats => this.categories.set(cats),
       error: () => this.categories.set([]),
     });
+  }
+
+  loadCities(): Observable<string[]> {
+    return this.eventService.getCities().pipe(tap(cities => this.cities.set(cities)));
   }
 }

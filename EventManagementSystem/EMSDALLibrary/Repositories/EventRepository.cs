@@ -40,13 +40,23 @@ namespace EMSDALLibrary.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<string>> GetCities(string status)
+        {
+            return await _context.Events
+                .Where(e => e.Status == status)
+                .Join(_context.Venues, e => e.VenueId, v => v.Id, (e, v) => v.City)
+                .Distinct()
+                .OrderBy(c => c)
+                .ToListAsync();
+        }
+
         public async Task<Event?> GetBySlug(string slug)
         {
             return await _context.Events.FirstOrDefaultAsync(e => e.Slug == slug);
         }
 
         public async Task<(List<Event> Items, int TotalCount)> Search(
-            string? query, string? category, string? status,
+            string? query, string? category, string? city, string? status,
             DateTime? startFrom, DateTime? startTo,
             string? sortBy, string? sortOrder,
             int page, int pageSize)
@@ -57,6 +67,8 @@ namespace EMSDALLibrary.Repositories
                 q = q.Where(e => e.Title.Contains(query) || e.Description.Contains(query));
             if (!string.IsNullOrWhiteSpace(category))
                 q = q.Where(e => e.Category == category);
+            if (!string.IsNullOrWhiteSpace(city))
+                q = q.Where(e => _context.Venues.Any(v => v.Id == e.VenueId && v.City == city));
             if (!string.IsNullOrWhiteSpace(status))
                 q = q.Where(e => e.Status == status);
             if (startFrom.HasValue)
