@@ -45,6 +45,18 @@ describe('AuthService', () => {
     expect(localStorage.getItem('ems_refresh_token')).toBe('refresh-456');
   });
 
+  it('login surfaces the backend error message as a string', () => {
+    let received: unknown;
+    service.login({ email: 'jo@x.com', password: 'wrong' }).subscribe({
+      error: (msg) => { received = msg; },
+    });
+    http.expectOne(`${base}/login`).flush(
+      { error: 'Invalid email or password.' },
+      { status: 401, statusText: 'Unauthorized' },
+    );
+    expect(received).toBe('Invalid email or password.');
+  });
+
   it('logout clears state and storage', () => {
     service.login({ email: 'jo@x.com', password: 'pw' }).subscribe();
     http.expectOne(`${base}/login`).flush(authResponse);

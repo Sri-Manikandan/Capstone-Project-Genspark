@@ -1,7 +1,8 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { Observable, catchError, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { extractError } from './http-error';
 import { User, Role } from '../models/user.model';
 import {
   AuthResponse, LoginRequest, RegisterRequest, ForgotPasswordRequest,
@@ -26,12 +27,12 @@ export class AuthService {
 
   login(req: LoginRequest): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.base}/login`, req)
-      .pipe(tap(res => this.applyAuth(res)));
+      .pipe(tap(res => this.applyAuth(res)), catchError(e => throwError(() => extractError(e))));
   }
 
   register(req: RegisterRequest): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.base}/register`, req)
-      .pipe(tap(res => this.applyAuth(res)));
+      .pipe(tap(res => this.applyAuth(res)), catchError(e => throwError(() => extractError(e))));
   }
 
   refresh(): Observable<AuthResponse> {
@@ -52,11 +53,13 @@ export class AuthService {
   }
 
   forgotPassword(req: ForgotPasswordRequest): Observable<ForgotPasswordResponse> {
-    return this.http.post<ForgotPasswordResponse>(`${this.base}/forgot-password`, req);
+    return this.http.post<ForgotPasswordResponse>(`${this.base}/forgot-password`, req)
+      .pipe(catchError(e => throwError(() => extractError(e))));
   }
 
   resetPassword(req: ResetPasswordRequest): Observable<void> {
-    return this.http.post<void>(`${this.base}/reset-password`, req);
+    return this.http.post<void>(`${this.base}/reset-password`, req)
+      .pipe(catchError(e => throwError(() => extractError(e))));
   }
 
   setCurrentUser(user: User): void {

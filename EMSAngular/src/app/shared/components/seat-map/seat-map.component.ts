@@ -37,11 +37,14 @@ export class SeatMapComponent implements OnInit, OnDestroy {
   @Input() screenName = '';
   @Input() selectedSeatIds: number[] = [];
   @Input() ticketTypes: TicketTypeDto[] = [];
+  @Input() restrictToSeatType: string | null = null;
   @Output() seatToggled = new EventEmitter<SeatDto>();
 
   private allSeats = signal<SeatDto[]>([]);
   private availableIds = signal<Set<number>>(new Set());
   protected sections = computed<SeatSection[]>(() => this.group(this.allSeats()));
+  protected loaded = signal(false);
+  protected loadError = signal('');
 
   constructor() {
     effect(() => {
@@ -57,9 +60,16 @@ export class SeatMapComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.seatService.getAvailableByEvent(this.eventId).subscribe(seats => {
-      this.allSeats.set(seats);
-      this.availableIds.set(new Set(seats.map(s => s.id)));
+    this.seatService.getAvailableByEvent(this.eventId).subscribe({
+      next: seats => {
+        this.allSeats.set(seats);
+        this.availableIds.set(new Set(seats.map(s => s.id)));
+        this.loaded.set(true);
+      },
+      error: (msg: string) => {
+        this.loadError.set(msg);
+        this.loaded.set(true);
+      },
     });
     void this.hub.joinEvent(this.eventId);
   }
@@ -68,8 +78,10 @@ export class SeatMapComponent implements OnInit, OnDestroy {
     void this.hub.leaveEvent(this.eventId);
   }
 
-  protected seatState(seat: SeatDto): 'selected' | 'available' | 'taken' {
+  protected seatState(seat: SeatDto): 'selected' | 'available' | 'taken' | 'disabled' {
     if (this.selectedSeatIds.includes(seat.id)) return 'selected';
+    if (this.restrictToSeatType &&
+        seat.seatType.toLowerCase() !== this.restrictToSeatType.toLowerCase()) return 'disabled';
     return this.availableIds().has(seat.id) ? 'available' : 'taken';
   }
 
@@ -80,7 +92,8 @@ export class SeatMapComponent implements OnInit, OnDestroy {
   }
 
   protected onSeatClick(seat: SeatDto): void {
-    if (this.seatState(seat) === 'taken') return;
+    const state = this.seatState(seat);
+    if (state === 'taken' || state === 'disabled') return;
     this.seatToggled.emit(seat);
   }
 

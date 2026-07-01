@@ -70,15 +70,32 @@ describe('EventDetailComponent', () => {
     expect(component['ticketTypes']().length).toBe(1);
   });
 
-  it('reserves a seat and tracks it in selected', () => {
+  it('picker confirm sets the category, quantity and opens the seats step', () => {
+    component['onPickerConfirm']({ ticketType: tt, quantity: 3 });
+    expect(component['selectedTicketType']()?.id).toBe(9);
+    expect(component['quantity']()).toBe(3);
+    expect(component['step']()).toBe('seats');
+    expect(component['showPicker']()).toBe(false);
+    expect(component['restrictToSeatType']()).toBe('VIP');
+  });
+
+  it('reserves a seat against the chosen category and tracks it in selected', () => {
+    component['onPickerConfirm']({ ticketType: tt, quantity: 2 });
     component['onSeatToggled']({ id: 1, venueId: 2, section: 'A', row: '1', seatNumber: 1, seatType: 'VIP' });
     expect(component['selected']().length).toBe(1);
     expect(component['selected']()[0].reservation.id).toBe(77);
+    expect(component['selected']()[0].ticketType.id).toBe(9);
+  });
+
+  it('ignores seat toggles until a category is chosen', () => {
+    component['onSeatToggled']({ id: 1, venueId: 2, section: 'A', row: '1', seatNumber: 1, seatType: 'VIP' });
+    expect(component['selected']().length).toBe(0);
   });
 
   it('checkout creates a booking and navigates', () => {
     const router = TestBed.inject(Router);
     const nav = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    component['onPickerConfirm']({ ticketType: tt, quantity: 1 });
     component['onSeatToggled']({ id: 1, venueId: 2, section: 'A', row: '1', seatNumber: 1, seatType: 'VIP' });
     component['checkout']();
     expect(bookingCreate).toHaveBeenCalled();

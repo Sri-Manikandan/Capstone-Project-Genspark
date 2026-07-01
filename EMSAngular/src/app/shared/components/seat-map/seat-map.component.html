@@ -7,6 +7,12 @@
         <span class="flex items-center gap-1.5"><i class="h-3.5 w-3.5 rounded bg-plum"></i> Selected</span>
         <span class="flex items-center gap-1.5"><i class="h-3.5 w-3.5 rounded bg-line"></i> Taken</span>
       </div>
+      <p *ngIf="loaded() && loadError()" class="rounded-xl bg-paper py-6 text-center text-sm text-muted">
+        {{ loadError() }}
+      </p>
+      <p *ngIf="loaded() && !loadError() && !sections().length" class="rounded-xl bg-paper py-6 text-center text-sm text-muted">
+        No seats are available for this event right now.
+      </p>
       <div class="space-y-6">
         <div *ngFor="let section of sections()">
           <h4 class="eyebrow mb-2">Section {{ section.section }}<ng-container *ngIf="sectionMeta(section) as m"><span class="text-plum"> · {{ m.name }} · {{ m.price | inr }}</span></ng-container></h4>
@@ -24,8 +30,11 @@
                       [class.bg-line]="seatState(seat) === 'taken'"
                       [class.border-line]="seatState(seat) === 'taken'"
                       [class.text-muted]="seatState(seat) === 'taken'"
-                      [class.cursor-not-allowed]="seatState(seat) === 'taken'"
-                      [disabled]="seatState(seat) === 'taken'"
+                      [class.cursor-not-allowed]="seatState(seat) === 'taken' || seatState(seat) === 'disabled'"
+                      [class.border-line]="seatState(seat) === 'disabled'"
+                      [class.text-muted]="seatState(seat) === 'disabled'"
+                      [class.opacity-40]="seatState(seat) === 'disabled'"
+                      [disabled]="seatState(seat) === 'taken' || seatState(seat) === 'disabled'"
                       (click)="onSeatClick(seat)">{{ seat.seatNumber }}</button>
             </div>
           </div>

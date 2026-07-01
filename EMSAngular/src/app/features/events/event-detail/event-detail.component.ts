@@ -15,14 +15,15 @@ import { LoadingSpinnerComponent } from '../../../shared/components/loading-spin
 import { AlertComponent } from '../../../shared/components/alert/alert.component';
 import { IstDatePipe } from '../../../shared/pipes/ist-date.pipe';
 import { CurrencyInrPipe } from '../../../shared/pipes/currency-inr.pipe';
+import { TicketPickerComponent } from './ticket-picker/ticket-picker.component';
 
-type Step = 'intro' | 'quantity' | 'seats';
+type Step = 'intro' | 'seats';
 interface SelectedSeat { reservation: SeatReservationDto; seat: SeatDto; ticketType: TicketTypeDto; }
 
 @Component({
   selector: 'ems-event-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, SeatMapComponent, LoadingSpinnerComponent, AlertComponent, IstDatePipe, CurrencyInrPipe],
+  imports: [CommonModule, RouterLink, SeatMapComponent, TicketPickerComponent, LoadingSpinnerComponent, AlertComponent, IstDatePipe, CurrencyInrPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './event-detail.component.html',
 })
@@ -42,6 +43,8 @@ export class EventDetailComponent implements OnInit {
   protected loading = signal(false);
   protected error = signal('');
   protected step = signal<Step>('intro');
+  protected showPicker = signal(false);
+  protected selectedTicketType = signal<TicketTypeDto | null>(null);
   protected quantity = signal(1);
   protected selected = signal<SelectedSeat[]>([]);
 
@@ -50,6 +53,7 @@ export class EventDetailComponent implements OnInit {
 
   protected selectedSeatIds = computed(() => this.selected().map(s => s.seat.id));
   protected total = computed(() => this.selected().reduce((sum, s) => sum + s.ticketType.price, 0));
+  protected restrictToSeatType = computed(() => this.selectedTicketType()?.seatType ?? null);
 
   ngOnInit(): void {
     const slug = this.route.snapshot.paramMap.get('slug')!;
@@ -72,22 +76,25 @@ export class EventDetailComponent implements OnInit {
       this.router.navigate(['/auth/login'], { queryParams: { returnUrl: this.router.url } });
       return;
     }
-    this.step.set('quantity');
+    this.showPicker.set(true);
   }
 
-  protected changeQuantity(delta: number): void {
-    this.quantity.update(q => Math.min(this.maxQuantity, Math.max(1, q + delta)));
+  protected closePicker(): void {
+    this.showPicker.set(false);
   }
 
-  protected continueToSeats(): void {
+  protected onPickerConfirm(choice: { ticketType: TicketTypeDto; quantity: number }): void {
+    // Changing the category or quantity restarts seat selection — drop any held seats.
+    this.releaseAllSeats();
+    this.selectedTicketType.set(choice.ticketType);
+    this.quantity.set(choice.quantity);
+    this.showPicker.set(false);
     this.step.set('seats');
   }
 
   protected onSeatToggled(seat: SeatDto): void {
-    if (!this.auth.isAuthenticated()) {
-      this.router.navigate(['/auth/login'], { queryParams: { returnUrl: this.router.url } });
-      return;
-    }
+    const ticketType = this.selectedTicketType();
+    if (!ticketType) return;
 
     const existing = this.selected().find(s => s.seat.id === seat.id);
     if (existing) {
@@ -103,14 +110,17 @@ export class EventDetailComponent implements OnInit {
       return;
     }
 
-    const ticketType = this.ticketTypes().find(
-      t => t.seatType.toLowerCase() === seat.seatType.toLowerCase());
-    if (!ticketType) { this.error.set('No ticket category is available for this section.'); return; }
-
     this.seatService.reserve({ eventId: this.event()!.id, seatId: seat.id, ticketTypeId: ticketType.id }).subscribe({
       next: reservation => this.selected.update(list => [...list, { reservation, seat, ticketType }]),
       error: (msg: string) => this.error.set(msg),
     });
+  }
+
+  private releaseAllSeats(): void {
+    for (const s of this.selected()) {
+      this.seatService.releaseReservation(s.reservation.id).subscribe({ error: () => {} });
+    }
+    this.selected.set([]);
   }
 
   protected checkout(): void {

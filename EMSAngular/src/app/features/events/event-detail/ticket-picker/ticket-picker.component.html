@@ -1,0 +1,44 @@
+<div class="fixed inset-0 z-40 flex items-end justify-center bg-ink/50 backdrop-blur-sm sm:items-center sm:p-4"
+     (click)="closed.emit()">
+  <div class="card w-full max-w-md p-6 sm:rounded-2xl" (click)="$event.stopPropagation()">
+    <div class="mb-5 flex items-start justify-between gap-4">
+      <div>
+        <p class="eyebrow text-plum">Select tickets</p>
+        <h2 class="section-title mt-1">Category &amp; quantity</h2>
+      </div>
+      <button type="button" (click)="closed.emit()"
+              class="btn-ghost h-9 w-9 p-0 text-xl leading-none" aria-label="Close">×</button>
+    </div>
+
+    <div class="space-y-2.5">
+      <button *ngFor="let t of ticketTypes" type="button" (click)="select(t)"
+              [disabled]="t.availableQuantity === 0"
+              class="flex w-full items-center justify-between rounded-2xl border px-5 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50"
+              [class.border-plum]="selectedId() === t.id"
+              [class.bg-surface]="selectedId() === t.id"
+              [class.border-line]="selectedId() !== t.id">
+        <span>
+          <span class="block font-display text-lg font-semibold text-ink">{{ t.name }}</span>
+          <span class="block font-mono text-xs text-ink-soft">{{ t.availableQuantity }} left</span>
+        </span>
+        <span class="font-mono text-ink">{{ t.price | inr }}</span>
+      </button>
+    </div>
+
+    <div class="mt-6 flex items-center justify-between">
+      <span class="text-sm text-ink-soft">Tickets</span>
+      <div class="flex items-center gap-4">
+        <button type="button" (click)="changeQuantity(-1)" [disabled]="quantity() <= 1"
+                class="btn-ghost h-10 w-10 p-0 text-2xl leading-none" aria-label="Fewer tickets">−</button>
+        <span class="w-8 text-center font-display text-2xl font-semibold text-ink">{{ quantity() }}</span>
+        <button type="button" (click)="changeQuantity(1)" [disabled]="quantity() >= maxQuantity"
+                class="btn-ghost h-10 w-10 p-0 text-2xl leading-none" aria-label="More tickets">+</button>
+      </div>
+    </div>
+
+    <button type="button" (click)="confirm()" [disabled]="selectedId() === null"
+            class="btn-primary mt-6 w-full">
+      Choose seats
+    </button>
+  </div>
+</div>

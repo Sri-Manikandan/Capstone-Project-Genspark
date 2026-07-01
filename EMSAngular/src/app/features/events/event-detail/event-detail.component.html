@@ -17,55 +17,23 @@
       <ng-container *ngIf="step() === 'intro'">
         <p class="max-w-2xl text-base leading-relaxed text-ink-soft">{{ ev.description }}</p>
 
-        <section *ngIf="ticketTypes().length">
-          <h2 class="section-title mb-3">Ticket categories</h2>
-          <div class="flex flex-wrap gap-3">
-            <div *ngFor="let t of ticketTypes()" class="rounded-2xl border border-line bg-surface px-5 py-3">
-              <span class="block font-display text-lg font-semibold text-ink">{{ t.name }}</span>
-              <span class="block font-mono text-xs text-ink-soft">{{ t.price | inr }} · {{ t.availableQuantity }} left</span>
-            </div>
-          </div>
-        </section>
-
         <button type="button" (click)="proceedToBook()" class="btn-primary">Proceed to Book</button>
       </ng-container>
 
-      <!-- ── Step 2 · Quantity ──────────────────────────────────────── -->
-      <ng-container *ngIf="step() === 'quantity'">
-        <section class="card max-w-md p-6">
-          <p class="eyebrow text-plum">Step 1 of 2</p>
-          <h2 class="section-title mt-2 mb-1">How many tickets?</h2>
-          <p class="mb-6 text-sm text-ink-soft">You'll pick the exact seats next — mix categories if you like.</p>
-
-          <div class="flex items-center gap-5">
-            <button type="button" (click)="changeQuantity(-1)" [disabled]="quantity() <= 1"
-                    class="btn-ghost h-11 w-11 p-0 text-2xl leading-none" aria-label="Fewer tickets">−</button>
-            <span class="w-12 text-center font-display text-4xl font-semibold text-ink">{{ quantity() }}</span>
-            <button type="button" (click)="changeQuantity(1)" [disabled]="quantity() >= maxQuantity"
-                    class="btn-ghost h-11 w-11 p-0 text-2xl leading-none" aria-label="More tickets">+</button>
-          </div>
-
-          <div class="mt-7 flex items-center gap-3">
-            <button type="button" (click)="continueToSeats()" class="btn-primary">Choose seats</button>
-            <button type="button" (click)="step.set('intro')" class="btn-ghost">Back</button>
-          </div>
-        </section>
-      </ng-container>
-
-      <!-- ── Step 3 · Seats ─────────────────────────────────────────── -->
+      <!-- ── Step 2 · Seats ─────────────────────────────────────────── -->
       <ng-container *ngIf="step() === 'seats'">
         <section>
           <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
             <div>
-              <p class="eyebrow text-plum">Step 2 of 2</p>
-              <h2 class="section-title mt-1">Select your seats</h2>
+              <p class="eyebrow text-plum">Select your seats</p>
+              <h2 class="section-title mt-1">{{ selectedTicketType()?.name }} · {{ quantity() }} ticket{{ quantity() === 1 ? '' : 's' }}</h2>
             </div>
-            <button type="button" (click)="step.set('quantity')" class="link-action">Change quantity ({{ quantity() }})</button>
+            <button type="button" (click)="proceedToBook()" class="link-action">Change tickets</button>
           </div>
-          <p class="mb-4 text-sm text-ink-soft">Pick {{ quantity() }} seat{{ quantity() === 1 ? '' : 's' }} — the section sets the category and price.</p>
+          <p class="mb-4 text-sm text-ink-soft">Pick {{ quantity() }} seat{{ quantity() === 1 ? '' : 's' }} in the {{ selectedTicketType()?.name }} section.</p>
           <div class="card p-5">
             <ems-seat-map [eventId]="ev.id" [venueId]="ev.venueId" [ticketTypes]="ticketTypes()"
-                          [screenName]="ev.screen ?? ''"
+                          [screenName]="ev.screen ?? ''" [restrictToSeatType]="restrictToSeatType()"
                           [selectedSeatIds]="selectedSeatIds()" (seatToggled)="onSeatToggled($event)" />
           </div>
         </section>
@@ -93,5 +61,9 @@
           </button>
         </div>
       </div>
+
+      <!-- ── Ticket type + quantity overlay ─────────────────────────── -->
+      <ems-ticket-picker *ngIf="showPicker()" [ticketTypes]="ticketTypes()" [maxQuantity]="maxQuantity"
+                         (confirmed)="onPickerConfirm($event)" (closed)="closePicker()" />
     </article>
-  
+

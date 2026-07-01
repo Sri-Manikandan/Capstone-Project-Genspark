@@ -20,23 +20,26 @@ export class SeatHubService {
 
   async connect(): Promise<void> {
     if (this.connection) return;
-    this.connection = new HubConnectionBuilder()
+    const connection = new HubConnectionBuilder()
       .withUrl(`${environment.apiBaseUrl}/hubs/seats`)
       .withAutomaticReconnect()
       .configureLogging(LogLevel.Warning)
       .build();
 
-    this.connection.on('SeatReserved', (seatId: number) =>
+    connection.on('SeatReserved', (seatId: number) =>
       this.handleSeatEvent('reserved', seatId)
     );
-    this.connection.on('SeatReleased', (seatId: number) =>
+    connection.on('SeatReleased', (seatId: number) =>
       this.handleSeatEvent('released', seatId)
     );
-    this.connection.on('SeatBooked', (seatId: number) =>
+    connection.on('SeatBooked', (seatId: number) =>
       this.handleSeatEvent('booked', seatId)
     );
 
-    await this.connection.start();
+    // Only cache the connection once it actually started, so a failed
+    // negotiation doesn't leave a dead connection that blocks retries.
+    await connection.start();
+    this.connection = connection;
   }
 
   async joinEvent(eventId: number): Promise<void> {
