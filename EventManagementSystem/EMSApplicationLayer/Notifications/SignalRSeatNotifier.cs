@@ -13,13 +13,13 @@ namespace EMSApplicationLayer.Notifications
             _hub = hub;
         }
 
-        public Task SeatReserved(int eventId, int seatId) =>
-            _hub.Clients.Group($"event-{eventId}").SendAsync("SeatReserved", seatId);
+        public Task SeatReserved(int screeningId, int seatId) =>
+            _hub.Clients.Group($"screening-{screeningId}").SendAsync("SeatReserved", seatId);
 
-        public Task SeatReleased(int eventId, int seatId) =>
-            _hub.Clients.Group($"event-{eventId}").SendAsync("SeatReleased", seatId);
+        public Task SeatReleased(int screeningId, int seatId) =>
+            _hub.Clients.Group($"screening-{screeningId}").SendAsync("SeatReleased", seatId);
 
-        public Task SeatBooked(int eventId, int seatId) =>
-            _hub.Clients.Group($"event-{eventId}").SendAsync("SeatBooked", seatId);
+        public Task SeatBooked(int screeningId, int seatId) =>
+            _hub.Clients.Group($"screening-{screeningId}").SendAsync("SeatBooked", seatId);
     }
 }

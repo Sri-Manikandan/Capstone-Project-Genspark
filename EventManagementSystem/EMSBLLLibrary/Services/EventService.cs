@@ -14,12 +14,14 @@ namespace EMSBLLLibrary.Services
     {
         private readonly IEventRepository _eventRepo;
         private readonly IVenueRepository _venueRepo;
+        private readonly IScreeningRepository _screeningRepo;
         private readonly IMapper _mapper;
 
-        public EventService(IEventRepository eventRepo, IVenueRepository venueRepo, IMapper mapper)
+        public EventService(IEventRepository eventRepo, IVenueRepository venueRepo, IScreeningRepository screeningRepo, IMapper mapper)
         {
             _eventRepo = eventRepo;
             _venueRepo = venueRepo;
+            _screeningRepo = screeningRepo;
             _mapper = mapper;
         }
 
@@ -57,6 +59,18 @@ namespace EMSBLLLibrary.Services
                 Screen = request.Screen ?? string.Empty
             };
             await _eventRepo.Add(ev);
+
+            // Every event is bookable through at least one screening. Seed a default one
+            // from the event's screen + time window; organizers add more via the screening API.
+            await _screeningRepo.Add(new Screening
+            {
+                EventId = ev.Id,
+                Screen = ev.Screen,
+                StartTime = startUtc,
+                EndTime = endUtc,
+                Status = ScreeningStatus.Scheduled
+            });
+
             return _mapper.Map<EventDto>(ev);
         }
 

@@ -17,6 +17,7 @@ namespace EMSTests.Services
     {
         private Mock<IEventRepository> _eventRepo = null!;
         private Mock<IVenueRepository> _venueRepo = null!;
+        private Mock<IScreeningRepository> _screeningRepo = null!;
         private IMapper _mapper = null!;
         private EventService _sut = null!;
 
@@ -33,8 +34,9 @@ namespace EMSTests.Services
         {
             _eventRepo = new Mock<IEventRepository>();
             _venueRepo = new Mock<IVenueRepository>();
+            _screeningRepo = new Mock<IScreeningRepository>();
             _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
-            _sut = new EventService(_eventRepo.Object, _venueRepo.Object, _mapper);
+            _sut = new EventService(_eventRepo.Object, _venueRepo.Object, _screeningRepo.Object, _mapper);
         }
 
         private Event MakeEvent(int id = 1, int organizerId = 10, string status = EventStatus.Draft) => new Event

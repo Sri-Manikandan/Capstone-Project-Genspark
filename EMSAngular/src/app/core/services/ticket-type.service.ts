@@ -12,13 +12,13 @@ export class TicketTypeService {
   private http = inject(HttpClient);
   private base = `${environment.apiBaseUrl}/api/v1/TicketType`;
 
-  getByEvent(eventId: number): Observable<TicketTypeDto[]> {
-    return this.http.get<TicketTypeDto[]>(`${this.base}/event/${eventId}`)
+  getByScreening(screeningId: number): Observable<TicketTypeDto[]> {
+    return this.http.get<TicketTypeDto[]>(`${this.base}/screening/${screeningId}`)
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 
-  getActiveByEvent(eventId: number): Observable<TicketTypeDto[]> {
-    return this.http.get<TicketTypeDto[]>(`${this.base}/event/${eventId}/active`)
+  getActiveByScreening(screeningId: number): Observable<TicketTypeDto[]> {
+    return this.http.get<TicketTypeDto[]>(`${this.base}/screening/${screeningId}/active`)
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 

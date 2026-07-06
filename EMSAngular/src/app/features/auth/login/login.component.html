@@ -8,10 +8,12 @@
           <label class="block space-y-1">
             <span class="field-label">Email</span>
             <input formControlName="email" type="email" placeholder="you@example.com" class="field" />
+            <ems-field-error [control]="form.controls.email" label="Email" />
           </label>
           <label class="block space-y-1">
             <span class="field-label">Password</span>
             <input formControlName="password" type="password" placeholder="Password" class="field" />
+            <ems-field-error [control]="form.controls.password" label="Password" />
           </label>
           <button type="submit" [disabled]="submitting()" class="btn-primary w-full">
             {{ submitting() ? 'Signing in…' : 'Sign in' }}

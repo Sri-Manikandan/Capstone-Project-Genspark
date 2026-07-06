@@ -1,6 +1,6 @@
 export interface TicketTypeDto {
   id: number;
-  eventId: number;
+  screeningId: number;
   name: string;
   seatType: string;
   price: number;
@@ -13,7 +13,7 @@ export interface TicketTypeDto {
 }
 
 export interface CreateTicketTypeRequest {
-  eventId: number;
+  screeningId: number;
   name: string;
   seatType: string;
   price: number;

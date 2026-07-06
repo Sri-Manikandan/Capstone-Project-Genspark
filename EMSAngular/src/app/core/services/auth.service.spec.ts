@@ -80,4 +80,35 @@ describe('AuthService', () => {
     req.flush({ ...authResponse, accessToken: 'new-access' });
     expect(service.accessToken()).toBe('new-access');
   });
+
+  it('isAccessTokenExpired reflects the token exp claim', () => {
+    const now = Math.floor(Date.now() / 1000);
+    expect(service.isAccessTokenExpired()).toBe(false); // no token stored
+
+    localStorage.setItem('ems_access_token', makeJwt(now - 60));
+    expect(service.isAccessTokenExpired()).toBe(true);
+
+    localStorage.setItem('ems_access_token', makeJwt(now + 600));
+    expect(service.isAccessTokenExpired()).toBe(false);
+  });
+
+  it('treats a non-JWT token as not expired', () => {
+    localStorage.setItem('ems_access_token', 'opaque-token');
+    expect(service.isAccessTokenExpired()).toBe(false);
+  });
+
+  it('refreshShared makes a single refresh call for concurrent callers', () => {
+    localStorage.setItem('ems_refresh_token', 'refresh-456');
+    service.refreshShared().subscribe();
+    service.refreshShared().subscribe();
+    const req = http.expectOne(`${base}/refresh`); // expectOne fails if two were issued
+    req.flush({ ...authResponse, accessToken: 'shared-access' });
+    expect(service.accessToken()).toBe('shared-access');
+  });
 });
+
+function makeJwt(expSeconds: number): string {
+  const b64url = (o: object) =>
+    btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `${b64url({ alg: 'HS256' })}.${b64url({ exp: expSeconds })}.sig`;
+}

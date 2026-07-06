@@ -3,7 +3,7 @@ namespace EMSModelLibrary.Models
     public class TicketType
     {
         public int Id { get; set; }
-        public int EventId { get; set; }
+        public int ScreeningId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string SeatType { get; set; } = string.Empty;
         public decimal Price { get; set; }
@@ -19,10 +19,10 @@ namespace EMSModelLibrary.Models
             CreatedAt = DateTime.UtcNow;
         }
 
-        public TicketType(int id, int eventId, string name, decimal price, int quantityAvailable, DateTime saleStart, DateTime saleEnd, bool isActive)
+        public TicketType(int id, int screeningId, string name, decimal price, int quantityAvailable, DateTime saleStart, DateTime saleEnd, bool isActive)
         {
             Id = id;
-            EventId = eventId;
+            ScreeningId = screeningId;
             Name = name;
             Price = price;
             TotalQuantity = quantityAvailable;

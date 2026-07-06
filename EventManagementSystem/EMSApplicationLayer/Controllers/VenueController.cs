@@ -19,6 +19,7 @@ namespace EMSApplicationLayer.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> GetAll()
         {
             var venues = await _venueService.GetAll();
@@ -26,6 +27,7 @@ namespace EMSApplicationLayer.Controllers
         }
 
         [HttpGet("{id:int}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetById(int id)
         {
             var venue = await _venueService.GetById(id);

@@ -1,0 +1,136 @@
+- generic [ref=f11e2]:
+  - banner [ref=f11e4]:
+    - navigation [ref=f11e5]:
+      - link "EventHub home" [ref=f11e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f11e7]: E
+        - generic [ref=f11e8]: EventHub
+      - generic [ref=f11e9]:
+        - link "Events" [ref=f11e10] [cursor=pointer]:
+          - /url: /events
+        - link "My Bookings" [ref=f11e11] [cursor=pointer]:
+          - /url: /bookings
+        - link "My Events" [ref=f11e12] [cursor=pointer]:
+          - /url: /organizer/events
+        - link "Admin" [ref=f11e13] [cursor=pointer]:
+          - /url: /admin/events
+        - link "System Admin" [ref=f11e14] [cursor=pointer]:
+          - /url: /profile
+        - button "Logout" [ref=f11e15] [cursor=pointer]
+  - main [ref=f11e16]:
+    - generic [ref=f11e38]:
+      - generic [ref=f11e39]:
+        - paragraph [ref=f11e40]: What's on · Live this season
+        - heading "Find the night you'll remember." [level=1] [ref=f11e41]
+        - paragraph [ref=f11e42]: Concerts, conferences and shows — pick your seat and walk in with a ticket on your phone.
+        - generic [ref=f11e43]:
+          - generic [ref=f11e44]:
+            - textbox "Search events, artists, venues" [ref=f11e45]:
+              - /placeholder: Search events, artists, venues…
+            - combobox "Filter by city" [ref=f11e46]:
+              - option "All cities" [selected]
+              - option "Chennai"
+              - option "Coimbatore"
+              - option "Madurai"
+              - option "Tiruchirappalli"
+            - combobox "Filter by category" [ref=f11e47]:
+              - option "All categories" [selected]
+              - option "Comedy"
+              - option "Concerts"
+              - option "Movies"
+            - combobox "Sort events" [ref=f11e48]:
+              - option "Date · soonest first" [selected]
+              - option "Date · latest first"
+              - option "Title · A–Z"
+              - option "Title · Z–A"
+              - option "Newly added"
+          - generic [ref=f11e49]:
+            - generic [ref=f11e50]:
+              - text: From
+              - textbox "Start date from" [ref=f11e51]
+            - generic [ref=f11e52]:
+              - text: To
+              - textbox "Start date to" [ref=f11e53]
+            - button "Clear filters" [ref=f11e54] [cursor=pointer]
+      - generic [ref=f11e55]:
+        - generic [ref=f11e56]:
+          - heading "Upcoming events" [level=2] [ref=f11e57]
+          - paragraph [ref=f11e58]:
+            - text: Showing events in Coimbatore ·
+            - button "show all cities" [ref=f11e59] [cursor=pointer]
+        - generic [ref=f11e60]: Page 1 of 1
+      - generic [ref=f11e61]:
+        - link "Kovai Comedy Night Comedy Kovai Comedy Night Codissia Trade Fair Complex · Coimbatore 16 Jul 2026 Admit one" [ref=f11e63] [cursor=pointer]:
+          - /url: /events/kovai-comedy-night
+          - img "Kovai Comedy Night" [ref=f11e65]
+          - generic [ref=f11e66]:
+            - text: Comedy
+            - heading "Kovai Comedy Night" [level=3] [ref=f11e67]
+            - paragraph [ref=f11e68]: Codissia Trade Fair Complex · Coimbatore
+          - generic [ref=f11e70]:
+            - generic [ref=f11e71]: 16 Jul 2026
+            - generic [ref=f11e72]: Admit one
+        - link "Coimbatore Food & Music Carnival Concerts Coimbatore Food & Music Carnival Codissia Trade Fair Complex · Coimbatore 23 Jul 2026 Admit one" [ref=f11e74] [cursor=pointer]:
+          - /url: /events/coimbatore-food-music-carnival
+          - img "Coimbatore Food & Music Carnival" [ref=f11e76]
+          - generic [ref=f11e77]:
+            - text: Concerts
+            - heading "Coimbatore Food & Music Carnival" [level=3] [ref=f11e78]
+            - paragraph [ref=f11e79]: Codissia Trade Fair Complex · Coimbatore
+          - generic [ref=f11e81]:
+            - generic [ref=f11e82]: 23 Jul 2026
+            - generic [ref=f11e83]: Admit one
+        - 'link "Alexander Babu: Musical Comedy Comedy Alexander Babu: Musical Comedy Codissia Trade Fair Complex · Coimbatore 26 Jul 2026 Admit one" [ref=f11e85] [cursor=pointer]':
+          - /url: /events/alexander-babu-musical-comedy-coimbatore
+          - 'img "Alexander Babu: Musical Comedy" [ref=f11e87]'
+          - generic [ref=f11e88]:
+            - text: Comedy
+            - 'heading "Alexander Babu: Musical Comedy" [level=3] [ref=f11e89]'
+            - paragraph [ref=f11e90]: Codissia Trade Fair Complex · Coimbatore
+          - generic [ref=f11e92]:
+            - generic [ref=f11e93]: 26 Jul 2026
+            - generic [ref=f11e94]: Admit one
+        - link "Arivu & The Embassy Concerts Arivu & The Embassy Codissia Trade Fair Complex · Coimbatore 29 Jul 2026 Admit one" [ref=f11e96] [cursor=pointer]:
+          - /url: /events/arivu-the-embassy-coimbatore
+          - img "Arivu & The Embassy" [ref=f11e98]
+          - generic [ref=f11e99]:
+            - text: Concerts
+            - heading "Arivu & The Embassy" [level=3] [ref=f11e100]
+            - paragraph [ref=f11e101]: Codissia Trade Fair Complex · Coimbatore
+          - generic [ref=f11e103]:
+            - generic [ref=f11e104]: 29 Jul 2026
+            - generic [ref=f11e105]: Admit one
+        - link "Sid Sriram Live in Coimbatore Concerts Sid Sriram Live in Coimbatore Codissia Trade Fair Complex · Coimbatore 8 Aug 2026 Admit one" [ref=f11e107] [cursor=pointer]:
+          - /url: /events/sid-sriram-live-coimbatore
+          - img "Sid Sriram Live in Coimbatore" [ref=f11e109]
+          - generic [ref=f11e110]:
+            - text: Concerts
+            - heading "Sid Sriram Live in Coimbatore" [level=3] [ref=f11e111]
+            - paragraph [ref=f11e112]: Codissia Trade Fair Complex · Coimbatore
+          - generic [ref=f11e114]:
+            - generic [ref=f11e115]: 8 Aug 2026
+            - generic [ref=f11e116]: Admit one
+        - link "Coimbatore Indie Music Fest Concerts Coimbatore Indie Music Fest Codissia Trade Fair Complex · Coimbatore 19 Aug 2026 Admit one" [ref=f11e118] [cursor=pointer]:
+          - /url: /events/coimbatore-indie-music-fest
+          - img "Coimbatore Indie Music Fest" [ref=f11e120]
+          - generic [ref=f11e121]:
+            - text: Concerts
+            - heading "Coimbatore Indie Music Fest" [level=3] [ref=f11e122]
+            - paragraph [ref=f11e123]: Codissia Trade Fair Complex · Coimbatore
+          - generic [ref=f11e125]:
+            - generic [ref=f11e126]: 19 Aug 2026
+            - generic [ref=f11e127]: Admit one
+        - link "Chennai Hip-Hop Battle 2026 Concerts Chennai Hip-Hop Battle 2026 Codissia Trade Fair Complex · Coimbatore 25 Aug 2026 Admit one" [ref=f11e129] [cursor=pointer]:
+          - /url: /events/chennai-hiphop-battle-2026
+          - img "Chennai Hip-Hop Battle 2026" [ref=f11e131]
+          - generic [ref=f11e132]:
+            - text: Concerts
+            - heading "Chennai Hip-Hop Battle 2026" [level=3] [ref=f11e133]
+            - paragraph [ref=f11e134]: Codissia Trade Fair Complex · Coimbatore
+          - generic [ref=f11e136]:
+            - generic [ref=f11e137]: 25 Aug 2026
+            - generic [ref=f11e138]: Admit one
+  - contentinfo [ref=f11e17]:
+    - generic [ref=f11e18]:
+      - paragraph [ref=f11e19]: EventHub
+      - paragraph [ref=f11e20]: Doors open · Lights down · Live

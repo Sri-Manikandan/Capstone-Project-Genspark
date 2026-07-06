@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, tap, throwError } from 'rxjs';
+import { Observable, catchError, finalize, shareReplay, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { extractError } from './http-error';
 import { User, Role } from '../models/user.model';
@@ -23,7 +23,27 @@ export class AuthService {
   readonly isAuthenticated = computed(() => !!this.userSignal());
   readonly role = computed<Role | null>(() => this.userSignal()?.role ?? null);
 
+  private refreshInFlight: Observable<AuthResponse> | null = null;
+
   accessToken(): string | null { return localStorage.getItem(ACCESS_KEY); }
+
+  /** True when a JWT access token is stored and its exp claim is in the past. */
+  isAccessTokenExpired(): boolean {
+    const token = localStorage.getItem(ACCESS_KEY);
+    if (!token) return false;
+    const expiryMs = this.tokenExpiryMs(token);
+    if (expiryMs === null) return false; // opaque/unparseable token — let the reactive path handle it
+    return Date.now() >= expiryMs - 5000; // 5s clock-skew buffer
+  }
+
+  /** Refresh, sharing a single in-flight call so concurrent requests don't stampede. */
+  refreshShared(): Observable<AuthResponse> {
+    this.refreshInFlight ??= this.refresh().pipe(
+      finalize(() => (this.refreshInFlight = null)),
+      shareReplay(1),
+    );
+    return this.refreshInFlight;
+  }
 
   login(req: LoginRequest): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.base}/login`, req)
@@ -72,6 +92,19 @@ export class AuthService {
     localStorage.setItem(REFRESH_KEY, res.refreshToken);
     localStorage.setItem(USER_KEY, JSON.stringify(res.user));
     this.userSignal.set(res.user);
+  }
+
+  private tokenExpiryMs(token: string): number | null {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    try {
+      let b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      b64 += '='.repeat((4 - (b64.length % 4)) % 4);
+      const payload = JSON.parse(atob(b64));
+      return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+    } catch {
+      return null;
+    }
   }
 
   private readStoredUser(): User | null {

@@ -63,11 +63,11 @@ namespace EMSTests.Services
         }
 
         [Test]
-        public async Task GetAvailableByEventId_ReturnsMappedList()
+        public async Task GetAvailableByScreeningId_ReturnsMappedList()
         {
-            _seatRepo.Setup(r => r.GetAvailableByEventId(1)).ReturnsAsync(new List<Seat> { new Seat { Id = 2 } });
+            _seatRepo.Setup(r => r.GetAvailableByScreeningId(1)).ReturnsAsync(new List<Seat> { new Seat { Id = 2 } });
 
-            var result = await _sut.GetAvailableByEventId(1);
+            var result = await _sut.GetAvailableByScreeningId(1);
 
             result.Should().HaveCount(1);
         }

@@ -16,12 +16,18 @@ namespace EMSDALLibrary.Repositories
 
         public async Task<List<Booking>> GetByEventId(int eventId)
         {
-            return await _context.Bookings.Where(b => b.EventId == eventId).ToListAsync();
+            var screeningIds = _context.Screenings.Where(s => s.EventId == eventId).Select(s => s.Id);
+            return await _context.Bookings.Where(b => screeningIds.Contains(b.ScreeningId)).ToListAsync();
         }
 
         public async Task<Booking?> GetByReference(string reference)
         {
             return await _context.Bookings.FirstOrDefaultAsync(b => b.BookingReference == reference);
+        }
+
+        public async Task<Booking?> GetByQrPayload(string qrPayload)
+        {
+            return await _context.Bookings.FirstOrDefaultAsync(b => b.QrPayload == qrPayload);
         }
 
         public async Task<(List<Booking> Items, int TotalCount)> SearchByUserId(int userId, string? status, int page, int pageSize)
@@ -39,7 +45,8 @@ namespace EMSDALLibrary.Repositories
 
         public async Task<(List<Booking> Items, int TotalCount)> SearchByEventId(int eventId, string? status, int page, int pageSize)
         {
-            var q = _context.Bookings.Where(b => b.EventId == eventId);
+            var screeningIds = _context.Screenings.Where(s => s.EventId == eventId).Select(s => s.Id);
+            var q = _context.Bookings.Where(b => screeningIds.Contains(b.ScreeningId));
             if (!string.IsNullOrWhiteSpace(status))
                 q = q.Where(b => b.BookingStatus == status);
             var total = await q.CountAsync();

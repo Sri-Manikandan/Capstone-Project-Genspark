@@ -26,18 +26,22 @@
         <label class="block space-y-1">
           <span class="field-label">Name</span>
           <input formControlName="name" placeholder="Name" class="field" />
+          <ems-field-error [control]="form.controls.name" label="Name" />
         </label>
         <label class="block space-y-1">
           <span class="field-label">City</span>
           <input formControlName="city" placeholder="City" class="field" />
+          <ems-field-error [control]="form.controls.city" label="City" />
         </label>
         <label class="block space-y-1 sm:col-span-2">
           <span class="field-label">Address</span>
           <input formControlName="address" placeholder="Address" class="field" />
+          <ems-field-error [control]="form.controls.address" label="Address" />
         </label>
         <label class="block space-y-1 sm:col-span-2">
           <span class="field-label">Capacity</span>
           <input formControlName="totalCapacity" type="number" placeholder="Capacity" class="field" />
+          <ems-field-error [control]="form.controls.totalCapacity" label="Capacity" />
         </label>
         <div class="flex gap-3 sm:col-span-2">
           <button type="submit" class="btn-primary">{{ editingId() ? 'Save changes' : 'Add venue' }}</button>

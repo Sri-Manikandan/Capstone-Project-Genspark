@@ -6,7 +6,7 @@ export interface BookingItemRequest {
 }
 
 export interface CreateBookingRequest {
-  eventId: number;
+  screeningId: number;
   items: BookingItemRequest[];
 }
 
@@ -23,8 +23,11 @@ export interface BookingItemDto {
 export interface BookingDto {
   id: number;
   userId: number;
+  screeningId: number;
   eventId: number;
   eventTitle: string;
+  screen: string;
+  screeningStartTime: string;
   bookingReference: string;
   qrCode: string;
   totalAmount: number;
@@ -42,5 +45,4 @@ export interface BookingQueryRequest {
 
 export interface ValidateQrRequest {
   qrPayload: string;
-  scannedBy: number;
 }

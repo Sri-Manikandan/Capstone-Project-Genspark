@@ -4,7 +4,7 @@ namespace EMSModelLibrary.Models
     {
         public int Id { get; set; }
         public int UserId { get; set; }
-        public int EventId { get; set; }
+        public int ScreeningId { get; set; }
         public string BookingReference { get; set; } = string.Empty;
         public string QrCode { get; set; } = string.Empty;
         public string QrPayload { get; set; } = string.Empty;
@@ -22,11 +22,11 @@ namespace EMSModelLibrary.Models
             UpdatedAt = DateTime.UtcNow;
         }
 
-        public Booking(int id, int userId, int eventId, string bookingReference, string qrCode, string qrPayload, decimal totalAmount, string bookingStatus, DateTime expiresAt)
+        public Booking(int id, int userId, int screeningId, string bookingReference, string qrCode, string qrPayload, decimal totalAmount, string bookingStatus, DateTime expiresAt)
         {
             Id = id;
             UserId = userId;
-            EventId = eventId;
+            ScreeningId = screeningId;
             BookingReference = bookingReference;
             QrCode = qrCode;
             QrPayload = qrPayload;

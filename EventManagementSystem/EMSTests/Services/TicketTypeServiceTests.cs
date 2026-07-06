@@ -15,6 +15,7 @@ namespace EMSTests.Services
     public class TicketTypeServiceTests
     {
         private Mock<ITicketTypeRepository> _ttRepo;
+        private Mock<IScreeningRepository> _screeningRepo;
         private Mock<IEventRepository> _eventRepo;
         private Mock<IVenueRepository> _venueRepo;
         private Mock<ISeatRepository> _seatRepo;
@@ -25,11 +26,12 @@ namespace EMSTests.Services
         public void SetUp()
         {
             _ttRepo = new Mock<ITicketTypeRepository>();
+            _screeningRepo = new Mock<IScreeningRepository>();
             _eventRepo = new Mock<IEventRepository>();
             _venueRepo = new Mock<IVenueRepository>();
             _seatRepo = new Mock<ISeatRepository>();
             _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
-            _sut = new TicketTypeService(_ttRepo.Object, _eventRepo.Object, _venueRepo.Object, _seatRepo.Object, _mapper);
+            _sut = new TicketTypeService(_ttRepo.Object, _screeningRepo.Object, _eventRepo.Object, _venueRepo.Object, _seatRepo.Object, _mapper);
         }
 
         private Event OrganizerEvent(int organizerId = 10, int venueId = 1) => new Event
@@ -37,22 +39,35 @@ namespace EMSTests.Services
             Id = 1, OrganizerId = organizerId, VenueId = venueId, Status = "Draft"
         };
 
+        private Screening MakeScreening(int id = 1, int eventId = 1) => new Screening
+        {
+            Id = id, EventId = eventId, Screen = "Screen 1", Status = "Scheduled",
+            StartTime = DateTime.UtcNow.AddDays(15), EndTime = DateTime.UtcNow.AddDays(15).AddHours(3)
+        };
+
         private Venue MakeVenue(int capacity = 500) => new Venue { Id = 1, TotalCapacity = capacity };
+
+        // Wires up screening → event for the common happy path.
+        private void SetupScreeningAndEvent(int screeningId = 1, int organizerId = 10)
+        {
+            _screeningRepo.Setup(r => r.GetById(screeningId)).ReturnsAsync(MakeScreening(screeningId));
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent(organizerId));
+        }
 
         // ── Create ───────────────────────────────────────────────────────────────
 
         [Test]
         public async Task Create_ValidRequest_ReturnsDto()
         {
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent());
+            SetupScreeningAndEvent();
             _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeVenue());
             _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(100);
-            _ttRepo.Setup(r => r.GetByEventId(1)).ReturnsAsync(new List<TicketType>());
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>());
             _ttRepo.Setup(r => r.Add(It.IsAny<TicketType>())).ReturnsAsync((TicketType t) => t);
 
             var result = await _sut.Create(10, new CreateTicketTypeRequest
             {
-                EventId = 1, Name = "VIP", SeatType = "VIP", Price = 500, TotalQuantity = 50,
+                ScreeningId = 1, Name = "VIP", SeatType = "VIP", Price = 500, TotalQuantity = 50,
                 SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(10)
             });
 
@@ -60,13 +75,13 @@ namespace EMSTests.Services
         }
 
         [Test]
-        public async Task Create_EventNotFound_ThrowsNotFoundException()
+        public async Task Create_ScreeningNotFound_ThrowsNotFoundException()
         {
-            _eventRepo.Setup(r => r.GetById(99)).ReturnsAsync((Event?)null);
+            _screeningRepo.Setup(r => r.GetById(99)).ReturnsAsync((Screening?)null);
 
             await _sut.Invoking(s => s.Create(10, new CreateTicketTypeRequest
             {
-                EventId = 99, Name = "VIP", SeatType = "VIP", TotalQuantity = 10,
+                ScreeningId = 99, Name = "VIP", SeatType = "VIP", TotalQuantity = 10,
                 SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(1)
             })).Should().ThrowAsync<NotFoundException>();
         }
@@ -74,11 +89,11 @@ namespace EMSTests.Services
         [Test]
         public async Task Create_WrongOrganizer_ThrowsUnauthorizedException()
         {
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent(organizerId: 10));
+            SetupScreeningAndEvent(organizerId: 10);
 
             await _sut.Invoking(s => s.Create(99, new CreateTicketTypeRequest
             {
-                EventId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 10,
+                ScreeningId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 10,
                 SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(1)
             })).Should().ThrowAsync<UnauthorizedException>();
         }
@@ -86,25 +101,40 @@ namespace EMSTests.Services
         [Test]
         public async Task Create_SaleEndBeforeSaleStart_ThrowsValidationException()
         {
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent());
+            SetupScreeningAndEvent();
             var now = DateTime.UtcNow;
 
             await _sut.Invoking(s => s.Create(10, new CreateTicketTypeRequest
             {
-                EventId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 10,
+                ScreeningId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 10,
                 SaleStart = now.AddDays(5), SaleEnd = now
             })).Should().ThrowAsync<ValidationException>().WithMessage("*SaleEnd*");
         }
 
         [Test]
-        public async Task Create_VenueNotFound_ThrowsNotFoundException()
+        public async Task Create_SaleEndsAfterScreeningStart_ThrowsValidationException()
         {
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent());
-            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync((Venue?)null);
+            // Screening starts in 15 days; a sale window ending in 20 days closes after the show begins.
+            SetupScreeningAndEvent();
+            var now = DateTime.UtcNow;
 
             await _sut.Invoking(s => s.Create(10, new CreateTicketTypeRequest
             {
-                EventId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 10,
+                ScreeningId = 1, Name = "VIP", SeatType = "VIP", Price = 500, TotalQuantity = 10,
+                SaleStart = now, SaleEnd = now.AddDays(20)
+            })).Should().ThrowAsync<ValidationException>().WithMessage("*before the screening*");
+        }
+
+        [Test]
+        public async Task Create_VenueNotFound_ThrowsNotFoundException()
+        {
+            SetupScreeningAndEvent();
+            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync((Venue?)null);
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>());
+
+            await _sut.Invoking(s => s.Create(10, new CreateTicketTypeRequest
+            {
+                ScreeningId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 10,
                 SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(1)
             })).Should().ThrowAsync<NotFoundException>();
         }
@@ -112,13 +142,14 @@ namespace EMSTests.Services
         [Test]
         public async Task Create_NoSeatsOfType_ThrowsValidationException()
         {
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent());
+            SetupScreeningAndEvent();
             _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeVenue());
             _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(0);
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>());
 
             await _sut.Invoking(s => s.Create(10, new CreateTicketTypeRequest
             {
-                EventId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 10,
+                ScreeningId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 10,
                 SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(1)
             })).Should().ThrowAsync<ValidationException>().WithMessage("*No seats*");
         }
@@ -126,17 +157,17 @@ namespace EMSTests.Services
         [Test]
         public async Task Create_ExceedsTypeSeatCount_ThrowsValidationException()
         {
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent());
+            SetupScreeningAndEvent();
             _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeVenue());
             _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(10);
-            _ttRepo.Setup(r => r.GetByEventId(1)).ReturnsAsync(new List<TicketType>
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>
             {
                 new TicketType { SeatType = "VIP", TotalQuantity = 8 }
             });
 
             await _sut.Invoking(s => s.Create(10, new CreateTicketTypeRequest
             {
-                EventId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 5,
+                ScreeningId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 5,
                 SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(1)
             })).Should().ThrowAsync<ValidationException>().WithMessage("*exceeds available*");
         }
@@ -144,22 +175,22 @@ namespace EMSTests.Services
         [Test]
         public async Task Create_ExceedsVenueCapacity_ThrowsValidationException()
         {
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent());
+            SetupScreeningAndEvent();
             _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeVenue(capacity: 10));
             _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(100);
-            _ttRepo.Setup(r => r.GetByEventId(1)).ReturnsAsync(new List<TicketType>
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>
             {
                 new TicketType { SeatType = "General", TotalQuantity = 8 }
             });
 
             await _sut.Invoking(s => s.Create(10, new CreateTicketTypeRequest
             {
-                EventId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 5,
+                ScreeningId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 5,
                 SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(1)
             })).Should().ThrowAsync<ValidationException>().WithMessage("*venue capacity*");
         }
 
-        // ── GetById / GetByEventId / GetActiveByEventId ───────────────────────────
+        // ── GetById / GetByScreeningId / GetActiveByScreeningId ───────────────────
 
         [Test]
         public async Task GetById_Found_ReturnsDto()
@@ -180,21 +211,21 @@ namespace EMSTests.Services
         }
 
         [Test]
-        public async Task GetByEventId_ReturnsMappedList()
+        public async Task GetByScreeningId_ReturnsMappedList()
         {
-            _ttRepo.Setup(r => r.GetByEventId(1)).ReturnsAsync(new List<TicketType> { new TicketType { Id = 1 } });
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType> { new TicketType { Id = 1 } });
 
-            var result = await _sut.GetByEventId(1);
+            var result = await _sut.GetByScreeningId(1);
 
             result.Should().HaveCount(1);
         }
 
         [Test]
-        public async Task GetActiveByEventId_ReturnsMappedList()
+        public async Task GetActiveByScreeningId_ReturnsMappedList()
         {
-            _ttRepo.Setup(r => r.GetActiveByEventId(1)).ReturnsAsync(new List<TicketType> { new TicketType { Id = 1 } });
+            _ttRepo.Setup(r => r.GetActiveByScreeningId(1)).ReturnsAsync(new List<TicketType> { new TicketType { Id = 1 } });
 
-            var result = await _sut.GetActiveByEventId(1);
+            var result = await _sut.GetActiveByScreeningId(1);
 
             result.Should().HaveCount(1);
         }
@@ -204,12 +235,12 @@ namespace EMSTests.Services
         [Test]
         public async Task Update_ValidRequest_ReturnsUpdatedDto()
         {
-            var tt = new TicketType { Id = 1, EventId = 1, SeatType = "VIP", TotalQuantity = 50, AvailableQuantity = 50 };
+            var tt = new TicketType { Id = 1, ScreeningId = 1, SeatType = "VIP", TotalQuantity = 50, AvailableQuantity = 50 };
             _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent());
+            SetupScreeningAndEvent();
             _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeVenue());
             _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(100);
-            _ttRepo.Setup(r => r.GetByEventId(1)).ReturnsAsync(new List<TicketType> { tt });
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType> { tt });
             _ttRepo.Setup(r => r.Update(It.IsAny<TicketType>())).ReturnsAsync((TicketType t) => t);
 
             var result = await _sut.Update(1, 10, new UpdateTicketTypeRequest
@@ -236,10 +267,10 @@ namespace EMSTests.Services
         }
 
         [Test]
-        public async Task Update_EventNotFound_ThrowsNotFoundException()
+        public async Task Update_ScreeningNotFound_ThrowsNotFoundException()
         {
-            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(new TicketType { Id = 1, EventId = 99 });
-            _eventRepo.Setup(r => r.GetById(99)).ReturnsAsync((Event?)null);
+            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(new TicketType { Id = 1, ScreeningId = 99 });
+            _screeningRepo.Setup(r => r.GetById(99)).ReturnsAsync((Screening?)null);
 
             await _sut.Invoking(s => s.Update(1, 10, ValidUpdateRequest())).Should().ThrowAsync<NotFoundException>();
         }
@@ -247,8 +278,8 @@ namespace EMSTests.Services
         [Test]
         public async Task Update_WrongOrganizer_ThrowsUnauthorizedException()
         {
-            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(new TicketType { Id = 1, EventId = 1 });
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent(organizerId: 10));
+            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(new TicketType { Id = 1, ScreeningId = 1 });
+            SetupScreeningAndEvent(organizerId: 10);
 
             await _sut.Invoking(s => s.Update(1, 99, ValidUpdateRequest())).Should().ThrowAsync<UnauthorizedException>();
         }
@@ -256,9 +287,9 @@ namespace EMSTests.Services
         [Test]
         public async Task Update_QuantityBelowSold_ThrowsValidationException()
         {
-            var tt = new TicketType { Id = 1, EventId = 1, TotalQuantity = 50, AvailableQuantity = 40 };
+            var tt = new TicketType { Id = 1, ScreeningId = 1, TotalQuantity = 50, AvailableQuantity = 40 };
             _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent());
+            SetupScreeningAndEvent();
 
             await _sut.Invoking(s => s.Update(1, 10, ValidUpdateRequest(qty: 5)))
                 .Should().ThrowAsync<ValidationException>().WithMessage("*Cannot reduce*");
@@ -267,10 +298,11 @@ namespace EMSTests.Services
         [Test]
         public async Task Update_VenueNotFound_ThrowsNotFoundException()
         {
-            var tt = new TicketType { Id = 1, EventId = 1, TotalQuantity = 50, AvailableQuantity = 50 };
+            var tt = new TicketType { Id = 1, ScreeningId = 1, TotalQuantity = 50, AvailableQuantity = 50 };
             _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent());
+            SetupScreeningAndEvent();
             _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync((Venue?)null);
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType> { tt });
 
             await _sut.Invoking(s => s.Update(1, 10, ValidUpdateRequest())).Should().ThrowAsync<NotFoundException>();
         }
@@ -278,11 +310,12 @@ namespace EMSTests.Services
         [Test]
         public async Task Update_NoSeatsOfType_ThrowsValidationException()
         {
-            var tt = new TicketType { Id = 1, EventId = 1, TotalQuantity = 50, AvailableQuantity = 50 };
+            var tt = new TicketType { Id = 1, ScreeningId = 1, TotalQuantity = 50, AvailableQuantity = 50 };
             _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent());
+            SetupScreeningAndEvent();
             _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeVenue());
             _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(0);
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType> { tt });
 
             await _sut.Invoking(s => s.Update(1, 10, ValidUpdateRequest()))
                 .Should().ThrowAsync<ValidationException>().WithMessage("*No seats*");
@@ -291,12 +324,12 @@ namespace EMSTests.Services
         [Test]
         public async Task Update_ExceedsTypeSeatCount_ThrowsValidationException()
         {
-            var tt = new TicketType { Id = 1, EventId = 1, SeatType = "VIP", TotalQuantity = 10, AvailableQuantity = 10 };
+            var tt = new TicketType { Id = 1, ScreeningId = 1, SeatType = "VIP", TotalQuantity = 10, AvailableQuantity = 10 };
             _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent());
+            SetupScreeningAndEvent();
             _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeVenue());
             _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(10);
-            _ttRepo.Setup(r => r.GetByEventId(1)).ReturnsAsync(new List<TicketType>
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>
             {
                 tt,
                 new TicketType { Id = 2, SeatType = "VIP", TotalQuantity = 8 }
@@ -309,12 +342,12 @@ namespace EMSTests.Services
         [Test]
         public async Task Update_ExceedsVenueCapacity_ThrowsValidationException()
         {
-            var tt = new TicketType { Id = 1, EventId = 1, SeatType = "VIP", TotalQuantity = 5, AvailableQuantity = 5 };
+            var tt = new TicketType { Id = 1, ScreeningId = 1, SeatType = "VIP", TotalQuantity = 5, AvailableQuantity = 5 };
             _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent());
+            SetupScreeningAndEvent();
             _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeVenue(capacity: 10));
             _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(100);
-            _ttRepo.Setup(r => r.GetByEventId(1)).ReturnsAsync(new List<TicketType>
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>
             {
                 tt,
                 new TicketType { Id = 2, SeatType = "General", TotalQuantity = 8 }
@@ -329,8 +362,8 @@ namespace EMSTests.Services
         [Test]
         public async Task Delete_OwnTicketType_CallsDelete()
         {
-            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(new TicketType { Id = 1, EventId = 1 });
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent());
+            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(new TicketType { Id = 1, ScreeningId = 1 });
+            SetupScreeningAndEvent();
             _ttRepo.Setup(r => r.Delete(1)).Returns(Task.CompletedTask);
 
             await _sut.Delete(1, 10);
@@ -347,10 +380,10 @@ namespace EMSTests.Services
         }
 
         [Test]
-        public async Task Delete_EventNotFound_ThrowsNotFoundException()
+        public async Task Delete_ScreeningNotFound_ThrowsNotFoundException()
         {
-            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(new TicketType { Id = 1, EventId = 99 });
-            _eventRepo.Setup(r => r.GetById(99)).ReturnsAsync((Event?)null);
+            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(new TicketType { Id = 1, ScreeningId = 99 });
+            _screeningRepo.Setup(r => r.GetById(99)).ReturnsAsync((Screening?)null);
 
             await _sut.Invoking(s => s.Delete(1, 10)).Should().ThrowAsync<NotFoundException>();
         }
@@ -358,8 +391,8 @@ namespace EMSTests.Services
         [Test]
         public async Task Delete_WrongOrganizer_ThrowsUnauthorizedException()
         {
-            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(new TicketType { Id = 1, EventId = 1 });
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent(organizerId: 10));
+            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(new TicketType { Id = 1, ScreeningId = 1 });
+            SetupScreeningAndEvent(organizerId: 10);
 
             await _sut.Invoking(s => s.Delete(1, 99)).Should().ThrowAsync<UnauthorizedException>();
         }

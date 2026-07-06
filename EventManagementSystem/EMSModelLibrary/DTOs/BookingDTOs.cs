@@ -14,7 +14,7 @@ namespace EMSModelLibrary.DTOs
     public class CreateBookingRequest
     {
         [Range(1, int.MaxValue)]
-        public int EventId { get; set; }
+        public int ScreeningId { get; set; }
 
         [Required]
         public List<BookingItemRequest> Items { get; set; } = new();
@@ -35,8 +35,11 @@ namespace EMSModelLibrary.DTOs
     {
         public int Id { get; set; }
         public int UserId { get; set; }
+        public int ScreeningId { get; set; }
         public int EventId { get; set; }
         public string EventTitle { get; set; } = string.Empty;
+        public string Screen { get; set; } = string.Empty;
+        public DateTime ScreeningStartTime { get; set; }
         public string BookingReference { get; set; } = string.Empty;
         public string QrCode { get; set; } = string.Empty;
         public decimal TotalAmount { get; set; }
@@ -62,8 +65,5 @@ namespace EMSModelLibrary.DTOs
     {
         [Required]
         public string QrPayload { get; set; } = string.Empty;
-
-        [Range(1, int.MaxValue)]
-        public int ScannedBy { get; set; }
     }
 }

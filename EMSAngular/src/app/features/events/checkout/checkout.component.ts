@@ -27,14 +27,34 @@ export class CheckoutComponent implements OnInit {
   protected loading = signal(false);
   protected error = signal('');
 
+  private bookingId = 0;
+
   ngOnInit(): void {
-    const bookingId = Number(this.route.snapshot.paramMap.get('bookingId'));
+    this.bookingId = Number(this.route.snapshot.paramMap.get('bookingId'));
+
+    // When a payment method requires a redirect (e.g. 3D Secure), Stripe sends the
+    // browser back here with the intent id in the query string. Confirm that intent
+    // instead of starting a brand-new payment, otherwise the booking stays Pending.
+    const intentId = this.route.snapshot.queryParamMap.get('payment_intent');
+    const redirectStatus = this.route.snapshot.queryParamMap.get('redirect_status');
+    if (intentId && redirectStatus === 'succeeded') {
+      this.confirmPayment(intentId);
+      return;
+    }
+    if (intentId) {
+      this.error.set('Payment was not completed. Please try again.');
+    }
+
+    this.loadBookingAndInitiate();
+  }
+
+  private loadBookingAndInitiate(): void {
     this.loading.set(true);
-    this.bookingService.getById(bookingId).subscribe({
+    this.bookingService.getById(this.bookingId).subscribe({
       next: b => {
         this.booking.set(b);
         this.loading.set(false);
-        this.paymentService.initiate({ bookingId, currency: 'inr' }).subscribe({
+        this.paymentService.initiate({ bookingId: this.bookingId, currency: 'inr' }).subscribe({
           next: p => this.clientSecret.set(p.clientSecret),
           error: (msg: string) => this.error.set(msg),
         });
@@ -44,8 +64,12 @@ export class CheckoutComponent implements OnInit {
   }
 
   protected onPaymentSucceeded(intentId: string): void {
+    this.confirmPayment(intentId);
+  }
+
+  private confirmPayment(intentId: string): void {
     this.paymentService.confirm({ stripePaymentIntentId: intentId }).subscribe({
-      next: () => this.router.navigate(['/bookings', this.booking()!.id], { queryParams: { confirmed: 1 } }),
+      next: () => this.router.navigate(['/bookings', this.bookingId], { queryParams: { confirmed: 1 } }),
       error: (msg: string) => this.error.set(msg),
     });
   }

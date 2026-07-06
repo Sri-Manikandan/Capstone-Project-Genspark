@@ -22,16 +22,18 @@ namespace EMSApplicationLayer.Controllers
         }
 
         [HttpGet("venue/{venueId:int}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetByVenue(int venueId)
         {
             var seats = await _seatService.GetByVenueId(venueId);
             return Ok(seats);
         }
 
-        [HttpGet("available/event/{eventId:int}")]
-        public async Task<IActionResult> GetAvailable(int eventId)
+        [HttpGet("available/screening/{screeningId:int}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetAvailable(int screeningId)
         {
-            var seats = await _seatService.GetAvailableByEventId(eventId);
+            var seats = await _seatService.GetAvailableByScreeningId(screeningId);
             return Ok(seats);
         }
 

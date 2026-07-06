@@ -5,6 +5,7 @@ using System.Threading.RateLimiting;
 using Asp.Versioning.ApiExplorer;
 using EMSApplicationLayer.BackgroundServices;
 using EMSApplicationLayer.Filters;
+using EMSApplicationLayer.Helpers;
 using EMSApplicationLayer.Hubs;
 using EMSApplicationLayer.Middleware;
 using EMSApplicationLayer.Notifications;
@@ -37,6 +38,22 @@ Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"]
 // ── Controllers ──────────────────────────────────────────────────────────────
 builder.Services.AddControllers();
 
+// Reshape [ApiController] model-validation (DataAnnotation) failures into the same
+// { "error": "..." } envelope the ExceptionMiddleware returns, so the frontend has a
+// single, consistent error shape to read for every 4xx.
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var message = context.ModelState.Values
+            .SelectMany(v => v.Errors)
+            .Select(e => e.ErrorMessage)
+            .FirstOrDefault(m => !string.IsNullOrWhiteSpace(m))
+            ?? "One or more validation errors occurred.";
+        return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(new { error = message });
+    };
+});
+
 // ── API Versioning ────────────────────────────────────────────────────────────
 builder.Services.AddApiVersioning(options =>
 {
@@ -50,12 +67,15 @@ builder.Services.AddApiVersioning(options =>
 });
 
 // ── Database ─────────────────────────────────────────────────────────────────
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserAccessor, HttpContextCurrentUserAccessor>();
 builder.Services.AddDbContext<EventContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 
 // ── Repositories ─────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IEventRepository, EventRepository>();
+builder.Services.AddScoped<IScreeningRepository, ScreeningRepository>();
 builder.Services.AddScoped<IVenueRepository, VenueRepository>();
 builder.Services.AddScoped<ISeatRepository, SeatRepository>();
 builder.Services.AddScoped<ITicketTypeRepository, TicketTypeRepository>();
@@ -65,11 +85,13 @@ builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<ISeatReservationRepository, SeatReservationRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IOrganizerRequestRepository, OrganizerRequestRepository>();
+builder.Services.AddScoped<IChangeLogRepository, ChangeLogRepository>();
 
 // ── Services ──────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IEventService, EventService>();
+builder.Services.AddScoped<IScreeningService, ScreeningService>();
 builder.Services.AddScoped<IVenueService, VenueService>();
 builder.Services.AddScoped<ISeatService, SeatService>();
 builder.Services.AddScoped<ISeatReservationService, SeatReservationService>();
@@ -79,6 +101,7 @@ builder.Services.AddScoped<IStripePaymentIntentClient, StripePaymentIntentClient
 builder.Services.AddScoped<IStripeRefundClient, StripeRefundClient>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IStripeWebhookService, StripeWebhookService>();
+builder.Services.AddScoped<IChangeLogService, ChangeLogService>();
 // ── SignalR ───────────────────────────────────────────────────────────────────
 builder.Services.AddSignalR();
 builder.Services.AddScoped<ISeatNotifier, SignalRSeatNotifier>();
@@ -113,7 +136,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // Defense in depth: any endpoint that does not explicitly opt out with
+    // [AllowAnonymous] requires an authenticated user. Public browsing endpoints
+    // and the auth/webhook/hub surfaces are annotated with [AllowAnonymous].
+    options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 builder.Services.AddRateLimiter(options =>
@@ -152,11 +183,16 @@ builder.Services.AddRateLimiter(options =>
 });
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
+// Explicit allow-list. Origins are read from Cors:AllowedOrigins (array) in
+// configuration; falls back to the local Angular dev server when unset. Never
+// reflect arbitrary origins together with AllowCredentials.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? new[] { "http://localhost:4200", "https://localhost:4200" };
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.SetIsOriginAllowed(_ => true)
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();

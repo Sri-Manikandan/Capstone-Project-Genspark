@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using AutoMapper;
 using EMSModelLibrary.DTOs;
+using EMSBLLLibrary.Helpers;
 using EMSBLLLibrary.Interfaces;
 using EMSModelLibrary.Exceptions;
 using EMSDALLibrary.Interfaces;
@@ -16,6 +17,7 @@ namespace EMSBLLLibrary.Services
         private readonly ITicketTypeRepository _ticketTypeRepo;
         private readonly ISeatRepository _seatRepo;
         private readonly ISeatReservationRepository _reservationRepo;
+        private readonly IScreeningRepository _screeningRepo;
         private readonly IEventRepository _eventRepo;
         private readonly ISeatNotifier _notifier;
         private readonly IMapper _mapper;
@@ -28,6 +30,7 @@ namespace EMSBLLLibrary.Services
             ITicketTypeRepository ticketTypeRepo,
             ISeatRepository seatRepo,
             ISeatReservationRepository reservationRepo,
+            IScreeningRepository screeningRepo,
             IEventRepository eventRepo,
             ISeatNotifier notifier,
             IMapper mapper,
@@ -39,6 +42,7 @@ namespace EMSBLLLibrary.Services
             _ticketTypeRepo = ticketTypeRepo;
             _seatRepo = seatRepo;
             _reservationRepo = reservationRepo;
+            _screeningRepo = screeningRepo;
             _eventRepo = eventRepo;
             _notifier = notifier;
             _mapper = mapper;
@@ -48,14 +52,17 @@ namespace EMSBLLLibrary.Services
 
         public async Task<BookingDto> Create(int userId, CreateBookingRequest request)
         {
-            var ev = await _eventRepo.GetById(request.EventId)
-                ?? throw new NotFoundException($"Event {request.EventId} not found.");
+            var screening = await _screeningRepo.GetById(request.ScreeningId)
+                ?? throw new NotFoundException($"Screening {request.ScreeningId} not found.");
+
+            var ev = await _eventRepo.GetById(screening.EventId)
+                ?? throw new NotFoundException($"Event {screening.EventId} not found.");
 
             if (ev.Status != "Published")
                 throw new ValidationException("Bookings are only allowed for published events.");
 
-            if (ev.StartTime <= DateTime.UtcNow)
-                throw new ValidationException("Bookings are not allowed for events that have already started or ended.");
+            if (screening.StartTime <= DateTime.UtcNow)
+                throw new ValidationException("Bookings are not allowed for screenings that have already started or ended.");
 
             if (!request.Items.Any())
                 throw new ValidationException("At least one ticket item is required.");
@@ -66,13 +73,13 @@ namespace EMSBLLLibrary.Services
                 var tt = await _ticketTypeRepo.GetById(item.TicketTypeId)
                     ?? throw new NotFoundException($"TicketType {item.TicketTypeId} not found.");
 
-                if (tt.EventId != request.EventId)
-                    throw new ValidationException($"TicketType {item.TicketTypeId} does not belong to this event.");
+                if (tt.ScreeningId != request.ScreeningId)
+                    throw new ValidationException($"TicketType {item.TicketTypeId} does not belong to this screening.");
 
                 if (tt.AvailableQuantity < 1)
                     throw new ValidationException($"Ticket '{tt.Name}' is sold out.");
 
-                var reservation = await _reservationRepo.GetActiveByEventAndSeat(request.EventId, item.SeatId);
+                var reservation = await _reservationRepo.GetActiveByScreeningAndSeat(request.ScreeningId, item.SeatId);
                 if (reservation == null)
                     throw new ValidationException($"Seat {item.SeatId} is not reserved. Please reserve the seat before booking.");
 
@@ -93,9 +100,9 @@ namespace EMSBLLLibrary.Services
             var booking = new Booking
             {
                 UserId = userId,
-                EventId = request.EventId,
+                ScreeningId = request.ScreeningId,
                 BookingReference = GenerateBookingReference(),
-                QrCode = qrPayload,
+                QrCode = QrCodeHelper.GeneratePngBase64(qrPayload),
                 QrPayload = qrPayload,
                 TotalAmount = totalAmount,
                 BookingStatus = "Pending",
@@ -122,14 +129,14 @@ namespace EMSBLLLibrary.Services
                 if (!await _ticketTypeRepo.TryDecrementAvailableQuantity(itemReq.TicketTypeId))
                     throw new ValidationException($"Ticket '{tt.Name}' is sold out.");
 
-                var reservation = await _reservationRepo.GetActiveByEventAndSeat(booking.EventId, itemReq.SeatId);
+                var reservation = await _reservationRepo.GetActiveByScreeningAndSeat(booking.ScreeningId, itemReq.SeatId);
                 if (reservation != null)
                 {
                     reservation.Status = "Confirmed";
                     await _reservationRepo.Update(reservation);
                 }
 
-                await _notifier.SeatBooked(booking.EventId, itemReq.SeatId);
+                await _notifier.SeatBooked(booking.ScreeningId, itemReq.SeatId);
 
                 var itemDto = _mapper.Map<BookingItemDto>(bookingItem);
                 itemDto.TicketTypeName = tt.Name;
@@ -138,7 +145,10 @@ namespace EMSBLLLibrary.Services
             }
 
             var dto = _mapper.Map<BookingDto>(booking);
+            dto.EventId = ev.Id;
             dto.EventTitle = ev.Title;
+            dto.Screen = screening.Screen;
+            dto.ScreeningStartTime = TimeHelper.UtcToIst(screening.StartTime);
             dto.Items = itemDtos;
             return dto;
         }
@@ -172,8 +182,14 @@ namespace EMSBLLLibrary.Services
             return new PagedResult<BookingDto> { Items = items, TotalCount = total, Page = request.Page, PageSize = request.PageSize };
         }
 
-        public async Task<PagedResult<BookingDto>> GetByEventId(int eventId, BookingQueryRequest request)
+        public async Task<PagedResult<BookingDto>> GetByEventId(int eventId, int requesterId, bool isAdmin, BookingQueryRequest request)
         {
+            var ev = await _eventRepo.GetById(eventId)
+                ?? throw new NotFoundException($"Event {eventId} not found.");
+
+            if (!isAdmin && ev.OrganizerId != requesterId)
+                throw new UnauthorizedException("Not authorized to view bookings for this event.");
+
             var (bookings, total) = await _bookingRepo.SearchByEventId(eventId, request.Status, request.Page, request.PageSize);
             var items = new List<BookingDto>();
             foreach (var b in bookings)
@@ -216,29 +232,41 @@ namespace EMSBLLLibrary.Services
                 item.TicketStatus = "Cancelled";
                 await _bookingItemRepo.Update(item);
                 await _ticketTypeRepo.IncrementAvailableQuantity(item.TicketTypeId);
-                await _notifier.SeatReleased(booking.EventId, item.SeatId);
+                await _notifier.SeatReleased(booking.ScreeningId, item.SeatId);
             }
         }
 
-        public async Task<bool> ValidateQr(ValidateQrRequest request)
+        public async Task<BookingDto?> ValidateQr(ValidateQrRequest request, int scannedBy, bool isAdmin)
         {
-            var all = await _bookingRepo.GetAll();
-            var booking = all.FirstOrDefault(b => b.QrPayload == request.QrPayload);
+            var booking = await _bookingRepo.GetByQrPayload(request.QrPayload);
 
+            // Only a Confirmed booking can be scanned; once Attended, the same QR is rejected on any later scan.
             if (booking == null || booking.BookingStatus != "Confirmed")
-                return false;
+                return null;
+
+            // An organizer may only scan tickets for events they own.
+            if (!isAdmin)
+            {
+                var screening = await _screeningRepo.GetById(booking.ScreeningId)
+                    ?? throw new NotFoundException($"Screening {booking.ScreeningId} not found.");
+                var ev = await _eventRepo.GetById(screening.EventId)
+                    ?? throw new NotFoundException($"Event {screening.EventId} not found.");
+                if (ev.OrganizerId != scannedBy)
+                    throw new UnauthorizedException("Not authorized to validate tickets for this event.");
+            }
 
             booking.BookingStatus = "Attended";
             booking.ScannedAt = DateTime.UtcNow;
-            booking.ScannedBy = request.ScannedBy;
+            booking.ScannedBy = scannedBy;
             booking.UpdatedAt = DateTime.UtcNow;
             await _bookingRepo.Update(booking);
-            return true;
+            return await EnrichBooking(booking);
         }
 
         private async Task<BookingDto> EnrichBooking(Booking booking)
         {
-            var ev = await _eventRepo.GetById(booking.EventId);
+            var screening = await _screeningRepo.GetById(booking.ScreeningId);
+            var ev = screening != null ? await _eventRepo.GetById(screening.EventId) : null;
             var items = await _bookingItemRepo.GetByBookingId(booking.Id);
 
             var itemDtos = new List<BookingItemDto>();
@@ -254,7 +282,10 @@ namespace EMSBLLLibrary.Services
             }
 
             var dto = _mapper.Map<BookingDto>(booking);
+            dto.EventId = ev?.Id ?? 0;
             dto.EventTitle = ev?.Title ?? "";
+            dto.Screen = screening?.Screen ?? "";
+            dto.ScreeningStartTime = screening != null ? TimeHelper.UtcToIst(screening.StartTime) : default;
             dto.Items = itemDtos;
             return dto;
         }

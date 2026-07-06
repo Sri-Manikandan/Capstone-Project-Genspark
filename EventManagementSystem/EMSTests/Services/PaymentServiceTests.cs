@@ -34,7 +34,7 @@ namespace EMSTests.Services
 
         private Booking MakeBooking(int userId = 1, string status = "Pending", decimal total = 500m) => new Booking
         {
-            Id = 1, UserId = userId, EventId = 1, TotalAmount = total,
+            Id = 1, UserId = userId, ScreeningId = 1, TotalAmount = total,
             BookingStatus = status, ExpiresAt = DateTime.UtcNow.AddMinutes(30)
         };
 

@@ -21,32 +21,38 @@ namespace EMSDALLibrary.Repositories
                 .CountAsync(s => s.VenueId == venueId && s.SeatType == seatType);
         }
 
-        public async Task<List<Seat>> GetAvailableByEventId(int eventId)
+        // Availability is per screening: a seat booked/reserved in one screening stays
+        // free in another screening on the same physical screen.
+        public async Task<List<Seat>> GetAvailableByScreeningId(int screeningId)
         {
+            var screening = await _context.Screenings.FindAsync(screeningId);
+            if (screening == null) return new List<Seat>();
+
+            var eventEntity = await _context.Events.FindAsync(screening.EventId);
+            if (eventEntity == null) return new List<Seat>();
+
             var now = DateTime.UtcNow;
             var bookedSeatIds = await _context.BookingItems
                 .Join(_context.Bookings,
                     bi => bi.BookingId,
                     b => b.Id,
-                    (bi, b) => new { bi.SeatId, b.EventId, b.BookingStatus })
-                .Where(x => x.EventId == eventId && x.BookingStatus != "Cancelled")
+                    (bi, b) => new { bi.SeatId, b.ScreeningId, b.BookingStatus })
+                .Where(x => x.ScreeningId == screeningId && x.BookingStatus != "Cancelled")
                 .Select(x => x.SeatId)
                 .ToListAsync();
 
             var reservedSeatIds = await _context.SeatReservations
-                .Where(sr => sr.EventId == eventId && sr.ReservedUntil > now && sr.Status == "Active")
+                .Where(sr => sr.ScreeningId == screeningId && sr.ReservedUntil > now && sr.Status == "Active")
                 .Select(sr => sr.SeatId)
                 .ToListAsync();
 
             var unavailableSeatIds = bookedSeatIds.Union(reservedSeatIds).ToHashSet();
 
-            var eventEntity = await _context.Events.FindAsync(eventId);
-            if (eventEntity == null) return new List<Seat>();
-
+            // A screen is a label with its own independent availability; every screening
+            // exposes the full venue seat grid minus the seats taken for that screening.
             return await _context.Seats
                 .Where(s => s.VenueId == eventEntity.VenueId
-                            && !unavailableSeatIds.Contains(s.Id)
-                            && (eventEntity.Screen == "" || s.Section == eventEntity.Screen))
+                            && !unavailableSeatIds.Contains(s.Id))
                 .ToListAsync();
         }
 

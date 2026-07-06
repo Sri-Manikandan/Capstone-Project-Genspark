@@ -22,6 +22,7 @@ namespace EMSTests.Services
         private Mock<ITicketTypeRepository> _ticketTypeRepo;
         private Mock<ISeatRepository> _seatRepo;
         private Mock<ISeatReservationRepository> _reservationRepo;
+        private Mock<IScreeningRepository> _screeningRepo;
         private Mock<IEventRepository> _eventRepo;
         private Mock<ISeatNotifier> _notifier;
         private Mock<IPaymentRepository> _paymentRepo;
@@ -39,6 +40,8 @@ namespace EMSTests.Services
             _ticketTypeRepo = new Mock<ITicketTypeRepository>();
             _seatRepo = new Mock<ISeatRepository>();
             _reservationRepo = new Mock<ISeatReservationRepository>();
+            _screeningRepo = new Mock<IScreeningRepository>();
+            _screeningRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeScreening());
             _eventRepo = new Mock<IEventRepository>();
             _notifier = new Mock<ISeatNotifier>();
             _paymentRepo = new Mock<IPaymentRepository>();
@@ -47,9 +50,15 @@ namespace EMSTests.Services
 
             _sut = new BookingService(
                 _bookingRepo.Object, _bookingItemRepo.Object, _ticketTypeRepo.Object,
-                _seatRepo.Object, _reservationRepo.Object, _eventRepo.Object,
+                _seatRepo.Object, _reservationRepo.Object, _screeningRepo.Object, _eventRepo.Object,
                 _notifier.Object, _mapper, _paymentRepo.Object, _refundClient.Object);
         }
+
+        private Screening MakeScreening(DateTime? startTime = null) => new Screening
+        {
+            Id = 1, EventId = 1, Screen = "Screen 1", Status = "Scheduled",
+            StartTime = startTime ?? FutureStart, EndTime = (startTime ?? FutureStart).AddHours(3)
+        };
 
         private EmsEvent PublishedEvent() => new EmsEvent
         {
@@ -58,20 +67,20 @@ namespace EMSTests.Services
 
         private TicketType ActiveTicket(int seatId = 1) => new TicketType
         {
-            Id = 1, EventId = 1, Name = "VIP", SeatType = "VIP", Price = 500, AvailableQuantity = 10, TotalQuantity = 100
+            Id = 1, ScreeningId = 1, Name = "VIP", SeatType = "VIP", Price = 500, AvailableQuantity = 10, TotalQuantity = 100
         };
 
         private Seat MakeSeat(int id = 1) => new Seat { Id = id, VenueId = 1, SeatType = "VIP", Section = "A", Row = "1", SeatNumber = id };
 
         private SeatReservation ActiveReservation(int userId = 1) => new SeatReservation
         {
-            Id = 1, SeatId = 1, EventId = 1, UserId = userId, Status = "Active",
+            Id = 1, SeatId = 1, ScreeningId = 1, UserId = userId, Status = "Active",
             ReservedUntil = DateTime.UtcNow.AddMinutes(10)
         };
 
         private Booking MakeBooking(int userId = 1, string status = "Pending") => new Booking
         {
-            Id = 1, UserId = userId, EventId = 1, BookingStatus = status,
+            Id = 1, UserId = userId, ScreeningId = 1, BookingStatus = status,
             ExpiresAt = DateTime.UtcNow.AddMinutes(30)
         };
 
@@ -82,18 +91,17 @@ namespace EMSTests.Services
         {
             _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(PublishedEvent());
             _ticketTypeRepo.Setup(r => r.GetById(1)).ReturnsAsync(ActiveTicket());
-            _reservationRepo.Setup(r => r.GetActiveByEventAndSeat(1, 1)).ReturnsAsync(ActiveReservation());
+            _reservationRepo.Setup(r => r.GetActiveByScreeningAndSeat(1, 1)).ReturnsAsync(ActiveReservation());
             _seatRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeSeat());
             _bookingRepo.Setup(r => r.Add(It.IsAny<Booking>())).ReturnsAsync((Booking b) => b);
             _bookingItemRepo.Setup(r => r.Add(It.IsAny<BookingItem>())).ReturnsAsync((BookingItem bi) => bi);
             _ticketTypeRepo.Setup(r => r.TryDecrementAvailableQuantity(1)).ReturnsAsync(true);
             _reservationRepo.Setup(r => r.Update(It.IsAny<SeatReservation>())).ReturnsAsync(ActiveReservation());
             _notifier.Setup(n => n.SeatBooked(1, 1)).Returns(Task.CompletedTask);
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(PublishedEvent());
 
             var result = await _sut.Create(1, new CreateBookingRequest
             {
-                EventId = 1,
+                ScreeningId = 1,
                 Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
             });
 
@@ -102,13 +110,13 @@ namespace EMSTests.Services
         }
 
         [Test]
-        public async Task Create_EventNotFound_ThrowsNotFoundException()
+        public async Task Create_ScreeningNotFound_ThrowsNotFoundException()
         {
-            _eventRepo.Setup(r => r.GetById(99)).ReturnsAsync((EmsEvent?)null);
+            _screeningRepo.Setup(r => r.GetById(99)).ReturnsAsync((Screening?)null);
 
             await _sut.Invoking(s => s.Create(1, new CreateBookingRequest
             {
-                EventId = 99, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
+                ScreeningId = 99, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
             })).Should().ThrowAsync<NotFoundException>();
         }
 
@@ -121,20 +129,19 @@ namespace EMSTests.Services
 
             await _sut.Invoking(s => s.Create(1, new CreateBookingRequest
             {
-                EventId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
+                ScreeningId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
             })).Should().ThrowAsync<ValidationException>().WithMessage("*published*");
         }
 
         [Test]
-        public async Task Create_EventAlreadyStarted_ThrowsValidationException()
+        public async Task Create_ScreeningAlreadyStarted_ThrowsValidationException()
         {
-            var ev = PublishedEvent();
-            ev.StartTime = DateTime.UtcNow.AddMinutes(-1);
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(ev);
+            _screeningRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeScreening(DateTime.UtcNow.AddMinutes(-1)));
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(PublishedEvent());
 
             await _sut.Invoking(s => s.Create(1, new CreateBookingRequest
             {
-                EventId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
+                ScreeningId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
             })).Should().ThrowAsync<ValidationException>().WithMessage("*already started*");
         }
 
@@ -145,7 +152,7 @@ namespace EMSTests.Services
 
             await _sut.Invoking(s => s.Create(1, new CreateBookingRequest
             {
-                EventId = 1, Items = new List<BookingItemRequest>()
+                ScreeningId = 1, Items = new List<BookingItemRequest>()
             })).Should().ThrowAsync<ValidationException>().WithMessage("*At least one*");
         }
 
@@ -157,19 +164,19 @@ namespace EMSTests.Services
 
             await _sut.Invoking(s => s.Create(1, new CreateBookingRequest
             {
-                EventId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 99, SeatId = 1 } }
+                ScreeningId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 99, SeatId = 1 } }
             })).Should().ThrowAsync<NotFoundException>();
         }
 
         [Test]
-        public async Task Create_TicketTypeWrongEvent_ThrowsValidationException()
+        public async Task Create_TicketTypeWrongScreening_ThrowsValidationException()
         {
             _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(PublishedEvent());
-            _ticketTypeRepo.Setup(r => r.GetById(1)).ReturnsAsync(new TicketType { Id = 1, EventId = 99, SeatType = "VIP", AvailableQuantity = 10 });
+            _ticketTypeRepo.Setup(r => r.GetById(1)).ReturnsAsync(new TicketType { Id = 1, ScreeningId = 99, SeatType = "VIP", AvailableQuantity = 10 });
 
             await _sut.Invoking(s => s.Create(1, new CreateBookingRequest
             {
-                EventId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
+                ScreeningId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
             })).Should().ThrowAsync<ValidationException>().WithMessage("*does not belong*");
         }
 
@@ -177,11 +184,11 @@ namespace EMSTests.Services
         public async Task Create_TicketSoldOut_ThrowsValidationException()
         {
             _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(PublishedEvent());
-            _ticketTypeRepo.Setup(r => r.GetById(1)).ReturnsAsync(new TicketType { Id = 1, EventId = 1, Name = "VIP", SeatType = "VIP", AvailableQuantity = 0 });
+            _ticketTypeRepo.Setup(r => r.GetById(1)).ReturnsAsync(new TicketType { Id = 1, ScreeningId = 1, Name = "VIP", SeatType = "VIP", AvailableQuantity = 0 });
 
             await _sut.Invoking(s => s.Create(1, new CreateBookingRequest
             {
-                EventId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
+                ScreeningId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
             })).Should().ThrowAsync<ValidationException>().WithMessage("*sold out*");
         }
 
@@ -190,11 +197,11 @@ namespace EMSTests.Services
         {
             _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(PublishedEvent());
             _ticketTypeRepo.Setup(r => r.GetById(1)).ReturnsAsync(ActiveTicket());
-            _reservationRepo.Setup(r => r.GetActiveByEventAndSeat(1, 1)).ReturnsAsync((SeatReservation?)null);
+            _reservationRepo.Setup(r => r.GetActiveByScreeningAndSeat(1, 1)).ReturnsAsync((SeatReservation?)null);
 
             await _sut.Invoking(s => s.Create(1, new CreateBookingRequest
             {
-                EventId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
+                ScreeningId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
             })).Should().ThrowAsync<ValidationException>().WithMessage("*not reserved*");
         }
 
@@ -203,11 +210,11 @@ namespace EMSTests.Services
         {
             _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(PublishedEvent());
             _ticketTypeRepo.Setup(r => r.GetById(1)).ReturnsAsync(ActiveTicket());
-            _reservationRepo.Setup(r => r.GetActiveByEventAndSeat(1, 1)).ReturnsAsync(ActiveReservation(userId: 99));
+            _reservationRepo.Setup(r => r.GetActiveByScreeningAndSeat(1, 1)).ReturnsAsync(ActiveReservation(userId: 99));
 
             await _sut.Invoking(s => s.Create(1, new CreateBookingRequest
             {
-                EventId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
+                ScreeningId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
             })).Should().ThrowAsync<ValidationException>().WithMessage("*another user*");
         }
 
@@ -216,12 +223,12 @@ namespace EMSTests.Services
         {
             _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(PublishedEvent());
             _ticketTypeRepo.Setup(r => r.GetById(1)).ReturnsAsync(ActiveTicket());
-            _reservationRepo.Setup(r => r.GetActiveByEventAndSeat(1, 1)).ReturnsAsync(ActiveReservation());
+            _reservationRepo.Setup(r => r.GetActiveByScreeningAndSeat(1, 1)).ReturnsAsync(ActiveReservation());
             _seatRepo.Setup(r => r.GetById(1)).ReturnsAsync(new Seat { Id = 1, SeatType = "General" });
 
             await _sut.Invoking(s => s.Create(1, new CreateBookingRequest
             {
-                EventId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
+                ScreeningId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
             })).Should().ThrowAsync<ValidationException>().WithMessage("*type*");
         }
 
@@ -230,7 +237,7 @@ namespace EMSTests.Services
         {
             _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(PublishedEvent());
             _ticketTypeRepo.Setup(r => r.GetById(1)).ReturnsAsync(ActiveTicket());
-            _reservationRepo.Setup(r => r.GetActiveByEventAndSeat(1, 1)).ReturnsAsync(ActiveReservation());
+            _reservationRepo.Setup(r => r.GetActiveByScreeningAndSeat(1, 1)).ReturnsAsync(ActiveReservation());
             _seatRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeSeat());
             _bookingRepo.Setup(r => r.Add(It.IsAny<Booking>())).ReturnsAsync((Booking b) => b);
             _bookingItemRepo.Setup(r => r.Add(It.IsAny<BookingItem>())).ReturnsAsync((BookingItem bi) => bi);
@@ -238,7 +245,7 @@ namespace EMSTests.Services
 
             await _sut.Invoking(s => s.Create(1, new CreateBookingRequest
             {
-                EventId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
+                ScreeningId = 1, Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
             })).Should().ThrowAsync<ValidationException>().WithMessage("*sold out*");
         }
 
@@ -321,17 +328,48 @@ namespace EMSTests.Services
         }
 
         [Test]
-        public async Task GetByEventId_ReturnsMappedList()
+        public async Task GetByEventId_OwnerOrganizer_ReturnsMappedList()
         {
             _bookingRepo.Setup(r => r.SearchByEventId(1, null, 1, 10))
                         .ReturnsAsync((new List<Booking> { MakeBooking() }, 1));
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(PublishedEvent());
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(new EmsEvent { Id = 1, OrganizerId = 7, Status = "Published", VenueId = 1 });
             _bookingItemRepo.Setup(r => r.GetByBookingId(1)).ReturnsAsync(new List<BookingItem>());
 
-            var result = await _sut.GetByEventId(1, new BookingQueryRequest { Page = 1, PageSize = 10 });
+            var result = await _sut.GetByEventId(1, 7, false, new BookingQueryRequest { Page = 1, PageSize = 10 });
 
             result.Items.Should().HaveCount(1);
             result.TotalCount.Should().Be(1);
+        }
+
+        [Test]
+        public async Task GetByEventId_NonOwnerOrganizer_ThrowsUnauthorized()
+        {
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(new EmsEvent { Id = 1, OrganizerId = 7, Status = "Published", VenueId = 1 });
+
+            await _sut.Invoking(s => s.GetByEventId(1, 99, false, new BookingQueryRequest { Page = 1, PageSize = 10 }))
+                     .Should().ThrowAsync<UnauthorizedException>();
+        }
+
+        [Test]
+        public async Task GetByEventId_Admin_BypassesOwnershipCheck()
+        {
+            _bookingRepo.Setup(r => r.SearchByEventId(1, null, 1, 10))
+                        .ReturnsAsync((new List<Booking> { MakeBooking() }, 1));
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(new EmsEvent { Id = 1, OrganizerId = 7, Status = "Published", VenueId = 1 });
+            _bookingItemRepo.Setup(r => r.GetByBookingId(1)).ReturnsAsync(new List<BookingItem>());
+
+            var result = await _sut.GetByEventId(1, 99, true, new BookingQueryRequest { Page = 1, PageSize = 10 });
+
+            result.Items.Should().HaveCount(1);
+        }
+
+        [Test]
+        public async Task GetByEventId_EventNotFound_ThrowsNotFound()
+        {
+            _eventRepo.Setup(r => r.GetById(42)).ReturnsAsync((EmsEvent?)null);
+
+            await _sut.Invoking(s => s.GetByEventId(42, 7, false, new BookingQueryRequest { Page = 1, PageSize = 10 }))
+                     .Should().ThrowAsync<NotFoundException>();
         }
 
         // ── Cancel ───────────────────────────────────────────────────────────────
@@ -505,39 +543,90 @@ namespace EMSTests.Services
         // ── ValidateQr ───────────────────────────────────────────────────────────
 
         [Test]
-        public async Task ValidateQr_ValidConfirmedBooking_ReturnsTrueAndSetsAttended()
+        public async Task ValidateQr_OwnerOrganizer_ReturnsDtoAndSetsAttendedWithScanner()
         {
             var booking = MakeBooking(status: "Confirmed");
             booking.QrPayload = "qr_payload_abc";
-            _bookingRepo.Setup(r => r.GetAll()).ReturnsAsync(new List<Booking> { booking });
+            _bookingRepo.Setup(r => r.GetByQrPayload("qr_payload_abc")).ReturnsAsync(booking);
             _bookingRepo.Setup(r => r.Update(It.IsAny<Booking>())).ReturnsAsync(booking);
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(new EmsEvent { Id = 1, OrganizerId = 5, Status = "Published", VenueId = 1 });
+            _bookingItemRepo.Setup(r => r.GetByBookingId(booking.Id)).ReturnsAsync(new List<BookingItem>());
 
-            var result = await _sut.ValidateQr(new ValidateQrRequest { QrPayload = "qr_payload_abc", ScannedBy = 5 });
+            var result = await _sut.ValidateQr(new ValidateQrRequest { QrPayload = "qr_payload_abc" }, scannedBy: 5, isAdmin: false);
 
-            result.Should().BeTrue();
+            result.Should().NotBeNull();
+            result!.BookingStatus.Should().Be("Attended");
+            booking.BookingStatus.Should().Be("Attended");
+            booking.ScannedBy.Should().Be(5);
+        }
+
+        [Test]
+        public async Task ValidateQr_NonOwnerOrganizer_ThrowsUnauthorized()
+        {
+            var booking = MakeBooking(status: "Confirmed");
+            booking.QrPayload = "qr_payload_abc";
+            _bookingRepo.Setup(r => r.GetByQrPayload("qr_payload_abc")).ReturnsAsync(booking);
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(new EmsEvent { Id = 1, OrganizerId = 5, Status = "Published", VenueId = 1 });
+
+            await _sut.Invoking(s => s.ValidateQr(new ValidateQrRequest { QrPayload = "qr_payload_abc" }, scannedBy: 99, isAdmin: false))
+                     .Should().ThrowAsync<UnauthorizedException>();
+
+            booking.BookingStatus.Should().Be("Confirmed");
+        }
+
+        [Test]
+        public async Task ValidateQr_Admin_BypassesOwnershipCheck()
+        {
+            var booking = MakeBooking(status: "Confirmed");
+            booking.QrPayload = "qr_payload_abc";
+            _bookingRepo.Setup(r => r.GetByQrPayload("qr_payload_abc")).ReturnsAsync(booking);
+            _bookingRepo.Setup(r => r.Update(It.IsAny<Booking>())).ReturnsAsync(booking);
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(new EmsEvent { Id = 1, OrganizerId = 5, Status = "Published", VenueId = 1 });
+            _bookingItemRepo.Setup(r => r.GetByBookingId(booking.Id)).ReturnsAsync(new List<BookingItem>());
+
+            var result = await _sut.ValidateQr(new ValidateQrRequest { QrPayload = "qr_payload_abc" }, scannedBy: 99, isAdmin: true);
+
+            result.Should().NotBeNull();
             booking.BookingStatus.Should().Be("Attended");
         }
 
         [Test]
-        public async Task ValidateQr_NotFound_ReturnsFalse()
+        public async Task ValidateQr_NotFound_ReturnsNull()
         {
-            _bookingRepo.Setup(r => r.GetAll()).ReturnsAsync(new List<Booking>());
+            _bookingRepo.Setup(r => r.GetByQrPayload("bad_payload")).ReturnsAsync((Booking?)null);
 
-            var result = await _sut.ValidateQr(new ValidateQrRequest { QrPayload = "bad_payload" });
+            var result = await _sut.ValidateQr(new ValidateQrRequest { QrPayload = "bad_payload" }, scannedBy: 5, isAdmin: false);
 
-            result.Should().BeFalse();
+            result.Should().BeNull();
         }
 
         [Test]
-        public async Task ValidateQr_NotConfirmed_ReturnsFalse()
+        public async Task ValidateQr_NotConfirmed_ReturnsNull()
         {
             var booking = MakeBooking(status: "Pending");
             booking.QrPayload = "qr_payload_abc";
-            _bookingRepo.Setup(r => r.GetAll()).ReturnsAsync(new List<Booking> { booking });
+            _bookingRepo.Setup(r => r.GetByQrPayload("qr_payload_abc")).ReturnsAsync(booking);
 
-            var result = await _sut.ValidateQr(new ValidateQrRequest { QrPayload = "qr_payload_abc" });
+            var result = await _sut.ValidateQr(new ValidateQrRequest { QrPayload = "qr_payload_abc" }, scannedBy: 5, isAdmin: false);
 
-            result.Should().BeFalse();
+            result.Should().BeNull();
+        }
+
+        [Test]
+        public async Task ValidateQr_AlreadyAttended_RejectsSecondScanOfSameQr()
+        {
+            var booking = MakeBooking(status: "Confirmed");
+            booking.QrPayload = "qr_payload_abc";
+            _bookingRepo.Setup(r => r.GetByQrPayload("qr_payload_abc")).ReturnsAsync(booking);
+            _bookingRepo.Setup(r => r.Update(It.IsAny<Booking>())).ReturnsAsync(booking);
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(new EmsEvent { Id = 1, OrganizerId = 5, Status = "Published", VenueId = 1 });
+            _bookingItemRepo.Setup(r => r.GetByBookingId(booking.Id)).ReturnsAsync(new List<BookingItem>());
+
+            var first = await _sut.ValidateQr(new ValidateQrRequest { QrPayload = "qr_payload_abc" }, scannedBy: 5, isAdmin: false);
+            var second = await _sut.ValidateQr(new ValidateQrRequest { QrPayload = "qr_payload_abc" }, scannedBy: 5, isAdmin: false);
+
+            first.Should().NotBeNull();
+            second.Should().BeNull();
         }
     }
 }

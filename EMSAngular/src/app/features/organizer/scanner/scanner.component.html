@@ -4,6 +4,14 @@
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <ems-alert type="success" [message]="success()" (dismissed)="success.set('')" />
 
+    <div class="mb-4 flex items-center gap-3">
+      <button type="button" class="btn-primary" (click)="scanning() ? stopScan() : startScan()">
+        {{ scanning() ? 'Stop camera' : 'Scan with camera' }}
+      </button>
+    </div>
+
+    <div [id]="qrReaderElementId" class="mb-5 max-w-sm" [class.hidden]="!scanning()"></div>
+
     <form [formGroup]="form" (ngSubmit)="validate()" class="flex max-w-xl flex-col gap-3 sm:flex-row">
       <input formControlName="qrPayload" aria-label="QR payload" placeholder="Paste QR payload" class="field flex-1" />
       <button type="submit" class="btn-primary">Validate</button>

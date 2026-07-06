@@ -4,11 +4,12 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { AlertComponent } from '../../../shared/components/alert/alert.component';
+import { FieldErrorComponent } from '../../../shared/components/field-error/field-error.component';
 
 @Component({
   selector: 'ems-login',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, AlertComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, AlertComponent, FieldErrorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './login.component.html',
 })

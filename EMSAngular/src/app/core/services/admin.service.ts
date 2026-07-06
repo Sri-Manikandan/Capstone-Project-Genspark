@@ -30,8 +30,9 @@ export class AdminService {
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 
-  getPendingEvents(page: number, pageSize: number): Observable<PagedResult<EventDto>> {
-    return this.http.get<PagedResult<EventDto>>(`${this.base}/events/pending`, { params: toHttpParams({ page, pageSize }) })
+  // The backend returns every pending event as a plain array (no pagination).
+  getPendingEvents(): Observable<EventDto[]> {
+    return this.http.get<EventDto[]>(`${this.base}/events/pending`)
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 

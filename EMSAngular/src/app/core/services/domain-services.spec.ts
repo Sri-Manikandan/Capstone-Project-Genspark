@@ -69,9 +69,7 @@ describe('domain services', () => {
   });
 
   it('AdminService.getPendingEvents gets /Admin/events/pending', () => {
-    TestBed.inject(AdminService).getPendingEvents(1, 10).subscribe();
-    const req = http.expectOne(r => r.url === `${root}/Admin/events/pending`);
-    expect(req.request.params.get('page')).toBe('1');
-    req.flush({ items: [], totalCount: 0, page: 1, pageSize: 10, totalPages: 0 });
+    TestBed.inject(AdminService).getPendingEvents().subscribe();
+    http.expectOne(r => r.url === `${root}/Admin/events/pending`).flush([]);
   });
 });

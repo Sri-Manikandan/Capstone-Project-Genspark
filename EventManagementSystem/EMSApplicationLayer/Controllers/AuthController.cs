@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using EMSModelLibrary.DTOs;
 using EMSBLLLibrary.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -10,6 +11,7 @@ namespace EMSApplicationLayer.Controllers
     [ApiVersion("1.0")]
     [Route("api/v{version:apiVersion}/[controller]")]
     [EnableRateLimiting("auth")]
+    [AllowAnonymous]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;

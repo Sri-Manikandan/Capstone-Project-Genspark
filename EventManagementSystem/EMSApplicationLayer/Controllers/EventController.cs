@@ -22,6 +22,7 @@ namespace EMSApplicationLayer.Controllers
 
         // Public browse — Admin sees all statuses; everyone else sees Published only
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> GetAll([FromQuery] EventSearchRequest request)
         {
             if (!User.IsInRole("Admin"))
@@ -33,6 +34,7 @@ namespace EMSApplicationLayer.Controllers
 
         // Public — distinct categories of Published events (for filter dropdown)
         [HttpGet("categories")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetCategories()
         {
             var categories = await _eventService.GetCategories();
@@ -41,6 +43,7 @@ namespace EMSApplicationLayer.Controllers
 
         // Public — distinct cities of Published events (for the location switcher)
         [HttpGet("cities")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetCities()
         {
             var cities = await _eventService.GetCities();
@@ -49,6 +52,7 @@ namespace EMSApplicationLayer.Controllers
 
         // Public detail — Admin sees all; Organizer sees own + Published; others Published only
         [HttpGet("{id:int}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetById(int id)
         {
             var ev = await _eventService.GetById(id);
@@ -67,6 +71,7 @@ namespace EMSApplicationLayer.Controllers
 
         // Public slug lookup — same visibility rules as GetById
         [HttpGet("slug/{slug}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetBySlug(string slug)
         {
             var ev = await _eventService.GetBySlug(slug);

@@ -9,11 +9,11 @@ namespace EMSDALLibrary.Repositories
     {
         public SeatReservationRepository(EventContext context) : base(context) { }
 
-        public async Task<SeatReservation?> GetActiveByEventAndSeat(int eventId, int seatId)
+        public async Task<SeatReservation?> GetActiveByScreeningAndSeat(int screeningId, int seatId)
         {
             var now = DateTime.UtcNow;
             return await _context.SeatReservations.FirstOrDefaultAsync(
-                sr => sr.EventId == eventId && sr.SeatId == seatId
+                sr => sr.ScreeningId == screeningId && sr.SeatId == seatId
                    && sr.Status == "Active" && sr.ReservedUntil > now);
         }
 
@@ -22,9 +22,9 @@ namespace EMSDALLibrary.Repositories
             return await _context.SeatReservations.Where(sr => sr.UserId == userId).ToListAsync();
         }
 
-        public async Task<List<SeatReservation>> GetByEventId(int eventId)
+        public async Task<List<SeatReservation>> GetByScreeningId(int screeningId)
         {
-            return await _context.SeatReservations.Where(sr => sr.EventId == eventId).ToListAsync();
+            return await _context.SeatReservations.Where(sr => sr.ScreeningId == screeningId).ToListAsync();
         }
 
         public async Task DeleteExpired()

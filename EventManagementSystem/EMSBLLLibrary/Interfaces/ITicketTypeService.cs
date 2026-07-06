@@ -6,8 +6,8 @@ namespace EMSBLLLibrary.Interfaces
     {
         Task<TicketTypeDto> Create(int organizerId, CreateTicketTypeRequest request);
         Task<TicketTypeDto> GetById(int id);
-        Task<List<TicketTypeDto>> GetByEventId(int eventId);
-        Task<List<TicketTypeDto>> GetActiveByEventId(int eventId);
+        Task<List<TicketTypeDto>> GetByScreeningId(int screeningId);
+        Task<List<TicketTypeDto>> GetActiveByScreeningId(int screeningId);
         Task<TicketTypeDto> Update(int id, int organizerId, UpdateTicketTypeRequest request);
         Task Delete(int id, int organizerId);
     }

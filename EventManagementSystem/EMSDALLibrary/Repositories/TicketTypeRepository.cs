@@ -9,16 +9,16 @@ namespace EMSDALLibrary.Repositories
     {
         public TicketTypeRepository(EventContext context) : base(context) { }
 
-        public async Task<List<TicketType>> GetByEventId(int eventId)
+        public async Task<List<TicketType>> GetByScreeningId(int screeningId)
         {
-            return await _context.TicketTypes.Where(t => t.EventId == eventId).ToListAsync();
+            return await _context.TicketTypes.Where(t => t.ScreeningId == screeningId).ToListAsync();
         }
 
-        public async Task<List<TicketType>> GetActiveByEventId(int eventId)
+        public async Task<List<TicketType>> GetActiveByScreeningId(int screeningId)
         {
             var now = DateTime.UtcNow;
             return await _context.TicketTypes
-                .Where(t => t.EventId == eventId && t.IsActive && t.SaleStart <= now && t.SaleEnd >= now)
+                .Where(t => t.ScreeningId == screeningId && t.IsActive && t.SaleStart <= now && t.SaleEnd >= now)
                 .ToListAsync();
         }
 

@@ -1,3 +1,4 @@
+using EMSBLLLibrary.Helpers;
 using EMSDALLibrary.Contexts;
 using EMSModelLibrary.Models;
 using Microsoft.EntityFrameworkCore;
@@ -235,16 +236,64 @@ public static class DataSeeder
             ilaiyaraajaDraft, hiphopBattle, comedyBrawlRejected, maduraiCancelled);
         await db.SaveChangesAsync();
 
+        // ── 5b. Screenings ────────────────────────────────────────────────────
+        // Every event is bookable through a primary screening. Movies also get a
+        // second screening (different screen + time) so the screen-selection step
+        // is exercised and availability is independent per screening.
+        var allEvents = new[]
+        {
+            hiphopTamizha, anirudhLive, arivuEmbassy, santhoshLive, yuvanNight, indieFest,
+            aravindSA, praveenKumar, alexanderBabu, rjVignesh, openMic,
+            vikramRelease, ps2Screening, leoFanShow, masterRelease, ninetySix,
+            kovaiCarnival, sidSriramKovai, kovaiComedyNight,
+            maduraiClassical, thaikkudamMadurai, maduraiStandUp, karthikMadurai,
+            trichyFiesta, trichyMovieMarathon,
+            ilaiyaraajaDraft, hiphopBattle, comedyBrawlRejected, maduraiCancelled
+        };
+        var primary = new Dictionary<int, Screening>();
+        var extraMovieScreenings = new List<Screening>();
+        foreach (var ev in allEvents)
+        {
+            var p = new Screening
+            {
+                EventId = ev.Id,
+                Screen = string.IsNullOrWhiteSpace(ev.Screen) ? "Main" : ev.Screen,
+                StartTime = ev.StartTime,
+                EndTime = ev.EndTime,
+                Status = "Scheduled"
+            };
+            db.Screenings.Add(p);
+            primary[ev.Id] = p;
+
+            if (ev.Category == "Movies")
+            {
+                var second = new Screening
+                {
+                    EventId = ev.Id,
+                    Screen = "Screen 2",
+                    StartTime = ev.StartTime.AddHours(4),
+                    EndTime = ev.EndTime.AddHours(4),
+                    Status = "Scheduled"
+                };
+                db.Screenings.Add(second);
+                extraMovieScreenings.Add(second);
+            }
+        }
+        await db.SaveChangesAsync();
+
         // ── 6. TicketTypes ────────────────────────────────────────────────────
         var saleStart = now.AddDays(-7);
 
-        // Three tiers (Silver/Gold/Premium) per published event; sale ends at event start.
-        TicketType[] Tiers(Event ev, decimal silver, decimal gold, decimal premium, int qSilver, int qGold, int qPremium) => new[]
+        // Three tiers (Silver/Gold/Premium) per screening; sale ends at the screening start.
+        // Tiers(event, …) attaches to the event's primary screening.
+        TicketType[] TiersFor(Screening sc, decimal silver, decimal gold, decimal premium, int qSilver, int qGold, int qPremium) => new[]
         {
-            new TicketType { EventId = ev.Id, Name = "Silver",  SeatType = "Silver",  Price = silver,  TotalQuantity = qSilver,  AvailableQuantity = qSilver,  SaleStart = saleStart, SaleEnd = ev.StartTime, IsActive = true },
-            new TicketType { EventId = ev.Id, Name = "Gold",    SeatType = "Gold",    Price = gold,    TotalQuantity = qGold,    AvailableQuantity = qGold,    SaleStart = saleStart, SaleEnd = ev.StartTime, IsActive = true },
-            new TicketType { EventId = ev.Id, Name = "Premium", SeatType = "Premium", Price = premium, TotalQuantity = qPremium, AvailableQuantity = qPremium, SaleStart = saleStart, SaleEnd = ev.StartTime, IsActive = true },
+            new TicketType { ScreeningId = sc.Id, Name = "Silver",  SeatType = "Silver",  Price = silver,  TotalQuantity = qSilver,  AvailableQuantity = qSilver,  SaleStart = saleStart, SaleEnd = sc.StartTime, IsActive = true },
+            new TicketType { ScreeningId = sc.Id, Name = "Gold",    SeatType = "Gold",    Price = gold,    TotalQuantity = qGold,    AvailableQuantity = qGold,    SaleStart = saleStart, SaleEnd = sc.StartTime, IsActive = true },
+            new TicketType { ScreeningId = sc.Id, Name = "Premium", SeatType = "Premium", Price = premium, TotalQuantity = qPremium, AvailableQuantity = qPremium, SaleStart = saleStart, SaleEnd = sc.StartTime, IsActive = true },
         };
+        TicketType[] Tiers(Event ev, decimal silver, decimal gold, decimal premium, int qSilver, int qGold, int qPremium) =>
+            TiersFor(primary[ev.Id], silver, gold, premium, qSilver, qGold, qPremium);
 
         var ttHiphop    = Tiers(hiphopTamizha,  999m, 1999m, 3499m, 40, 30, 20);
         var ttAnirudh   = Tiers(anirudhLive,   1499m, 2999m, 4999m, 40, 30, 20);
@@ -279,9 +328,34 @@ public static class DataSeeder
             .Concat(ttKovaiCar).Concat(ttSidKovai).Concat(ttKovaiCom)
             .Concat(ttMadClass).Concat(ttThaikkudam).Concat(ttMadStand).Concat(ttKarthik)
             .Concat(ttTrichyFst).Concat(ttTrichyMov));
+
+        // Each movie's second screening gets its own tiers (independent availability).
+        foreach (var sc in extraMovieScreenings)
+            db.TicketTypes.AddRange(TiersFor(sc, 180m, 260m, 400m, 40, 30, 20));
+
         await db.SaveChangesAsync();
 
         // ── 7. Bookings ───────────────────────────────────────────────────────
+        // Bookings attach to the event's primary screening.
+        Booking MakeBooking(string reference, int userId, int eventId, string status, decimal total,
+            DateTime expiresAt, DateTime? scannedAt = null, int? scannedBy = null)
+        {
+            var screeningId = primary[eventId].Id;
+            return new Booking
+            {
+                BookingReference = reference,
+                QrCode           = QrCodeHelper.GeneratePngBase64("{\"ref\":\"" + reference + "\",\"screeningId\":" + screeningId + ",\"userId\":" + userId + "}"),
+                QrPayload        = "{\"ref\":\"" + reference + "\",\"screeningId\":" + screeningId + ",\"userId\":" + userId + "}",
+                UserId           = userId,
+                ScreeningId      = screeningId,
+                BookingStatus    = status,
+                TotalAmount      = total,
+                ExpiresAt        = expiresAt,
+                ScannedAt        = scannedAt,
+                ScannedBy        = scannedBy
+            };
+        }
+
         // Per-venue seat counters (advance as seats are consumed, so none is reused).
         int nhS = 0, nhG = 0, nhP = 0;
         int syS = 0, syG = 0, syP = 0;
@@ -339,32 +413,16 @@ public static class DataSeeder
 
         // ── 10. SeatReservations ──────────────────────────────────────────────
         db.SeatReservations.AddRange(
-            new SeatReservation { SeatId = nhSilver[nhS++].Id,  TicketTypeId = ttHiphop[0].Id,   EventId = hiphopTamizha.Id, UserId = carol.Id, Status = "Active",   ReservedUntil = now.AddMinutes(8) },
-            new SeatReservation { SeatId = nhPremium[nhP++].Id, TicketTypeId = ttAnirudh[2].Id,  EventId = anirudhLive.Id,   UserId = henry.Id, Status = "Active",   ReservedUntil = now.AddMinutes(5) },
-            new SeatReservation { SeatId = syGold[syG++].Id,    TicketTypeId = ttVikram[1].Id,   EventId = vikramRelease.Id, UserId = david.Id, Status = "Released", ReservedUntil = now.AddMinutes(-5) },
-            new SeatReservation { SeatId = anGold[anG++].Id,    TicketTypeId = ttAravind[1].Id,  EventId = aravindSA.Id,     UserId = emma.Id,  Status = "Expired",  ReservedUntil = now.AddMinutes(-15) },
-            new SeatReservation { SeatId = tmGold[tmG++].Id,    TicketTypeId = ttSanthosh[1].Id, EventId = santhoshLive.Id,  UserId = frank.Id, Status = "Active",   ReservedUntil = now.AddMinutes(9) }
+            new SeatReservation { SeatId = nhSilver[nhS++].Id,  TicketTypeId = ttHiphop[0].Id,   ScreeningId = primary[hiphopTamizha.Id].Id, UserId = carol.Id, Status = "Active",   ReservedUntil = now.AddMinutes(8) },
+            new SeatReservation { SeatId = nhPremium[nhP++].Id, TicketTypeId = ttAnirudh[2].Id,  ScreeningId = primary[anirudhLive.Id].Id,   UserId = henry.Id, Status = "Active",   ReservedUntil = now.AddMinutes(5) },
+            new SeatReservation { SeatId = syGold[syG++].Id,    TicketTypeId = ttVikram[1].Id,   ScreeningId = primary[vikramRelease.Id].Id, UserId = david.Id, Status = "Released", ReservedUntil = now.AddMinutes(-5) },
+            new SeatReservation { SeatId = anGold[anG++].Id,    TicketTypeId = ttAravind[1].Id,  ScreeningId = primary[aravindSA.Id].Id,     UserId = emma.Id,  Status = "Expired",  ReservedUntil = now.AddMinutes(-15) },
+            new SeatReservation { SeatId = tmGold[tmG++].Id,    TicketTypeId = ttSanthosh[1].Id, ScreeningId = primary[santhoshLive.Id].Id,  UserId = frank.Id, Status = "Active",   ReservedUntil = now.AddMinutes(9) }
         );
         await db.SaveChangesAsync();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-    private static EMSModelLibrary.Models.Booking MakeBooking(
-        string reference, int userId, int eventId, string status, decimal total, DateTime expiresAt,
-        DateTime? scannedAt = null, int? scannedBy = null) => new()
-    {
-        BookingReference = reference,
-        QrCode           = "QRC-" + reference,
-        QrPayload        = "{\"ref\":\"" + reference + "\",\"eventId\":" + eventId + ",\"userId\":" + userId + "}",
-        UserId           = userId,
-        EventId          = eventId,
-        BookingStatus    = status,
-        TotalAmount      = total,
-        ExpiresAt        = expiresAt,
-        ScannedAt        = scannedAt,
-        ScannedBy        = scannedBy
-    };
-
     private static BookingItem Item(int bookingId, int ticketTypeId, int seatId, decimal price, string status) => new()
     {
         BookingId    = bookingId,

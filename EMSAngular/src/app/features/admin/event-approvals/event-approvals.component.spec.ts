@@ -3,12 +3,10 @@ import { of } from 'rxjs';
 import { EventApprovalsComponent } from './event-approvals.component';
 import { AdminService } from '../../../core/services/admin.service';
 
-const paged = {
-  items: [{ id: 3, organizerId: 1, venueId: 1, title: 'Pending Show', description: '', status: 'PendingApproval' as const,
-    startTime: '2026-07-01T19:00:00', endTime: '2026-07-01T22:00:00', imageUrl: '', category: 'Music',
-    slug: 'pending-show', createdAt: '' }],
-  totalCount: 1, page: 1, pageSize: 10, totalPages: 1,
-};
+// The backend returns a plain array of pending events (List<EventDto>), not a paged result.
+const pending = [{ id: 3, organizerId: 1, venueId: 1, title: 'Pending Show', description: '', status: 'PendingApproval' as const,
+  startTime: '2026-07-01T19:00:00', endTime: '2026-07-01T22:00:00', imageUrl: '', category: 'Music',
+  slug: 'pending-show', createdAt: '' }];
 
 describe('EventApprovalsComponent', () => {
   let fixture: ComponentFixture<EventApprovalsComponent>;
@@ -17,7 +15,7 @@ describe('EventApprovalsComponent', () => {
 
   beforeEach(() => {
     admin = {
-      getPendingEvents: vi.fn().mockReturnValue(of(paged)),
+      getPendingEvents: vi.fn().mockReturnValue(of(pending)),
       approveEvent: vi.fn().mockReturnValue(of({})),
       rejectEvent: vi.fn().mockReturnValue(of({})),
     };
@@ -32,6 +30,14 @@ describe('EventApprovalsComponent', () => {
 
   it('loads pending events', () => {
     expect(component['events']().length).toBe(1);
+  });
+
+  it('renders the empty state without crashing when none are pending', () => {
+    admin.getPendingEvents.mockReturnValue(of([]));
+    component['ngOnInit']();
+    fixture.detectChanges();
+    expect(component['events']()).toEqual([]);
+    expect(fixture.nativeElement.textContent).toContain('No pending events.');
   });
 
   it('approves an event then reloads', () => {

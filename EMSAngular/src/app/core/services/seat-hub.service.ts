@@ -42,14 +42,14 @@ export class SeatHubService {
     this.connection = connection;
   }
 
-  async joinEvent(eventId: number): Promise<void> {
+  async joinScreening(screeningId: number): Promise<void> {
     await this.connect();
-    await this.connection!.invoke('JoinEventRoom', eventId);
+    await this.connection!.invoke('JoinScreeningRoom', screeningId);
   }
 
-  async leaveEvent(eventId: number): Promise<void> {
+  async leaveScreening(screeningId: number): Promise<void> {
     if (!this.connection) return;
-    await this.connection.invoke('LeaveEventRoom', eventId);
+    await this.connection.invoke('LeaveScreeningRoom', screeningId);
   }
 
   async disconnect(): Promise<void> {

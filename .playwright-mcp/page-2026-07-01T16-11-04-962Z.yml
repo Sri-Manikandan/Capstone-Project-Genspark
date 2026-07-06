@@ -1,0 +1,65 @@
+- generic [ref=e2]:
+  - banner [ref=e4]:
+    - navigation [ref=e5]:
+      - link "EventHub home" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: E
+        - generic [ref=e8]: EventHub
+      - generic [ref=e9]:
+        - link "Events" [ref=e10] [cursor=pointer]:
+          - /url: /events
+        - link "My Bookings" [ref=e11] [cursor=pointer]:
+          - /url: /bookings
+        - link "My Events" [ref=e12] [cursor=pointer]:
+          - /url: /organizer/events
+        - link "Admin" [ref=e13] [cursor=pointer]:
+          - /url: /admin/events
+        - link "System Admin" [ref=e14] [cursor=pointer]:
+          - /url: /profile
+        - button "Logout" [ref=e15] [cursor=pointer]
+  - main [ref=e16]:
+    - generic [ref=e151]:
+      - link "← All events" [ref=e152] [cursor=pointer]:
+        - /url: /events
+      - article [ref=e153]:
+        - generic [ref=e154]:
+          - 'img "Leo: Fan Celebration Show" [ref=e155]'
+          - generic [ref=e157]:
+            - text: Movies
+            - 'heading "Leo: Fan Celebration Show" [level=1] [ref=e158]'
+            - paragraph [ref=e159]: 6 Jul 2026, 10:53 am
+        - paragraph [ref=e160]: A first-day-first-show style fan celebration of Thalapathy Vijay's Leo with the full theatre experience.
+        - button "Proceed to Book" [ref=e161] [cursor=pointer]
+        - generic [ref=e163]:
+          - generic [ref=e164]:
+            - generic [ref=e165]:
+              - paragraph [ref=e166]: Select tickets
+              - heading "Category & quantity" [level=2] [ref=e167]
+            - button "Close" [ref=e168] [cursor=pointer]: ×
+          - generic [ref=e169]:
+            - button "Silver 40 left ₹200.00" [active] [ref=e170] [cursor=pointer]:
+              - generic [ref=e171]:
+                - generic [ref=e172]: Silver
+                - generic [ref=e173]: 40 left
+              - generic [ref=e174]: ₹200.00
+            - button "Gold 30 left ₹300.00" [ref=e175] [cursor=pointer]:
+              - generic [ref=e176]:
+                - generic [ref=e177]: Gold
+                - generic [ref=e178]: 30 left
+              - generic [ref=e179]: ₹300.00
+            - button "Premium 20 left ₹450.00" [ref=e180] [cursor=pointer]:
+              - generic [ref=e181]:
+                - generic [ref=e182]: Premium
+                - generic [ref=e183]: 20 left
+              - generic [ref=e184]: ₹450.00
+          - generic [ref=e185]:
+            - generic [ref=e186]: Tickets
+            - generic [ref=e187]:
+              - button "Fewer tickets" [disabled] [ref=e188]: −
+              - generic [ref=e189]: "1"
+              - button "More tickets" [ref=e190] [cursor=pointer]: +
+          - button "Choose seats" [ref=e191] [cursor=pointer]
+  - contentinfo [ref=e17]:
+    - generic [ref=e18]:
+      - paragraph [ref=e19]: EventHub
+      - paragraph [ref=e20]: Doors open · Lights down · Live

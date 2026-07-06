@@ -1,0 +1,131 @@
+- generic [ref=f9e2]:
+  - banner [ref=f9e4]:
+    - navigation [ref=f9e5]:
+      - link "EventHub home" [ref=f9e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f9e7]: E
+        - generic [ref=f9e8]: EventHub
+      - generic [ref=f9e9]:
+        - link "Events" [ref=f9e10] [cursor=pointer]:
+          - /url: /events
+        - link "My Bookings" [ref=f9e11] [cursor=pointer]:
+          - /url: /bookings
+        - link "My Events" [ref=f9e12] [cursor=pointer]:
+          - /url: /organizer/events
+        - link "Admin" [ref=f9e13] [cursor=pointer]:
+          - /url: /admin/events
+        - link "System Admin" [ref=f9e14] [cursor=pointer]:
+          - /url: /profile
+        - button "Logout" [ref=f9e15] [cursor=pointer]
+  - main [ref=f9e16]:
+    - generic [ref=f9e21]:
+      - link "← All events" [ref=f9e22] [cursor=pointer]:
+        - /url: /events
+      - article [ref=f9e23]:
+        - generic [ref=f9e24]:
+          - img "Coimbatore Indie Music Fest" [ref=f9e25]
+          - generic [ref=f9e27]:
+            - text: Concerts
+            - heading "Coimbatore Indie Music Fest" [level=1] [ref=f9e28]
+            - paragraph [ref=f9e29]: 18 Aug 2026, 5:37 pm
+        - generic [ref=f9e62]:
+          - generic [ref=f9e63]:
+            - generic [ref=f9e64]:
+              - paragraph [ref=f9e65]: Select your seats
+              - heading "Silver · 1 ticket" [level=2] [ref=f9e66]
+            - button "Change tickets" [ref=f9e67] [cursor=pointer]
+          - paragraph [ref=f9e68]: Pick 1 seat in the Silver section.
+          - generic [ref=f9e71]:
+            - generic [ref=f9e72]: Stage / Screen
+            - generic [ref=f9e73]:
+              - generic [ref=f9e74]: Available
+              - generic [ref=f9e76]: Selected
+              - generic [ref=f9e78]: Taken
+            - generic [ref=f9e80]:
+              - generic [ref=f9e81]:
+                - heading "Section A · Silver · ₹599.00" [level=4] [ref=f9e82]
+                - generic [ref=f9e83]:
+                  - generic [ref=f9e84]:
+                    - generic [ref=f9e85]: A
+                    - button "1" [ref=f9e86] [cursor=pointer]
+                    - button "2" [ref=f9e87] [cursor=pointer]
+                    - button "3" [ref=f9e88] [cursor=pointer]
+                    - button "4" [ref=f9e89] [cursor=pointer]
+                    - button "5" [ref=f9e90] [cursor=pointer]
+                    - button "6" [ref=f9e91] [cursor=pointer]
+                    - button "7" [ref=f9e92] [cursor=pointer]
+                    - button "8" [ref=f9e93] [cursor=pointer]
+                    - button "9" [ref=f9e94] [cursor=pointer]
+                    - button "10" [ref=f9e95] [cursor=pointer]
+                  - generic [ref=f9e96]:
+                    - generic [ref=f9e97]: B
+                    - button "1" [ref=f9e98] [cursor=pointer]
+                    - button "2" [ref=f9e99] [cursor=pointer]
+                    - button "3" [ref=f9e100] [cursor=pointer]
+                    - button "4" [ref=f9e101] [cursor=pointer]
+                    - button "5" [ref=f9e102] [cursor=pointer]
+                    - button "6" [ref=f9e103] [cursor=pointer]
+                    - button "7" [ref=f9e104] [cursor=pointer]
+                    - button "8" [ref=f9e105] [cursor=pointer]
+                    - button "9" [ref=f9e106] [cursor=pointer]
+                    - button "10" [ref=f9e107] [cursor=pointer]
+                  - generic [ref=f9e108]:
+                    - generic [ref=f9e109]: C
+                    - button "1" [ref=f9e110] [cursor=pointer]
+                    - button "2" [ref=f9e111] [cursor=pointer]
+                    - button "3" [ref=f9e112] [cursor=pointer]
+                    - button "4" [ref=f9e113] [cursor=pointer]
+                    - button "5" [ref=f9e114] [cursor=pointer]
+                    - button "6" [ref=f9e115] [cursor=pointer]
+                    - button "7" [ref=f9e116] [cursor=pointer]
+                    - button "8" [ref=f9e117] [cursor=pointer]
+                    - button "9" [ref=f9e118] [cursor=pointer]
+                    - button "10" [ref=f9e119] [cursor=pointer]
+              - generic [ref=f9e120]:
+                - heading "Section B · Gold · ₹1,199.00" [level=4] [ref=f9e121]
+                - generic [ref=f9e122]:
+                  - generic [ref=f9e123]:
+                    - generic [ref=f9e124]: A
+                    - button "1" [disabled] [ref=f9e125]
+                    - button "2" [disabled] [ref=f9e126]
+                    - button "3" [disabled] [ref=f9e127]
+                    - button "4" [disabled] [ref=f9e128]
+                    - button "5" [disabled] [ref=f9e129]
+                    - button "6" [disabled] [ref=f9e130]
+                    - button "7" [disabled] [ref=f9e131]
+                    - button "8" [disabled] [ref=f9e132]
+                    - button "9" [disabled] [ref=f9e133]
+                    - button "10" [disabled] [ref=f9e134]
+                  - generic [ref=f9e135]:
+                    - generic [ref=f9e136]: B
+                    - button "1" [disabled] [ref=f9e137]
+                    - button "2" [disabled] [ref=f9e138]
+                    - button "3" [disabled] [ref=f9e139]
+                    - button "4" [disabled] [ref=f9e140]
+                    - button "5" [disabled] [ref=f9e141]
+                    - button "6" [disabled] [ref=f9e142]
+                    - button "7" [disabled] [ref=f9e143]
+                    - button "8" [disabled] [ref=f9e144]
+                    - button "9" [disabled] [ref=f9e145]
+                    - button "10" [disabled] [ref=f9e146]
+              - generic [ref=f9e147]:
+                - heading "Section C · Premium · ₹1,999.00" [level=4] [ref=f9e148]
+                - generic [ref=f9e150]:
+                  - generic [ref=f9e151]: A
+                  - button "1" [disabled] [ref=f9e152]
+                  - button "2" [disabled] [ref=f9e153]
+                  - button "3" [disabled] [ref=f9e154]
+                  - button "4" [disabled] [ref=f9e155]
+                  - button "5" [disabled] [ref=f9e156]
+                  - button "6" [disabled] [ref=f9e157]
+                  - button "7" [disabled] [ref=f9e158]
+                  - button "8" [disabled] [ref=f9e159]
+                  - button "9" [disabled] [ref=f9e160]
+                  - button "10" [disabled] [ref=f9e161]
+        - generic [ref=f9e163]:
+          - generic [ref=f9e164]: 0 of 1 · ₹0.00
+          - button "Proceed to Checkout" [disabled] [ref=f9e165]
+  - contentinfo [ref=f9e17]:
+    - generic [ref=f9e18]:
+      - paragraph [ref=f9e19]: EventHub
+      - paragraph [ref=f9e20]: Doors open · Lights down · Live

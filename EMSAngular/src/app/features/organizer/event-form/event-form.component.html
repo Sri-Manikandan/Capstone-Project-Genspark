@@ -24,28 +24,34 @@
         <label class="block space-y-1">
           <span class="field-label">Title</span>
           <input formControlName="title" placeholder="Title" class="field" />
+          <ems-field-error [control]="form.controls.title" label="Title" />
         </label>
         <label class="block space-y-1">
           <span class="field-label">Description</span>
           <textarea formControlName="description" placeholder="Description" rows="4" class="field"></textarea>
+          <ems-field-error [control]="form.controls.description" label="Description" />
         </label>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label class="block space-y-1">
             <span class="field-label">Start time</span>
             <input formControlName="startTime" type="datetime-local" class="field" />
+            <ems-field-error [control]="form.controls.startTime" label="Start time" />
           </label>
           <label class="block space-y-1">
             <span class="field-label">End time</span>
             <input formControlName="endTime" type="datetime-local" class="field" />
+            <ems-field-error [control]="form.controls.endTime" label="End time" />
           </label>
         </div>
         <label class="block space-y-1">
           <span class="field-label">Image URL</span>
           <input formControlName="imageUrl" placeholder="Image URL" class="field" />
+          <ems-field-error [control]="form.controls.imageUrl" label="Image URL" />
         </label>
         <label class="block space-y-1">
           <span class="field-label">Category</span>
           <input formControlName="category" placeholder="Category" class="field" />
+          <ems-field-error [control]="form.controls.category" label="Category" />
         </label>
       </div>
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center">

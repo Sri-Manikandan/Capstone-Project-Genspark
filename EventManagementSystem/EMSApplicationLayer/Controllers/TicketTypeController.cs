@@ -19,21 +19,24 @@ namespace EMSApplicationLayer.Controllers
             _ticketTypeService = ticketTypeService;
         }
 
-        [HttpGet("event/{eventId:int}")]
-        public async Task<IActionResult> GetByEvent(int eventId)
+        [HttpGet("screening/{screeningId:int}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetByScreening(int screeningId)
         {
-            var types = await _ticketTypeService.GetByEventId(eventId);
+            var types = await _ticketTypeService.GetByScreeningId(screeningId);
             return Ok(types);
         }
 
-        [HttpGet("event/{eventId:int}/active")]
-        public async Task<IActionResult> GetActiveByEvent(int eventId)
+        [HttpGet("screening/{screeningId:int}/active")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetActiveByScreening(int screeningId)
         {
-            var types = await _ticketTypeService.GetActiveByEventId(eventId);
+            var types = await _ticketTypeService.GetActiveByScreeningId(screeningId);
             return Ok(types);
         }
 
         [HttpGet("{id:int}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetById(int id)
         {
             var tt = await _ticketTypeService.GetById(id);

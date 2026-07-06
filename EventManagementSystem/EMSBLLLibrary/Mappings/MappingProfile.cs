@@ -25,6 +25,11 @@ namespace EMSBLLLibrary.Mappings
                 .ForMember(d => d.VenueName, o => o.Ignore())
                 .ForMember(d => d.CreatedAt, o => o.MapFrom(s => TimeHelper.UtcToIst(s.CreatedAt)));
 
+            CreateMap<Screening, ScreeningDto>()
+                .ForMember(d => d.StartTime, o => o.MapFrom(s => TimeHelper.UtcToIst(s.StartTime)))
+                .ForMember(d => d.EndTime, o => o.MapFrom(s => TimeHelper.UtcToIst(s.EndTime)))
+                .ForMember(d => d.CreatedAt, o => o.MapFrom(s => TimeHelper.UtcToIst(s.CreatedAt)));
+
             CreateMap<TicketType, TicketTypeDto>()
                 .ForMember(d => d.SaleStart, o => o.MapFrom(s => TimeHelper.UtcToIst(s.SaleStart)))
                 .ForMember(d => d.SaleEnd, o => o.MapFrom(s => TimeHelper.UtcToIst(s.SaleEnd)))
@@ -38,9 +43,13 @@ namespace EMSBLLLibrary.Mappings
                 .ForMember(d => d.ReservedUntil, o => o.MapFrom(s => TimeHelper.UtcToIst(s.ReservedUntil)))
                 .ForMember(d => d.CreatedAt, o => o.MapFrom(s => TimeHelper.UtcToIst(s.CreatedAt)));
 
-            // EventTitle and Items require async DB lookups — set manually after mapping
+            // EventId/EventTitle/Screen/ScreeningStartTime/Items require lookups via the
+            // booking's screening — set manually after mapping.
             CreateMap<Booking, BookingDto>()
+                .ForMember(dest => dest.EventId, opt => opt.Ignore())
                 .ForMember(dest => dest.EventTitle, opt => opt.Ignore())
+                .ForMember(dest => dest.Screen, opt => opt.Ignore())
+                .ForMember(dest => dest.ScreeningStartTime, opt => opt.Ignore())
                 .ForMember(dest => dest.Items, opt => opt.Ignore())
                 .ForMember(d => d.ExpiresAt, o => o.MapFrom(s => TimeHelper.UtcToIst(s.ExpiresAt)))
                 .ForMember(d => d.CreatedAt, o => o.MapFrom(s => TimeHelper.UtcToIst(s.CreatedAt)));
@@ -49,6 +58,9 @@ namespace EMSBLLLibrary.Mappings
             CreateMap<BookingItem, BookingItemDto>()
                 .ForMember(dest => dest.TicketTypeName, opt => opt.Ignore())
                 .ForMember(dest => dest.SeatLabel, opt => opt.Ignore());
+
+            CreateMap<ChangeLog, ChangeLogDto>()
+                .ForMember(d => d.CreatedAt, o => o.MapFrom(s => TimeHelper.UtcToIst(s.CreatedAt)));
         }
     }
 }

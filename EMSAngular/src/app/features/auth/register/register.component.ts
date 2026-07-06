@@ -4,11 +4,12 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { AlertComponent } from '../../../shared/components/alert/alert.component';
+import { FieldErrorComponent } from '../../../shared/components/field-error/field-error.component';
 
 @Component({
   selector: 'ems-register',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, AlertComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, AlertComponent, FieldErrorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './register.component.html',
 })

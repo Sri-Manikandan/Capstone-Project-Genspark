@@ -58,7 +58,9 @@ namespace EMSApplicationLayer.Controllers
         [Authorize(Roles = "Organizer,Admin")]
         public async Task<IActionResult> GetByEvent(int eventId, [FromQuery] BookingQueryRequest request)
         {
-            var bookings = await _bookingService.GetByEventId(eventId, request);
+            var userId = ClaimsHelper.GetUserId(User);
+            var isAdmin = ClaimsHelper.GetUserRole(User) == "Admin";
+            var bookings = await _bookingService.GetByEventId(eventId, userId, isAdmin, request);
             return Ok(bookings);
         }
 
@@ -74,9 +76,11 @@ namespace EMSApplicationLayer.Controllers
         [Authorize(Roles = "Organizer,Admin")]
         public async Task<IActionResult> ValidateQr([FromBody] ValidateQrRequest request)
         {
-            var result = await _bookingService.ValidateQr(request);
-            return result
-                ? Ok(new { message = "Ticket validated successfully." })
+            var userId = ClaimsHelper.GetUserId(User);
+            var isAdmin = ClaimsHelper.GetUserRole(User) == "Admin";
+            var result = await _bookingService.ValidateQr(request, userId, isAdmin);
+            return result != null
+                ? Ok(result)
                 : BadRequest(new { error = "Invalid or already used ticket." });
         }
     }

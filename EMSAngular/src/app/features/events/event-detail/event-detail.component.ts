@@ -2,12 +2,14 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { EventService } from '../../../core/services/event.service';
+import { ScreeningService } from '../../../core/services/screening.service';
 import { TicketTypeService } from '../../../core/services/ticket-type.service';
 import { SeatService } from '../../../core/services/seat.service';
 import { BookingService } from '../../../core/services/booking.service';
 import { newIdempotencyKey } from '../../../core/services/idempotency-key';
 import { AuthService } from '../../../core/services/auth.service';
 import { EventDto } from '../../../core/models/event.model';
+import { ScreeningDto } from '../../../core/models/screening.model';
 import { TicketTypeDto } from '../../../core/models/ticket-type.model';
 import { SeatDto, SeatReservationDto } from '../../../core/models/seat.model';
 import { SeatMapComponent } from '../../../shared/components/seat-map/seat-map.component';
@@ -17,7 +19,7 @@ import { IstDatePipe } from '../../../shared/pipes/ist-date.pipe';
 import { CurrencyInrPipe } from '../../../shared/pipes/currency-inr.pipe';
 import { TicketPickerComponent } from './ticket-picker/ticket-picker.component';
 
-type Step = 'intro' | 'seats';
+type Step = 'intro' | 'screen' | 'seats';
 interface SelectedSeat { reservation: SeatReservationDto; seat: SeatDto; ticketType: TicketTypeDto; }
 
 @Component({
@@ -31,6 +33,7 @@ export class EventDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private eventService = inject(EventService);
+  private screeningService = inject(ScreeningService);
   private ticketTypeService = inject(TicketTypeService);
   private seatService = inject(SeatService);
   private bookingService = inject(BookingService);
@@ -39,6 +42,8 @@ export class EventDetailComponent implements OnInit {
   protected readonly maxQuantity = 10;
 
   protected event = signal<EventDto | null>(null);
+  protected screenings = signal<ScreeningDto[]>([]);
+  protected selectedScreening = signal<ScreeningDto | null>(null);
   protected ticketTypes = signal<TicketTypeDto[]>([]);
   protected loading = signal(false);
   protected error = signal('');
@@ -54,6 +59,7 @@ export class EventDetailComponent implements OnInit {
   protected selectedSeatIds = computed(() => this.selected().map(s => s.seat.id));
   protected total = computed(() => this.selected().reduce((sum, s) => sum + s.ticketType.price, 0));
   protected restrictToSeatType = computed(() => this.selectedTicketType()?.seatType ?? null);
+  protected hasMultipleScreenings = computed(() => this.screenings().length > 1);
 
   ngOnInit(): void {
     const slug = this.route.snapshot.paramMap.get('slug')!;
@@ -62,8 +68,8 @@ export class EventDetailComponent implements OnInit {
       next: ev => {
         this.event.set(ev);
         this.loading.set(false);
-        this.ticketTypeService.getActiveByEvent(ev.id).subscribe({
-          next: tts => this.ticketTypes.set(tts),
+        this.screeningService.getByEvent(ev.id).subscribe({
+          next: list => this.screenings.set(list),
           error: (msg: string) => this.error.set(msg),
         });
       },
@@ -76,7 +82,34 @@ export class EventDetailComponent implements OnInit {
       this.router.navigate(['/auth/login'], { queryParams: { returnUrl: this.router.url } });
       return;
     }
-    this.showPicker.set(true);
+    const screenings = this.screenings();
+    if (screenings.length === 0) {
+      this.error.set('No showtimes are available for this event yet.');
+      return;
+    }
+    // With a single screening the screen step adds nothing — auto-select and go to tickets.
+    if (screenings.length === 1) {
+      this.selectScreening(screenings[0]);
+      return;
+    }
+    this.step.set('screen');
+  }
+
+  protected selectScreening(screening: ScreeningDto): void {
+    this.releaseAllSeats();
+    this.selectedScreening.set(screening);
+    this.ticketTypeService.getActiveByScreening(screening.id).subscribe({
+      next: tts => {
+        this.ticketTypes.set(tts);
+        this.showPicker.set(true);
+      },
+      error: (msg: string) => this.error.set(msg),
+    });
+  }
+
+  protected changeShowtime(): void {
+    this.releaseAllSeats();
+    this.step.set('screen');
   }
 
   protected closePicker(): void {
@@ -94,7 +127,8 @@ export class EventDetailComponent implements OnInit {
 
   protected onSeatToggled(seat: SeatDto): void {
     const ticketType = this.selectedTicketType();
-    if (!ticketType) return;
+    const screening = this.selectedScreening();
+    if (!ticketType || !screening) return;
 
     const existing = this.selected().find(s => s.seat.id === seat.id);
     if (existing) {
@@ -110,7 +144,7 @@ export class EventDetailComponent implements OnInit {
       return;
     }
 
-    this.seatService.reserve({ eventId: this.event()!.id, seatId: seat.id, ticketTypeId: ticketType.id }).subscribe({
+    this.seatService.reserve({ screeningId: screening.id, seatId: seat.id, ticketTypeId: ticketType.id }).subscribe({
       next: reservation => this.selected.update(list => [...list, { reservation, seat, ticketType }]),
       error: (msg: string) => this.error.set(msg),
     });
@@ -124,9 +158,11 @@ export class EventDetailComponent implements OnInit {
   }
 
   protected checkout(): void {
+    const screening = this.selectedScreening();
+    if (!screening) return;
     const items = this.selected().map(s => ({ ticketTypeId: s.ticketType.id, seatId: s.seat.id }));
     if (!this.bookingKey) this.bookingKey = newIdempotencyKey();
-    this.bookingService.create({ eventId: this.event()!.id, items }, this.bookingKey).subscribe({
+    this.bookingService.create({ screeningId: screening.id, items }, this.bookingKey).subscribe({
       next: booking => this.router.navigate(['/checkout', booking.id]),
       error: (msg: string) => this.error.set(msg),
     });

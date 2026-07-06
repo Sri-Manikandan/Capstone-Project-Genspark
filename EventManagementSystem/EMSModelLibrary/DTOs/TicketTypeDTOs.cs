@@ -5,7 +5,7 @@ namespace EMSModelLibrary.DTOs
     public class TicketTypeDto
     {
         public int Id { get; set; }
-        public int EventId { get; set; }
+        public int ScreeningId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string SeatType { get; set; } = string.Empty;
         public decimal Price { get; set; }
@@ -20,7 +20,7 @@ namespace EMSModelLibrary.DTOs
     public class CreateTicketTypeRequest
     {
         [Range(1, int.MaxValue)]
-        public int EventId { get; set; }
+        public int ScreeningId { get; set; }
 
         [Required]
         [StringLength(100, MinimumLength = 2)]

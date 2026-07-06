@@ -7,13 +7,14 @@ import { VenueService } from '../../../core/services/venue.service';
 import { SeatService } from '../../../core/services/seat.service';
 import { VenueDto } from '../../../core/models/venue.model';
 import { AlertComponent } from '../../../shared/components/alert/alert.component';
+import { FieldErrorComponent } from '../../../shared/components/field-error/field-error.component';
 import { RouterLink } from '@angular/router';
 import { OrganizerEventNavComponent } from '../event-nav/organizer-event-nav.component';
 
 @Component({
   selector: 'ems-event-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, AlertComponent, RouterLink, OrganizerEventNavComponent],
+  imports: [CommonModule, ReactiveFormsModule, AlertComponent, FieldErrorComponent, RouterLink, OrganizerEventNavComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './event-form.component.html',
 })

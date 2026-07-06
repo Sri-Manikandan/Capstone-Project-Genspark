@@ -12,6 +12,7 @@ namespace EMSBLLLibrary.Services
     public class SeatReservationService : ISeatReservationService
     {
         private readonly ISeatReservationRepository _reservationRepo;
+        private readonly IScreeningRepository _screeningRepo;
         private readonly IEventRepository _eventRepo;
         private readonly ISeatRepository _seatRepo;
         private readonly ITicketTypeRepository _ticketTypeRepo;
@@ -23,6 +24,7 @@ namespace EMSBLLLibrary.Services
 
         public SeatReservationService(
             ISeatReservationRepository reservationRepo,
+            IScreeningRepository screeningRepo,
             IEventRepository eventRepo,
             ISeatRepository seatRepo,
             ITicketTypeRepository ticketTypeRepo,
@@ -31,6 +33,7 @@ namespace EMSBLLLibrary.Services
             IMapper mapper)
         {
             _reservationRepo = reservationRepo;
+            _screeningRepo = screeningRepo;
             _eventRepo = eventRepo;
             _seatRepo = seatRepo;
             _ticketTypeRepo = ticketTypeRepo;
@@ -41,14 +44,17 @@ namespace EMSBLLLibrary.Services
 
         public async Task<SeatReservationDto> Reserve(int userId, ReserveSeatRequest request)
         {
-            var ev = await _eventRepo.GetById(request.EventId)
-                ?? throw new NotFoundException($"Event {request.EventId} not found.");
+            var screening = await _screeningRepo.GetById(request.ScreeningId)
+                ?? throw new NotFoundException($"Screening {request.ScreeningId} not found.");
+
+            var ev = await _eventRepo.GetById(screening.EventId)
+                ?? throw new NotFoundException($"Event {screening.EventId} not found.");
 
             if (ev.Status != "Published")
                 throw new ValidationException("Reservations are only allowed for published events.");
 
-            if (ev.StartTime <= DateTime.UtcNow)
-                throw new ValidationException("Reservations are not allowed for events that have already started or ended.");
+            if (screening.StartTime <= DateTime.UtcNow)
+                throw new ValidationException("Reservations are not allowed for screenings that have already started or ended.");
 
             var seat = await _seatRepo.GetById(request.SeatId)
                 ?? throw new NotFoundException($"Seat {request.SeatId} not found.");
@@ -56,8 +62,8 @@ namespace EMSBLLLibrary.Services
             var ticketType = await _ticketTypeRepo.GetById(request.TicketTypeId)
                 ?? throw new NotFoundException($"TicketType {request.TicketTypeId} not found.");
 
-            if (ticketType.EventId != request.EventId)
-                throw new ValidationException("The selected ticket type does not belong to this event.");
+            if (ticketType.ScreeningId != request.ScreeningId)
+                throw new ValidationException("The selected ticket type does not belong to this screening.");
 
             if (!string.Equals(ticketType.SeatType, seat.SeatType, StringComparison.OrdinalIgnoreCase))
                 throw new ValidationException($"Seat type mismatch: seat is '{seat.SeatType}' but ticket type is '{ticketType.SeatType}'.");
@@ -68,7 +74,7 @@ namespace EMSBLLLibrary.Services
                 var now = DateTime.UtcNow;
 
                 var existingReservation = await _context.SeatReservations
-                    .FirstOrDefaultAsync(sr => sr.EventId == request.EventId
+                    .FirstOrDefaultAsync(sr => sr.ScreeningId == request.ScreeningId
                                             && sr.SeatId == request.SeatId
                                             && sr.Status == "Active"
                                             && sr.ReservedUntil > now);
@@ -80,8 +86,8 @@ namespace EMSBLLLibrary.Services
                     .Join(_context.Bookings,
                         bi => bi.BookingId,
                         b => b.Id,
-                        (bi, b) => new { bi.SeatId, b.EventId, b.BookingStatus })
-                    .AnyAsync(x => x.EventId == request.EventId
+                        (bi, b) => new { bi.SeatId, b.ScreeningId, b.BookingStatus })
+                    .AnyAsync(x => x.ScreeningId == request.ScreeningId
                                 && x.SeatId == request.SeatId
                                 && x.BookingStatus != "Cancelled");
 
@@ -92,7 +98,7 @@ namespace EMSBLLLibrary.Services
                 {
                     SeatId = request.SeatId,
                     TicketTypeId = request.TicketTypeId,
-                    EventId = request.EventId,
+                    ScreeningId = request.ScreeningId,
                     UserId = userId,
                     Status = "Active",
                     ReservedUntil = now.Add(ReservationTtl)
@@ -102,7 +108,7 @@ namespace EMSBLLLibrary.Services
                 await _context.SaveChangesAsync();
                 await tx.CommitAsync();
 
-                await _notifier.SeatReserved(request.EventId, request.SeatId);
+                await _notifier.SeatReserved(request.ScreeningId, request.SeatId);
 
                 return _mapper.Map<SeatReservationDto>(reservation);
             }
@@ -127,7 +133,7 @@ namespace EMSBLLLibrary.Services
             reservation.Status = "Released";
             await _reservationRepo.Update(reservation);
 
-            await _notifier.SeatReleased(reservation.EventId, reservation.SeatId);
+            await _notifier.SeatReleased(reservation.ScreeningId, reservation.SeatId);
         }
     }
 }

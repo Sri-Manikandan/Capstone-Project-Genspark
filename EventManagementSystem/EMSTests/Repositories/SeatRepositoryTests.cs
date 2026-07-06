@@ -21,37 +21,44 @@ namespace EMSTests.Repositories
         }
 
         [Test]
-        public async Task GetAvailableByEventId_FiltersBySection_WhenEventScreenSet()
+        public async Task GetAvailableByScreeningId_ReturnsWholeVenueGrid()
         {
             using var ctx = CreateContext();
             ctx.Venues.Add(new Venue { Id = 1, Name = "V" });
-            ctx.Events.Add(new Event { Id = 1, VenueId = 1, Screen = "Screen 2" });
+            ctx.Events.Add(new Event { Id = 1, VenueId = 1 });
+            ctx.Screenings.Add(new Screening { Id = 1, EventId = 1, Screen = "Screen 1", Status = "Scheduled" });
             ctx.Seats.AddRange(
-                new Seat { Id = 1, VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 1, SeatType = "Normal" },
-                new Seat { Id = 2, VenueId = 1, Section = "Screen 2", Row = "A", SeatNumber = 1, SeatType = "Normal" });
+                new Seat { Id = 1, VenueId = 1, Section = "A", Row = "A", SeatNumber = 1, SeatType = "Normal" },
+                new Seat { Id = 2, VenueId = 1, Section = "A", Row = "A", SeatNumber = 2, SeatType = "Normal" });
             await ctx.SaveChangesAsync();
 
             var repo = new SeatRepository(ctx);
-            var result = await repo.GetAvailableByEventId(1);
+            var result = await repo.GetAvailableByScreeningId(1);
 
-            result.Should().ContainSingle().Which.Id.Should().Be(2);
+            result.Should().HaveCount(2);
         }
 
         [Test]
-        public async Task GetAvailableByEventId_ReturnsWholeVenue_WhenScreenEmpty()
+        public async Task GetAvailableByScreeningId_ExcludesSeatsBookedForThatScreeningOnly()
         {
             using var ctx = CreateContext();
             ctx.Venues.Add(new Venue { Id = 1, Name = "V" });
-            ctx.Events.Add(new Event { Id = 1, VenueId = 1, Screen = "" });
+            ctx.Events.Add(new Event { Id = 1, VenueId = 1 });
+            ctx.Screenings.AddRange(
+                new Screening { Id = 1, EventId = 1, Screen = "Screen 1", Status = "Scheduled" },
+                new Screening { Id = 2, EventId = 1, Screen = "Screen 2", Status = "Scheduled" });
             ctx.Seats.AddRange(
-                new Seat { Id = 1, VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 1, SeatType = "Normal" },
-                new Seat { Id = 2, VenueId = 1, Section = "Screen 2", Row = "A", SeatNumber = 1, SeatType = "Normal" });
+                new Seat { Id = 1, VenueId = 1, Section = "A", Row = "A", SeatNumber = 1, SeatType = "Normal" },
+                new Seat { Id = 2, VenueId = 1, Section = "A", Row = "A", SeatNumber = 2, SeatType = "Normal" });
+            ctx.Bookings.Add(new Booking { Id = 3, ScreeningId = 1, BookingStatus = "Confirmed" });
+            ctx.BookingItems.Add(new BookingItem { Id = 9, BookingId = 3, SeatId = 1 });
             await ctx.SaveChangesAsync();
 
             var repo = new SeatRepository(ctx);
-            var result = await repo.GetAvailableByEventId(1);
 
-            result.Should().HaveCount(2);
+            // Seat 1 is booked in screening 1 → unavailable there, but still free in screening 2.
+            (await repo.GetAvailableByScreeningId(1)).Should().ContainSingle().Which.Id.Should().Be(2);
+            (await repo.GetAvailableByScreeningId(2)).Should().HaveCount(2);
         }
 
         [Test]
@@ -77,7 +84,7 @@ namespace EMSTests.Repositories
         {
             using var ctx = CreateContext();
             ctx.Seats.Add(new Seat { Id = 7, VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 1, SeatType = "Normal" });
-            ctx.Bookings.Add(new Booking { Id = 3, EventId = 1, BookingStatus = "Confirmed" });
+            ctx.Bookings.Add(new Booking { Id = 3, ScreeningId = 1, BookingStatus = "Confirmed" });
             ctx.BookingItems.Add(new BookingItem { Id = 9, BookingId = 3, SeatId = 7 });
             await ctx.SaveChangesAsync();
             var repo = new SeatRepository(ctx);
@@ -101,7 +108,7 @@ namespace EMSTests.Repositories
         {
             using var ctx = CreateContext();
             ctx.Seats.Add(new Seat { Id = 11, VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 1, SeatType = "Normal" });
-            ctx.Bookings.Add(new Booking { Id = 4, EventId = 1, BookingStatus = "Confirmed" });
+            ctx.Bookings.Add(new Booking { Id = 4, ScreeningId = 1, BookingStatus = "Confirmed" });
             ctx.BookingItems.Add(new BookingItem { Id = 12, BookingId = 4, SeatId = 11 });
             await ctx.SaveChangesAsync();
             var repo = new SeatRepository(ctx);

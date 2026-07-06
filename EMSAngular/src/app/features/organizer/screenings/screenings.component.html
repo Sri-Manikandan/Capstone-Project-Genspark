@@ -1,0 +1,30 @@
+    <ems-organizer-event-nav [eventId]="eventId" />
+    <p class="eyebrow text-plum">Organizer</p>
+    <h1 class="page-title mt-2 mb-6">Screenings</h1>
+    <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
+
+    <ems-loading-spinner *ngIf="loading()" />
+    <ul *ngIf="!loading()" class="mb-8 space-y-2">
+      <li *ngFor="let s of screenings()" class="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <span class="text-sm text-ink"><span class="font-display text-base font-semibold">{{ s.screen }}</span>
+          <span class="font-mono text-xs text-muted"> · {{ s.startTime | istDate }}</span></span>
+        <span class="flex gap-3 self-start sm:self-auto">
+          <a [routerLink]="['/organizer/screenings', s.id, 'tickets']" class="link-action">Tickets</a>
+          <button (click)="edit(s)" class="link-action">Edit</button>
+          <button (click)="remove(s.id)" class="link-danger">Delete</button>
+        </span>
+      </li>
+      <li *ngIf="screenings().length === 0" class="card px-6 py-12 text-center text-muted">No screenings yet.</li>
+    </ul>
+
+    <form [formGroup]="form" (ngSubmit)="save()" class="card grid max-w-xl grid-cols-1 gap-3 p-6 sm:grid-cols-2">
+      <h2 class="section-title sm:col-span-2">{{ editingId() ? 'Edit screening' : 'Add screening' }}</h2>
+      <label class="space-y-1"><span class="field-label">Screen</span><input formControlName="screen" placeholder="e.g. Screen 1" class="field" /><ems-field-error [control]="form.controls.screen" label="Screen" /></label>
+      <span class="hidden sm:block"></span>
+      <label class="space-y-1"><span class="field-label">Start time</span><input formControlName="startTime" type="datetime-local" class="field" /><ems-field-error [control]="form.controls.startTime" label="Start time" /></label>
+      <label class="space-y-1"><span class="field-label">End time</span><input formControlName="endTime" type="datetime-local" class="field" /><ems-field-error [control]="form.controls.endTime" label="End time" /></label>
+      <div class="flex gap-3 sm:col-span-2">
+        <button type="submit" class="btn-primary">{{ editingId() ? 'Save screening' : 'Add screening' }}</button>
+        <button *ngIf="editingId()" type="button" (click)="cancelEdit()" class="btn-ghost">Cancel</button>
+      </div>
+    </form>

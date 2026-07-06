@@ -143,11 +143,11 @@ export class ProfileComponent implements OnInit {
     });
   }
 
-  // A 404 here simply means the user has never requested — treat as no request.
+  // The service maps a 404 (never requested) to null; only real failures reach `error`.
   private loadRequest(): void {
     this.userService.getOrganizerRequest().subscribe({
       next: r => this.request.set(r),
-      error: () => this.request.set(null),
+      error: (msg: string) => { this.request.set(null); this.error.set(msg); },
     });
   }
 }

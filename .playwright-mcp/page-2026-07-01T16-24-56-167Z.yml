@@ -1,0 +1,39 @@
+- generic [ref=f41e2]:
+  - banner [ref=f41e4]:
+    - navigation [ref=f41e5]:
+      - link "EventHub home" [ref=f41e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f41e7]: E
+        - generic [ref=f41e8]: EventHub
+      - generic [ref=f41e9]:
+        - link "Events" [ref=f41e10] [cursor=pointer]:
+          - /url: /events
+        - link "My Bookings" [ref=f41e11] [cursor=pointer]:
+          - /url: /bookings
+        - link "My Events" [ref=f41e12] [cursor=pointer]:
+          - /url: /organizer/events
+        - link "Admin" [ref=f41e13] [cursor=pointer]:
+          - /url: /admin/events
+        - link "System Admin" [ref=f41e14] [cursor=pointer]:
+          - /url: /profile
+        - button "Logout" [ref=f41e15] [cursor=pointer]
+  - main [ref=f41e16]:
+    - generic [ref=f41e18]:
+      - paragraph [ref=f41e19]: Final step
+      - heading "Checkout" [level=1] [ref=f41e20]
+      - generic [ref=f41e21]:
+        - generic [ref=f41e22]:
+          - heading "Order summary" [level=2] [ref=f41e23]
+          - paragraph [ref=f41e24]: Yuvan Shankar Raja Musical Night
+          - list [ref=f41e25]:
+            - listitem [ref=f41e26]:
+              - generic [ref=f41e27]: Gold · B-A1
+              - generic [ref=f41e28]: ₹2,499.00
+          - generic [ref=f41e29]:
+            - generic [ref=f41e30]: Total due
+            - generic [ref=f41e31]: ₹2,499.00
+        - heading "Payment" [level=2] [ref=f41e33]
+  - contentinfo [ref=f41e34]:
+    - generic [ref=f41e35]:
+      - paragraph [ref=f41e36]: EventHub
+      - paragraph [ref=f41e37]: Doors open · Lights down · Live

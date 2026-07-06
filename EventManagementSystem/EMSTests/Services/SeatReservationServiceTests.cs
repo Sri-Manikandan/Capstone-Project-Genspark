@@ -19,6 +19,7 @@ namespace EMSTests.Services
     public class SeatReservationServiceTests
     {
         private Mock<ISeatReservationRepository> _reservationRepo;
+        private Mock<IScreeningRepository> _screeningRepo;
         private Mock<IEventRepository> _eventRepo;
         private Mock<ISeatRepository> _seatRepo;
         private Mock<ITicketTypeRepository> _ticketTypeRepo;
@@ -31,11 +32,13 @@ namespace EMSTests.Services
         public void SetUp()
         {
             _reservationRepo = new Mock<ISeatReservationRepository>();
+            _screeningRepo = new Mock<IScreeningRepository>();
+            _screeningRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeScreening());
             _eventRepo = new Mock<IEventRepository>();
             _seatRepo = new Mock<ISeatRepository>();
             _ticketTypeRepo = new Mock<ITicketTypeRepository>();
             _ticketTypeRepo.Setup(r => r.GetById(It.IsAny<int>()))
-                .ReturnsAsync(new TicketType { Id = 1, EventId = 1 });
+                .ReturnsAsync(new TicketType { Id = 1, ScreeningId = 1 });
             _notifier = new Mock<ISeatNotifier>();
             _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
         }
@@ -50,8 +53,14 @@ namespace EMSTests.Services
         }
 
         private SeatReservationService CreateSut(EventContext context) =>
-            new SeatReservationService(_reservationRepo.Object, _eventRepo.Object, _seatRepo.Object,
-                _ticketTypeRepo.Object, _notifier.Object, context, _mapper);
+            new SeatReservationService(_reservationRepo.Object, _screeningRepo.Object, _eventRepo.Object,
+                _seatRepo.Object, _ticketTypeRepo.Object, _notifier.Object, context, _mapper);
+
+        private Screening MakeScreening(DateTime? startTime = null) => new Screening
+        {
+            Id = 1, EventId = 1, Screen = "Screen 1", Status = "Scheduled",
+            StartTime = startTime ?? Future, EndTime = (startTime ?? Future).AddHours(2)
+        };
 
         private Event PublishedEvent() => new Event
         {
@@ -61,13 +70,13 @@ namespace EMSTests.Services
         // ── Reserve – pre-transaction validation ─────────────────────────────────
 
         [Test]
-        public async Task Reserve_EventNotFound_ThrowsNotFoundException()
+        public async Task Reserve_ScreeningNotFound_ThrowsNotFoundException()
         {
-            _eventRepo.Setup(r => r.GetById(99)).ReturnsAsync((Event?)null);
+            _screeningRepo.Setup(r => r.GetById(99)).ReturnsAsync((Screening?)null);
             using var ctx = CreateContext();
             var sut = CreateSut(ctx);
 
-            await sut.Invoking(s => s.Reserve(1, new ReserveSeatRequest { EventId = 99, SeatId = 1, TicketTypeId = 1 }))
+            await sut.Invoking(s => s.Reserve(1, new ReserveSeatRequest { ScreeningId = 99, SeatId = 1, TicketTypeId = 1 }))
                 .Should().ThrowAsync<NotFoundException>();
         }
 
@@ -78,21 +87,19 @@ namespace EMSTests.Services
             using var ctx = CreateContext();
             var sut = CreateSut(ctx);
 
-            await sut.Invoking(s => s.Reserve(1, new ReserveSeatRequest { EventId = 1, SeatId = 1, TicketTypeId = 1 }))
+            await sut.Invoking(s => s.Reserve(1, new ReserveSeatRequest { ScreeningId = 1, SeatId = 1, TicketTypeId = 1 }))
                 .Should().ThrowAsync<ValidationException>().WithMessage("*published*");
         }
 
         [Test]
-        public async Task Reserve_EventAlreadyStarted_ThrowsValidationException()
+        public async Task Reserve_ScreeningAlreadyStarted_ThrowsValidationException()
         {
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(new Event
-            {
-                Id = 1, Status = "Published", StartTime = DateTime.UtcNow.AddMinutes(-1)
-            });
+            _screeningRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeScreening(DateTime.UtcNow.AddMinutes(-1)));
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(PublishedEvent());
             using var ctx = CreateContext();
             var sut = CreateSut(ctx);
 
-            await sut.Invoking(s => s.Reserve(1, new ReserveSeatRequest { EventId = 1, SeatId = 1, TicketTypeId = 1 }))
+            await sut.Invoking(s => s.Reserve(1, new ReserveSeatRequest { ScreeningId = 1, SeatId = 1, TicketTypeId = 1 }))
                 .Should().ThrowAsync<ValidationException>().WithMessage("*already started*");
         }
 
@@ -104,7 +111,7 @@ namespace EMSTests.Services
             using var ctx = CreateContext();
             var sut = CreateSut(ctx);
 
-            await sut.Invoking(s => s.Reserve(1, new ReserveSeatRequest { EventId = 1, SeatId = 99, TicketTypeId = 1 }))
+            await sut.Invoking(s => s.Reserve(1, new ReserveSeatRequest { ScreeningId = 1, SeatId = 99, TicketTypeId = 1 }))
                 .Should().ThrowAsync<NotFoundException>();
         }
 
@@ -120,14 +127,14 @@ namespace EMSTests.Services
             using var ctx = CreateContext();
             ctx.SeatReservations.Add(new SeatReservation
             {
-                Id = 1, EventId = 1, SeatId = 1, UserId = 2, TicketTypeId = 1,
+                Id = 1, ScreeningId = 1, SeatId = 1, UserId = 2, TicketTypeId = 1,
                 Status = "Active", ReservedUntil = DateTime.UtcNow.AddMinutes(10)
             });
             await ctx.SaveChangesAsync();
 
             var sut = CreateSut(ctx);
 
-            await sut.Invoking(s => s.Reserve(1, new ReserveSeatRequest { EventId = 1, SeatId = 1, TicketTypeId = 1 }))
+            await sut.Invoking(s => s.Reserve(1, new ReserveSeatRequest { ScreeningId = 1, SeatId = 1, TicketTypeId = 1 }))
                 .Should().ThrowAsync<ValidationException>().WithMessage("*already reserved*");
         }
 
@@ -140,12 +147,12 @@ namespace EMSTests.Services
             using var ctx = CreateContext();
             var booking = new Booking
             {
-                Id = 1, UserId = 1, EventId = 1, BookingStatus = "Confirmed",
+                Id = 1, UserId = 1, ScreeningId = 1, BookingStatus = "Confirmed",
                 BookingReference = "BK12345678", ExpiresAt = DateTime.UtcNow.AddMinutes(30)
             };
             var ticketType = new TicketType
             {
-                Id = 1, EventId = 1, Name = "VIP", SeatType = "VIP",
+                Id = 1, ScreeningId = 1, Name = "VIP", SeatType = "VIP",
                 Price = 500, TotalQuantity = 100, AvailableQuantity = 100,
                 SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(10)
             };
@@ -164,7 +171,7 @@ namespace EMSTests.Services
 
             var sut = CreateSut(ctx);
 
-            await sut.Invoking(s => s.Reserve(1, new ReserveSeatRequest { EventId = 1, SeatId = 1, TicketTypeId = 1 }))
+            await sut.Invoking(s => s.Reserve(1, new ReserveSeatRequest { ScreeningId = 1, SeatId = 1, TicketTypeId = 1 }))
                 .Should().ThrowAsync<ValidationException>().WithMessage("*already booked*");
         }
 
@@ -178,7 +185,7 @@ namespace EMSTests.Services
             using var ctx = CreateContext();
             var sut = CreateSut(ctx);
 
-            var result = await sut.Reserve(1, new ReserveSeatRequest { EventId = 1, SeatId = 1, TicketTypeId = 1 });
+            var result = await sut.Reserve(1, new ReserveSeatRequest { ScreeningId = 1, SeatId = 1, TicketTypeId = 1 });
 
             result.Should().NotBeNull();
             result.Status.Should().Be("Active");
@@ -192,7 +199,7 @@ namespace EMSTests.Services
         {
             var reservation = new SeatReservation
             {
-                Id = 1, SeatId = 1, EventId = 1, UserId = 1, Status = "Active",
+                Id = 1, SeatId = 1, ScreeningId = 1, UserId = 1, Status = "Active",
                 ReservedUntil = DateTime.UtcNow.AddMinutes(10)
             };
             _reservationRepo.Setup(r => r.GetById(1)).ReturnsAsync(reservation);

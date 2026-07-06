@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, throwError } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Observable, catchError, of, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { PagedResult } from '../models/paged-result.model';
 import {
@@ -60,8 +61,12 @@ export class UserService {
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 
-  getOrganizerRequest(): Observable<OrganizerRequestDto> {
-    return this.http.get<OrganizerRequestDto>(`${this.base}/organizer-request`)
-      .pipe(catchError(e => throwError(() => extractError(e))));
+  // A 404 means the user has never requested organizer access — surface that as null
+  // rather than an error; any other failure still propagates as a message.
+  getOrganizerRequest(): Observable<OrganizerRequestDto | null> {
+    return this.http.get<OrganizerRequestDto>(`${this.base}/organizer-request`).pipe(
+      catchError((e: HttpErrorResponse) =>
+        e.status === 404 ? of(null) : throwError(() => extractError(e))),
+    );
   }
 }

@@ -20,6 +20,26 @@
         <button type="button" (click)="proceedToBook()" class="btn-primary">Proceed to Book</button>
       </ng-container>
 
+      <!-- ── Step 1b · Choose screen / showtime ─────────────────────── -->
+      <ng-container *ngIf="step() === 'screen'">
+        <section>
+          <div class="mb-3">
+            <p class="eyebrow text-plum">Select a show</p>
+            <h2 class="section-title mt-1">Pick a screen &amp; time</h2>
+          </div>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <button *ngFor="let sc of screenings()" type="button" (click)="selectScreening(sc)"
+                    class="card flex items-center justify-between gap-3 p-4 text-left transition hover:border-plum">
+              <span>
+                <span class="block font-medium text-ink">{{ sc.screen }}</span>
+                <span class="block font-mono text-sm text-muted">{{ sc.startTime | istDate }}</span>
+              </span>
+              <span class="link-action">Select →</span>
+            </button>
+          </div>
+        </section>
+      </ng-container>
+
       <!-- ── Step 2 · Seats ─────────────────────────────────────────── -->
       <ng-container *ngIf="step() === 'seats'">
         <section>
@@ -27,13 +47,17 @@
             <div>
               <p class="eyebrow text-plum">Select your seats</p>
               <h2 class="section-title mt-1">{{ selectedTicketType()?.name }} · {{ quantity() }} ticket{{ quantity() === 1 ? '' : 's' }}</h2>
+              <p *ngIf="selectedScreening() as sc" class="mt-1 font-mono text-sm text-muted">{{ sc.screen }} · {{ sc.startTime | istDate }}</p>
             </div>
-            <button type="button" (click)="proceedToBook()" class="link-action">Change tickets</button>
+            <div class="flex gap-3">
+              <button *ngIf="hasMultipleScreenings()" type="button" (click)="changeShowtime()" class="link-action">Change show</button>
+              <button type="button" (click)="proceedToBook()" class="link-action">Change tickets</button>
+            </div>
           </div>
           <p class="mb-4 text-sm text-ink-soft">Pick {{ quantity() }} seat{{ quantity() === 1 ? '' : 's' }} in the {{ selectedTicketType()?.name }} section.</p>
           <div class="card p-5">
-            <ems-seat-map [eventId]="ev.id" [venueId]="ev.venueId" [ticketTypes]="ticketTypes()"
-                          [screenName]="ev.screen ?? ''" [restrictToSeatType]="restrictToSeatType()"
+            <ems-seat-map *ngIf="selectedScreening() as sc" [screeningId]="sc.id" [venueId]="ev.venueId" [ticketTypes]="ticketTypes()"
+                          [screenName]="sc.screen" [restrictToSeatType]="restrictToSeatType()"
                           [selectedSeatIds]="selectedSeatIds()" (seatToggled)="onSeatToggled($event)" />
           </div>
         </section>

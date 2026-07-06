@@ -1,0 +1,24 @@
+- generic [ref=f16e2]:
+  - banner [ref=f16e4]:
+    - navigation [ref=f16e5]:
+      - link "EventHub home" [ref=f16e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f16e7]: E
+        - generic [ref=f16e8]: EventHub
+      - generic [ref=f16e9]:
+        - link "Events" [ref=f16e10] [cursor=pointer]:
+          - /url: /events
+        - link "My Bookings" [ref=f16e11] [cursor=pointer]:
+          - /url: /bookings
+        - link "My Events" [ref=f16e12] [cursor=pointer]:
+          - /url: /organizer/events
+        - link "Admin" [ref=f16e13] [cursor=pointer]:
+          - /url: /admin/events
+        - link "System Admin" [ref=f16e14] [cursor=pointer]:
+          - /url: /profile
+        - button "Logout" [ref=f16e15] [cursor=pointer]
+  - main [ref=f16e16]
+  - contentinfo [ref=f16e17]:
+    - generic [ref=f16e18]:
+      - paragraph [ref=f16e19]: EventHub
+      - paragraph [ref=f16e20]: Doors open · Lights down · Live

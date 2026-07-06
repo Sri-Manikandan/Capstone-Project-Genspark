@@ -25,7 +25,7 @@ export interface BulkCreateSeatsRequest {
 }
 
 export interface ReserveSeatRequest {
-  eventId: number;
+  screeningId: number;
   seatId: number;
   ticketTypeId: number;
 }
@@ -33,7 +33,7 @@ export interface ReserveSeatRequest {
 export interface SeatReservationDto {
   id: number;
   seatId: number;
-  eventId: number;
+  screeningId: number;
   ticketTypeId: number;
   userId: number;
   status: string;

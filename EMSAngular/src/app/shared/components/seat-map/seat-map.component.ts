@@ -32,7 +32,7 @@ export class SeatMapComponent implements OnInit, OnDestroy {
   private seatService = inject(SeatService);
   private hub = inject(SeatHubService);
 
-  @Input({ required: true }) eventId!: number;
+  @Input({ required: true }) screeningId!: number;
   @Input({ required: true }) venueId!: number;
   @Input() screenName = '';
   @Input() selectedSeatIds: number[] = [];
@@ -60,7 +60,7 @@ export class SeatMapComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.seatService.getAvailableByEvent(this.eventId).subscribe({
+    this.seatService.getAvailableByScreening(this.screeningId).subscribe({
       next: seats => {
         this.allSeats.set(seats);
         this.availableIds.set(new Set(seats.map(s => s.id)));
@@ -71,11 +71,11 @@ export class SeatMapComponent implements OnInit, OnDestroy {
         this.loaded.set(true);
       },
     });
-    void this.hub.joinEvent(this.eventId);
+    void this.hub.joinScreening(this.screeningId);
   }
 
   ngOnDestroy(): void {
-    void this.hub.leaveEvent(this.eventId);
+    void this.hub.leaveScreening(this.screeningId);
   }
 
   protected seatState(seat: SeatDto): 'selected' | 'available' | 'taken' | 'disabled' {

@@ -67,7 +67,7 @@ namespace EMSApplicationLayer.BackgroundServices
                     await ticketTypeRepo.IncrementAvailableQuantity(item.TicketTypeId);
 
                     var reservation = await context.SeatReservations
-                        .FirstOrDefaultAsync(sr => sr.EventId == booking.EventId
+                        .FirstOrDefaultAsync(sr => sr.ScreeningId == booking.ScreeningId
                                                 && sr.SeatId == item.SeatId
                                                 && sr.Status == "Confirmed", ct);
                     if (reservation != null)

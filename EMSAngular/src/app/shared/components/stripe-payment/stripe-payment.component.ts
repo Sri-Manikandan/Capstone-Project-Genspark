@@ -47,6 +47,9 @@ export class StripePaymentComponent implements AfterViewInit {
     this.errorMessage.set('');
     const result = await this.stripe.confirmPayment({
       elements: this.elements,
+      // If the payment method forces a redirect, Stripe returns to this same
+      // checkout page; CheckoutComponent picks up the intent from the query string.
+      confirmParams: { return_url: `${window.location.origin}${window.location.pathname}` },
       redirect: 'if_required',
     });
     this.submitting.set(false);

@@ -83,9 +83,9 @@ namespace EMSBLLLibrary.Services
             return _mapper.Map<List<SeatDto>>(seats);
         }
 
-        public async Task<List<SeatDto>> GetAvailableByEventId(int eventId)
+        public async Task<List<SeatDto>> GetAvailableByScreeningId(int screeningId)
         {
-            var seats = await _seatRepo.GetAvailableByEventId(eventId);
+            var seats = await _seatRepo.GetAvailableByScreeningId(screeningId);
             return _mapper.Map<List<SeatDto>>(seats);
         }
 

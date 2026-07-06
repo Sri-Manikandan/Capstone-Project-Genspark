@@ -5,7 +5,7 @@ namespace EMSModelLibrary.DTOs
     public class ReserveSeatRequest
     {
         [Range(1, int.MaxValue)]
-        public int EventId { get; set; }
+        public int ScreeningId { get; set; }
 
         [Range(1, int.MaxValue)]
         public int SeatId { get; set; }
@@ -18,7 +18,7 @@ namespace EMSModelLibrary.DTOs
     {
         public int Id { get; set; }
         public int SeatId { get; set; }
-        public int EventId { get; set; }
+        public int ScreeningId { get; set; }
         public int TicketTypeId { get; set; }
         public int UserId { get; set; }
         public string Status { get; set; } = string.Empty;

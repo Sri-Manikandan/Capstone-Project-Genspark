@@ -1,6 +1,7 @@
-    <ems-organizer-event-nav [eventId]="eventId" />
+    <ems-organizer-event-nav *ngIf="eventId() as eid" [eventId]="eid" />
     <p class="eyebrow text-plum">Organizer</p>
-    <h1 class="page-title mt-2 mb-6">Ticket types</h1>
+    <h1 class="page-title mt-2 mb-1">Ticket types</h1>
+    <p class="mb-6 font-mono text-sm text-muted" *ngIf="screenLabel()">{{ screenLabel() }}</p>
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
 
     <ems-loading-spinner *ngIf="loading()" />
@@ -14,12 +15,12 @@
     </ul>
 
     <form [formGroup]="form" (ngSubmit)="add()" class="card grid max-w-xl grid-cols-1 gap-3 p-6 sm:grid-cols-2">
-      <label class="space-y-1"><span class="field-label">Name</span><input formControlName="name" placeholder="Name" class="field" /></label>
-      <label class="space-y-1"><span class="field-label">Seat type</span><input formControlName="seatType" placeholder="Seat type" class="field" /></label>
-      <label class="space-y-1"><span class="field-label">Price</span><input formControlName="price" type="number" placeholder="Price" class="field" /></label>
-      <label class="space-y-1"><span class="field-label">Quantity</span><input formControlName="totalQuantity" type="number" placeholder="Quantity" class="field" /></label>
-      <label class="space-y-1"><span class="field-label">Sale start</span><input formControlName="saleStart" type="datetime-local" class="field" /></label>
-      <label class="space-y-1"><span class="field-label">Sale end</span><input formControlName="saleEnd" type="datetime-local" class="field" /></label>
+      <label class="space-y-1"><span class="field-label">Name</span><input formControlName="name" placeholder="Name" class="field" /><ems-field-error [control]="form.controls.name" label="Name" /></label>
+      <label class="space-y-1"><span class="field-label">Seat type</span><input formControlName="seatType" placeholder="Seat type" class="field" /><ems-field-error [control]="form.controls.seatType" label="Seat type" /></label>
+      <label class="space-y-1"><span class="field-label">Price</span><input formControlName="price" type="number" placeholder="Price" class="field" /><ems-field-error [control]="form.controls.price" label="Price" /></label>
+      <label class="space-y-1"><span class="field-label">Quantity</span><input formControlName="totalQuantity" type="number" placeholder="Quantity" class="field" /><ems-field-error [control]="form.controls.totalQuantity" label="Quantity" /></label>
+      <label class="space-y-1"><span class="field-label">Sale start</span><input formControlName="saleStart" type="datetime-local" class="field" /><ems-field-error [control]="form.controls.saleStart" label="Sale start" /></label>
+      <label class="space-y-1"><span class="field-label">Sale end</span><input formControlName="saleEnd" type="datetime-local" class="field" /><ems-field-error [control]="form.controls.saleEnd" label="Sale end" /></label>
       <button type="submit" class="btn-primary sm:col-span-2">Add ticket type</button>
     </form>
   

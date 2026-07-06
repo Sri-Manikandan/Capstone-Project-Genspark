@@ -18,8 +18,8 @@ export class SeatService {
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 
-  getAvailableByEvent(eventId: number): Observable<SeatDto[]> {
-    return this.http.get<SeatDto[]>(`${this.base}/available/event/${eventId}`)
+  getAvailableByScreening(screeningId: number): Observable<SeatDto[]> {
+    return this.http.get<SeatDto[]>(`${this.base}/available/screening/${screeningId}`)
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 

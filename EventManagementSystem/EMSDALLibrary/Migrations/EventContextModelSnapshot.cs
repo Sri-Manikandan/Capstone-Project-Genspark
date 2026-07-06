@@ -41,9 +41,6 @@ namespace EMSDALLibrary.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("EventId")
-                        .HasColumnType("integer");
-
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -61,6 +58,9 @@ namespace EMSDALLibrary.Migrations
                     b.Property<int?>("ScannedBy")
                         .HasColumnType("integer");
 
+                    b.Property<int>("ScreeningId")
+                        .HasColumnType("integer");
+
                     b.Property<decimal>("TotalAmount")
                         .HasColumnType("decimal(18,2)");
 
@@ -75,7 +75,7 @@ namespace EMSDALLibrary.Migrations
                     b.HasIndex("BookingReference")
                         .IsUnique();
 
-                    b.HasIndex("EventId");
+                    b.HasIndex("ScreeningId");
 
                     b.HasIndex("UserId");
 
@@ -120,6 +120,50 @@ namespace EMSDALLibrary.Migrations
                     b.HasIndex("TicketTypeId");
 
                     b.ToTable("BookingItems");
+                });
+
+            modelBuilder.Entity("EMSModelLibrary.Models.ChangeLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Changes")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EntityKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EntityName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UserRole")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("EntityName", "EntityKey");
+
+                    b.ToTable("ChangeLogs");
                 });
 
             modelBuilder.Entity("EMSModelLibrary.Models.Event", b =>
@@ -316,6 +360,43 @@ namespace EMSDALLibrary.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
+            modelBuilder.Entity("EMSModelLibrary.Models.Screening", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("EndTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Screen")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("StartTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("StartTime");
+
+                    b.ToTable("Screenings");
+                });
+
             modelBuilder.Entity("EMSModelLibrary.Models.Seat", b =>
                 {
                     b.Property<int>("Id")
@@ -360,11 +441,11 @@ namespace EMSDALLibrary.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("EventId")
-                        .HasColumnType("integer");
-
                     b.Property<DateTime>("ReservedUntil")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ScreeningId")
+                        .HasColumnType("integer");
 
                     b.Property<int>("SeatId")
                         .HasColumnType("integer");
@@ -381,13 +462,13 @@ namespace EMSDALLibrary.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EventId");
+                    b.HasIndex("ScreeningId");
 
                     b.HasIndex("SeatId");
 
                     b.HasIndex("UserId");
 
-                    b.HasIndex("EventId", "SeatId")
+                    b.HasIndex("ScreeningId", "SeatId")
                         .IsUnique()
                         .HasFilter("\"Status\" = 'Active'");
 
@@ -410,9 +491,6 @@ namespace EMSDALLibrary.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("EventId")
-                        .HasColumnType("integer");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -429,6 +507,9 @@ namespace EMSDALLibrary.Migrations
                     b.Property<DateTime>("SaleStart")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("ScreeningId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("SeatType")
                         .IsRequired()
                         .HasColumnType("text");
@@ -438,7 +519,7 @@ namespace EMSDALLibrary.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EventId");
+                    b.HasIndex("ScreeningId");
 
                     b.ToTable("TicketTypes");
                 });
@@ -525,9 +606,9 @@ namespace EMSDALLibrary.Migrations
 
             modelBuilder.Entity("EMSModelLibrary.Models.Booking", b =>
                 {
-                    b.HasOne("EMSModelLibrary.Models.Event", null)
+                    b.HasOne("EMSModelLibrary.Models.Screening", null)
                         .WithMany()
-                        .HasForeignKey("EventId")
+                        .HasForeignKey("ScreeningId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -601,6 +682,15 @@ namespace EMSDALLibrary.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("EMSModelLibrary.Models.Screening", b =>
+                {
+                    b.HasOne("EMSModelLibrary.Models.Event", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("EMSModelLibrary.Models.Seat", b =>
                 {
                     b.HasOne("EMSModelLibrary.Models.Venue", null)
@@ -612,9 +702,9 @@ namespace EMSDALLibrary.Migrations
 
             modelBuilder.Entity("EMSModelLibrary.Models.SeatReservation", b =>
                 {
-                    b.HasOne("EMSModelLibrary.Models.Event", null)
+                    b.HasOne("EMSModelLibrary.Models.Screening", null)
                         .WithMany()
-                        .HasForeignKey("EventId")
+                        .HasForeignKey("ScreeningId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -633,9 +723,9 @@ namespace EMSDALLibrary.Migrations
 
             modelBuilder.Entity("EMSModelLibrary.Models.TicketType", b =>
                 {
-                    b.HasOne("EMSModelLibrary.Models.Event", null)
+                    b.HasOne("EMSModelLibrary.Models.Screening", null)
                         .WithMany()
-                        .HasForeignKey("EventId")
+                        .HasForeignKey("ScreeningId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

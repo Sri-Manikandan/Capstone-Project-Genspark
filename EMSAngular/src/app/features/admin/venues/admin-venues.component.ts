@@ -6,13 +6,14 @@ import { VenueService } from '../../../core/services/venue.service';
 import { VenueDto } from '../../../core/models/venue.model';
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner/loading-spinner.component';
 import { AlertComponent } from '../../../shared/components/alert/alert.component';
+import { FieldErrorComponent } from '../../../shared/components/field-error/field-error.component';
 import { PaginationComponent } from '../../../shared/components/pagination/pagination.component';
 import { ModalComponent } from '../../../shared/components/modal/modal.component';
 
 @Component({
   selector: 'ems-admin-venues',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, LoadingSpinnerComponent, AlertComponent, PaginationComponent, ModalComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, LoadingSpinnerComponent, AlertComponent, FieldErrorComponent, PaginationComponent, ModalComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-venues.component.html',
 })
