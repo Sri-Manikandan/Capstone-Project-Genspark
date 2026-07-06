@@ -30,7 +30,7 @@
               <p class="font-mono text-xl text-ink">G-12</p>
             </div>
             <div class="h-10 flex-1 rounded"
-                 style="background:repeating-linear-gradient(90deg,#241B2E 0 2px,transparent 2px 5px)"
+                 style="background:repeating-linear-gradient(90deg,#4A4358 0 2px,transparent 2px 5px)"
                  aria-hidden="true"></div>
             <span class="eyebrow shrink-0">Admit one</span>
           </div>
@@ -114,14 +114,14 @@
     </section>
 
     <!-- ── Closing CTA ──────────────────────────────────────────── -->
-    <section class="mt-20 overflow-hidden rounded-3xl bg-ink px-6 py-14 text-center sm:px-12">
+    <section class="mt-20 overflow-hidden rounded-3xl bg-gradient-to-br from-plum to-plum-dark px-6 py-14 text-center sm:px-12">
       <p class="eyebrow text-white/60">Doors open soon</p>
       <h2 class="mx-auto mt-3 max-w-xl font-display text-3xl font-semibold text-white sm:text-4xl">
         Ready for your next night out?
       </h2>
       <div class="mt-7 flex flex-wrap justify-center gap-3">
-        <a routerLink="/events" class="btn-primary">Browse events</a>
-        <a *ngIf="!auth.isAuthenticated()" routerLink="/auth/register" class="btn bg-white text-ink hover:bg-paper">
+        <a routerLink="/events" class="btn bg-white text-plum hover:bg-white/90">Browse events</a>
+        <a *ngIf="!auth.isAuthenticated()" routerLink="/auth/register" class="btn border border-white/40 text-white hover:bg-white/10">
           Create free account
         </a>
       </div>
