@@ -34,7 +34,7 @@ describe('domain services', () => {
   afterEach(() => http.verify());
 
   it('BookingService.create posts to /Booking with an idempotency key', () => {
-    TestBed.inject(BookingService).create({ eventId: 1, items: [] }, 'key-123').subscribe();
+    TestBed.inject(BookingService).create({ screeningId: 1, items: [] }, 'key-123').subscribe();
     const req = http.expectOne(`${root}/Booking`);
     expect(req.request.method).toBe('POST');
     expect(req.request.headers.get('Idempotency-Key')).toBe('key-123');
@@ -49,13 +49,13 @@ describe('domain services', () => {
   });
 
   it('SeatService.reserve posts to /Seat/reserve', () => {
-    TestBed.inject(SeatService).reserve({ eventId: 1, seatId: 2, ticketTypeId: 3 }).subscribe();
+    TestBed.inject(SeatService).reserve({ screeningId: 1, seatId: 2, ticketTypeId: 3 }).subscribe();
     http.expectOne(`${root}/Seat/reserve`).flush({});
   });
 
-  it('TicketTypeService.getActiveByEvent hits active endpoint', () => {
-    TestBed.inject(TicketTypeService).getActiveByEvent(5).subscribe();
-    http.expectOne(`${root}/TicketType/event/5/active`).flush([]);
+  it('TicketTypeService.getActiveByScreening hits active endpoint', () => {
+    TestBed.inject(TicketTypeService).getActiveByScreening(5).subscribe();
+    http.expectOne(`${root}/TicketType/screening/5/active`).flush([]);
   });
 
   it('VenueService.list gets /Venue', () => {

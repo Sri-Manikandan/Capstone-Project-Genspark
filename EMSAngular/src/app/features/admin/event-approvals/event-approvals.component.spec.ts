@@ -3,10 +3,20 @@ import { of } from 'rxjs';
 import { EventApprovalsComponent } from './event-approvals.component';
 import { AdminService } from '../../../core/services/admin.service';
 
-// The backend returns a plain array of pending events (List<EventDto>), not a paged result.
-const pending = [{ id: 3, organizerId: 1, venueId: 1, title: 'Pending Show', description: '', status: 'PendingApproval' as const,
-  startTime: '2026-07-01T19:00:00', endTime: '2026-07-01T22:00:00', imageUrl: '', category: 'Music',
-  slug: 'pending-show', createdAt: '' }];
+// The backend returns a plain array of enriched pending events (List<PendingEventReviewDto>).
+const pending = [{
+  id: 3, title: 'Pending Show', description: 'A wonderful evening of live music and more.',
+  category: 'Music', imageUrl: 'https://img/x.jpg',
+  startTime: '2026-07-01T19:00:00', endTime: '2026-07-01T22:00:00', screen: 'Screen 1',
+  createdAt: '2026-06-01T10:00:00', rejectionReason: null,
+  venueId: 1, venueName: 'Grand Hall', city: 'Chennai',
+  organizer: {
+    id: 1, name: 'Asha Rao', email: 'asha@example.com', phone: '999', memberSince: '2025-01-01T00:00:00',
+    isActive: true, publishedEventCount: 3, rejectedEventCount: 1, totalEventCount: 5,
+  },
+  ticketCategories: [{ name: 'VIP', seatType: 'Premium', price: 500, totalQuantity: 20 }],
+  signals: { leadTimeOk: true, imageUrlValid: true, descriptionAdequate: true, hasTicketCategories: true, pricingSane: true },
+}];
 
 describe('EventApprovalsComponent', () => {
   let fixture: ComponentFixture<EventApprovalsComponent>;
@@ -30,6 +40,21 @@ describe('EventApprovalsComponent', () => {
 
   it('loads pending events', () => {
     expect(component['events']().length).toBe(1);
+  });
+
+  it('renders organizer profile and track record', () => {
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Asha Rao');
+    expect(text).toContain('asha@example.com');
+    expect(text).toContain('3 published');
+    expect(text).toContain('5 total');
+  });
+
+  it('renders ticket categories and review checks', () => {
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('VIP');
+    expect(text).toContain('Grand Hall');
+    expect(text).toContain('Review checks');
   });
 
   it('renders the empty state without crashing when none are pending', () => {

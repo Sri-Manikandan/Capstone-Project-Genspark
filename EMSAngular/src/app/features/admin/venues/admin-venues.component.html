@@ -1,6 +1,5 @@
     <p class="eyebrow text-plum">Admin</p>
     <h1 class="page-title mt-2 mb-6">Venues</h1>
-    <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <ems-loading-spinner *ngIf="loading()" />
 
     <div class="mb-6 flex justify-end">
@@ -40,11 +39,11 @@
         </label>
         <label class="block space-y-1 sm:col-span-2">
           <span class="field-label">Capacity</span>
-          <input formControlName="totalCapacity" type="number" placeholder="Capacity" class="field" />
+          <input formControlName="totalCapacity" type="number" min="1" max="100000" step="1" placeholder="Capacity" class="field" />
           <ems-field-error [control]="form.controls.totalCapacity" label="Capacity" />
         </label>
         <div class="flex gap-3 sm:col-span-2">
-          <button type="submit" class="btn-primary">{{ editingId() ? 'Save changes' : 'Add venue' }}</button>
+          <button type="submit" class="btn-primary" [disabled]="saving()">{{ editingId() ? 'Save changes' : 'Add venue' }}</button>
           <button type="button" (click)="closeDialog()" class="btn-ghost">Cancel</button>
         </div>
       </form>

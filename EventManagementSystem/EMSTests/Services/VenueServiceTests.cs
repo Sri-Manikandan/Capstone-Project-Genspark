@@ -15,6 +15,7 @@ namespace EMSTests.Services
     public class VenueServiceTests
     {
         private Mock<IVenueRepository> _venueRepo;
+        private Mock<IEventRepository> _eventRepo;
         private IMapper _mapper;
         private VenueService _sut;
 
@@ -22,8 +23,9 @@ namespace EMSTests.Services
         public void SetUp()
         {
             _venueRepo = new Mock<IVenueRepository>();
+            _eventRepo = new Mock<IEventRepository>();
             _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
-            _sut = new VenueService(_venueRepo.Object, _mapper);
+            _sut = new VenueService(_venueRepo.Object, _eventRepo.Object, _mapper);
         }
 
         [Test]
@@ -101,6 +103,7 @@ namespace EMSTests.Services
         public async Task Delete_ExistingVenue_CallsDeleteOnRepo()
         {
             _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(new Venue { Id = 1 });
+            _eventRepo.Setup(r => r.ExistsByVenue(1)).ReturnsAsync(false);
             _venueRepo.Setup(r => r.Delete(1)).Returns(Task.CompletedTask);
 
             await _sut.Delete(1);
@@ -109,11 +112,36 @@ namespace EMSTests.Services
         }
 
         [Test]
+        public async Task Delete_VenueWithEvents_ThrowsValidationException()
+        {
+            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(new Venue { Id = 1 });
+            _eventRepo.Setup(r => r.ExistsByVenue(1)).ReturnsAsync(true);
+
+            await _sut.Invoking(s => s.Delete(1)).Should().ThrowAsync<ValidationException>();
+            _venueRepo.Verify(r => r.Delete(It.IsAny<int>()), Times.Never);
+        }
+
+        [Test]
         public async Task Delete_NotFound_ThrowsNotFoundException()
         {
             _venueRepo.Setup(r => r.GetById(99)).ReturnsAsync((Venue?)null);
 
             await _sut.Invoking(s => s.Delete(99)).Should().ThrowAsync<NotFoundException>();
+        }
+
+        [Test]
+        public async Task Update_BlankLayoutConfig_PreservesExistingLayout()
+        {
+            var venue = new Venue { Id = 1, Name = "Old", LayoutConfig = "{\"rows\":10}" };
+            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(venue);
+            _venueRepo.Setup(r => r.Update(It.IsAny<Venue>())).ReturnsAsync((Venue v) => v);
+
+            await _sut.Update(1, new UpdateVenueRequest
+            {
+                Name = "New", Address = "Addr", City = "City", TotalCapacity = 200, LayoutConfig = null
+            });
+
+            venue.LayoutConfig.Should().Be("{\"rows\":10}");
         }
     }
 }

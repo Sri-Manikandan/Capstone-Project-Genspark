@@ -1,13 +1,15 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { NavbarComponent } from './shared/components/navbar/navbar.component';
+import { ToastComponent } from './shared/components/toast/toast.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, NavbarComponent],
+  imports: [RouterOutlet, NavbarComponent, ToastComponent],
   template: `
     <ems-navbar />
+    <ems-toast />
     <main class="mx-auto min-h-[70vh] max-w-6xl px-4 py-8 sm:py-12">
       <router-outlet />
     </main>

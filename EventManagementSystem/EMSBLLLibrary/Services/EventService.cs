@@ -15,13 +15,25 @@ namespace EMSBLLLibrary.Services
         private readonly IEventRepository _eventRepo;
         private readonly IVenueRepository _venueRepo;
         private readonly IScreeningRepository _screeningRepo;
+        private readonly IUserRepository _userRepo;
+        private readonly ITicketTypeRepository _ticketTypeRepo;
+        private readonly IBookingRepository _bookingRepo;
         private readonly IMapper _mapper;
 
-        public EventService(IEventRepository eventRepo, IVenueRepository venueRepo, IScreeningRepository screeningRepo, IMapper mapper)
+        // Events must be scheduled far enough ahead that ticket sales are viable and admins
+        // have time to review before the event starts. Enforced on create and reschedule.
+        private static readonly TimeSpan MinLeadTime = TimeSpan.FromHours(48);
+        private const string LeadTimeMessage = "Events must be scheduled at least 2 days (48 hours) in advance.";
+
+        public EventService(IEventRepository eventRepo, IVenueRepository venueRepo, IScreeningRepository screeningRepo,
+            IUserRepository userRepo, ITicketTypeRepository ticketTypeRepo, IBookingRepository bookingRepo, IMapper mapper)
         {
             _eventRepo = eventRepo;
             _venueRepo = venueRepo;
             _screeningRepo = screeningRepo;
+            _userRepo = userRepo;
+            _ticketTypeRepo = ticketTypeRepo;
+            _bookingRepo = bookingRepo;
             _mapper = mapper;
         }
 
@@ -35,8 +47,8 @@ namespace EMSBLLLibrary.Services
             var startUtc = TimeHelper.AssumeIstToUtc(request.StartTime);
             var endUtc = TimeHelper.AssumeIstToUtc(request.EndTime);
 
-            if (startUtc <= DateTime.UtcNow)
-                throw new ValidationException("StartTime must be in the future.");
+            if (startUtc < DateTime.UtcNow + MinLeadTime)
+                throw new ValidationException(LeadTimeMessage);
 
             if (endUtc <= startUtc)
                 throw new ValidationException("EndTime must be after StartTime.");
@@ -154,6 +166,9 @@ namespace EMSBLLLibrary.Services
             var startUtc = TimeHelper.AssumeIstToUtc(request.StartTime);
             var endUtc = TimeHelper.AssumeIstToUtc(request.EndTime);
 
+            if (startUtc < DateTime.UtcNow + MinLeadTime)
+                throw new ValidationException(LeadTimeMessage);
+
             if (endUtc <= startUtc)
                 throw new ValidationException("EndTime must be after StartTime.");
 
@@ -167,6 +182,20 @@ namespace EMSBLLLibrary.Services
             ev.UpdatedAt = DateTime.UtcNow;
 
             await _eventRepo.Update(ev);
+
+            // Keep the auto-created default screening in step with the event window. When the
+            // organizer has added multiple screenings they manage those windows themselves, so
+            // we only sync the single-screening case to avoid clobbering deliberate schedules.
+            var screenings = await _screeningRepo.GetByEventId(id);
+            if (screenings.Count == 1)
+            {
+                var screening = screenings[0];
+                screening.StartTime = startUtc;
+                screening.EndTime = endUtc;
+                screening.Screen = ev.Screen;
+                await _screeningRepo.Update(screening);
+            }
+
             return _mapper.Map<EventDto>(ev);
         }
 
@@ -212,6 +241,12 @@ namespace EMSBLLLibrary.Services
             if (ev.Status == EventStatus.Cancelled)
                 throw new ValidationException("Event is already cancelled.");
 
+            // An event people have already booked into cannot simply be cancelled;
+            // only cancelled bookings (which no longer hold seats) are ignored.
+            var bookings = await _bookingRepo.GetByEventId(id);
+            if (bookings.Any(b => b.BookingStatus != "Cancelled"))
+                throw new ValidationException("Cannot cancel an event that has bookings.");
+
             ev.Status = EventStatus.Cancelled;
             ev.UpdatedAt = DateTime.UtcNow;
             await _eventRepo.Update(ev);
@@ -219,10 +254,99 @@ namespace EMSBLLLibrary.Services
         }
 
         // Admin-only operations
-        public async Task<List<EventDto>> GetPendingApproval()
+        public async Task<List<PendingEventReviewDto>> GetPendingApproval()
         {
             var events = await _eventRepo.GetByStatus(EventStatus.PendingApproval);
-            return await AddVenues(_mapper.Map<List<EventDto>>(events));
+            var venues = (await _venueRepo.GetAll() ?? new List<Venue>()).ToDictionary(v => v.Id);
+
+            var result = new List<PendingEventReviewDto>();
+            foreach (var ev in events)
+            {
+                var dto = new PendingEventReviewDto
+                {
+                    Id = ev.Id,
+                    Title = ev.Title,
+                    Description = ev.Description,
+                    Category = ev.Category,
+                    ImageUrl = ev.ImageUrl,
+                    StartTime = TimeHelper.UtcToIst(ev.StartTime),
+                    EndTime = TimeHelper.UtcToIst(ev.EndTime),
+                    Screen = ev.Screen,
+                    CreatedAt = TimeHelper.UtcToIst(ev.CreatedAt),
+                    RejectionReason = ev.RejectionReason,
+                    VenueId = ev.VenueId,
+                };
+
+                if (venues.TryGetValue(ev.VenueId, out var venue))
+                {
+                    dto.VenueName = venue.Name;
+                    dto.City = venue.City;
+                }
+
+                dto.Organizer = await BuildOrganizerSummary(ev.OrganizerId);
+                dto.TicketCategories = await BuildTicketCategories(ev.Id);
+                dto.Signals = BuildReviewSignals(ev, dto.TicketCategories);
+
+                result.Add(dto);
+            }
+
+            return result;
+        }
+
+        private async Task<OrganizerSummaryDto> BuildOrganizerSummary(int organizerId)
+        {
+            var user = await _userRepo.GetById(organizerId);
+            var (published, rejected, total) = await _eventRepo.GetStatusCountsByOrganizer(organizerId);
+            return new OrganizerSummaryDto
+            {
+                Id = organizerId,
+                Name = user?.Name ?? string.Empty,
+                Email = user?.Email ?? string.Empty,
+                Phone = user?.Phone ?? string.Empty,
+                MemberSince = user != null ? TimeHelper.UtcToIst(user.CreatedAt) : default,
+                IsActive = user?.IsActive ?? false,
+                PublishedEventCount = published,
+                RejectedEventCount = rejected,
+                TotalEventCount = total,
+            };
+        }
+
+        private async Task<List<TicketCategorySummaryDto>> BuildTicketCategories(int eventId)
+        {
+            var categories = new List<TicketCategorySummaryDto>();
+            var screenings = await _screeningRepo.GetByEventId(eventId);
+            foreach (var screening in screenings)
+            {
+                var ticketTypes = await _ticketTypeRepo.GetByScreeningId(screening.Id);
+                foreach (var t in ticketTypes)
+                    categories.Add(new TicketCategorySummaryDto
+                    {
+                        Name = t.Name,
+                        SeatType = t.SeatType,
+                        Price = t.Price,
+                        TotalQuantity = t.TotalQuantity,
+                    });
+            }
+            return categories;
+        }
+
+        // Format-only checks (no network calls) so the admin queue stays fast and deterministic.
+        private static ReviewSignalsDto BuildReviewSignals(Event ev, List<TicketCategorySummaryDto> categories)
+        {
+            return new ReviewSignalsDto
+            {
+                LeadTimeOk = ev.StartTime >= ev.CreatedAt + MinLeadTime,
+                ImageUrlValid = IsWellFormedHttpUrl(ev.ImageUrl),
+                DescriptionAdequate = (ev.Description ?? string.Empty).Trim().Length >= 30,
+                HasTicketCategories = categories.Count > 0,
+                PricingSane = categories.Count > 0 && categories.All(c => c.Price > 0),
+            };
+        }
+
+        private static bool IsWellFormedHttpUrl(string? url)
+        {
+            return Uri.TryCreate(url, UriKind.Absolute, out var uri)
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
         }
 
         public async Task<EventDto> AdminApprove(int id)

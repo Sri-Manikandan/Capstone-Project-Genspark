@@ -3,12 +3,105 @@
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <ems-loading-spinner *ngIf="loading()" />
 
-    <div *ngIf="!loading()" class="space-y-3">
-      <div *ngFor="let ev of events()" class="card p-5">
-        <p class="font-display text-lg font-semibold text-ink">{{ ev.title }}</p>
-        <p class="font-mono text-xs text-muted">{{ ev.startTime | istDate }} · {{ ev.category }}</p>
-        <p class="mt-2 text-sm text-ink-soft">{{ ev.description }}</p>
-        <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+    <div *ngIf="!loading()" class="space-y-4">
+      <div *ngFor="let ev of events()" class="card p-5 space-y-4">
+        <!-- Event header -->
+        <div class="flex flex-col gap-4 sm:flex-row">
+          <img *ngIf="ev.imageUrl" [src]="ev.imageUrl" alt=""
+               class="h-28 w-full rounded-xl object-cover sm:w-44" />
+          <div class="min-w-0 flex-1">
+            <p class="font-display text-lg font-semibold text-ink">{{ ev.title }}</p>
+            <p class="font-mono text-xs text-muted">{{ ev.category }} · submitted {{ ev.createdAt | istDate }}</p>
+            <p class="mt-1 text-sm text-ink-soft">
+              {{ ev.startTime | istDate }} → {{ ev.endTime | istDate }}
+            </p>
+            <p class="text-sm text-ink-soft">
+              {{ ev.venueName }}<span *ngIf="ev.city">, {{ ev.city }}</span>
+              <span *ngIf="ev.screen"> · {{ ev.screen }}</span>
+            </p>
+          </div>
+        </div>
+
+        <p class="text-sm text-ink-soft">{{ ev.description }}</p>
+
+        <!-- Organizer -->
+        <div class="rounded-xl border border-line p-4">
+          <p class="field-label mb-2">Organizer</p>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <span class="font-semibold text-ink">{{ ev.organizer.name }}</span>
+            <span class="inline-flex items-center gap-1 text-xs font-medium"
+                  [class.text-emerald-600]="ev.organizer.isActive" [class.text-rose]="!ev.organizer.isActive">
+              {{ ev.organizer.isActive ? 'Active' : 'Inactive' }}
+            </span>
+          </div>
+          <p class="mt-1 font-mono text-xs text-muted">
+            {{ ev.organizer.email }} · {{ ev.organizer.phone }} · member since {{ ev.organizer.memberSince | istDate }}
+          </p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <span class="rounded-full bg-surface-muted px-3 py-1 text-xs text-ink-soft">
+              {{ ev.organizer.publishedEventCount }} published
+            </span>
+            <span class="rounded-full bg-surface-muted px-3 py-1 text-xs text-ink-soft">
+              {{ ev.organizer.rejectedEventCount }} rejected
+            </span>
+            <span class="rounded-full bg-surface-muted px-3 py-1 text-xs text-ink-soft">
+              {{ ev.organizer.totalEventCount }} total
+            </span>
+          </div>
+        </div>
+
+        <!-- Ticket categories -->
+        <div class="rounded-xl border border-line p-4">
+          <p class="field-label mb-2">Ticket categories</p>
+          <div *ngIf="ev.ticketCategories.length; else noTickets" class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-xs text-muted">
+                  <th class="py-1 pr-4 font-medium">Name</th>
+                  <th class="py-1 pr-4 font-medium">Seat type</th>
+                  <th class="py-1 pr-4 font-medium">Price (₹)</th>
+                  <th class="py-1 font-medium">Capacity</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let t of ev.ticketCategories" class="border-t border-line text-ink-soft">
+                  <td class="py-1 pr-4">{{ t.name }}</td>
+                  <td class="py-1 pr-4">{{ t.seatType }}</td>
+                  <td class="py-1 pr-4">{{ t.price }}</td>
+                  <td class="py-1">{{ t.totalQuantity }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <ng-template #noTickets>
+            <p class="text-sm text-rose">No ticket categories — this event isn't bookable yet.</p>
+          </ng-template>
+        </div>
+
+        <!-- Review signals -->
+        <div class="rounded-xl border border-line p-4">
+          <p class="field-label mb-2">Review checks</p>
+          <ul class="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
+            <li [class.text-emerald-600]="ev.signals.leadTimeOk" [class.text-rose]="!ev.signals.leadTimeOk">
+              {{ ev.signals.leadTimeOk ? '✓' : '✗' }} Scheduled ≥ 48h ahead
+            </li>
+            <li [class.text-emerald-600]="ev.signals.imageUrlValid" [class.text-rose]="!ev.signals.imageUrlValid">
+              {{ ev.signals.imageUrlValid ? '✓' : '✗' }} Valid image URL
+            </li>
+            <li [class.text-emerald-600]="ev.signals.descriptionAdequate" [class.text-rose]="!ev.signals.descriptionAdequate">
+              {{ ev.signals.descriptionAdequate ? '✓' : '✗' }} Description detail
+            </li>
+            <li [class.text-emerald-600]="ev.signals.hasTicketCategories" [class.text-rose]="!ev.signals.hasTicketCategories">
+              {{ ev.signals.hasTicketCategories ? '✓' : '✗' }} Has ticket categories
+            </li>
+            <li [class.text-emerald-600]="ev.signals.pricingSane" [class.text-rose]="!ev.signals.pricingSane">
+              {{ ev.signals.pricingSane ? '✓' : '✗' }} Sane pricing
+            </li>
+          </ul>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <input [ngModel]="reasons()[ev.id] ?? ''" (ngModelChange)="setReason(ev.id, $event)"
                  aria-label="Rejection reason" placeholder="Rejection reason" class="field w-full py-1.5 sm:flex-1" />
           <div class="flex gap-2">
@@ -19,4 +112,3 @@
       </div>
       <p *ngIf="events().length === 0" class="card px-6 py-16 text-center text-muted">No pending events.</p>
     </div>
-

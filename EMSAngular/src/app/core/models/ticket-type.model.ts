@@ -17,7 +17,6 @@ export interface CreateTicketTypeRequest {
   name: string;
   seatType: string;
   price: number;
-  totalQuantity: number;
   saleStart: string;
   saleEnd: string;
 }
@@ -26,7 +25,6 @@ export interface UpdateTicketTypeRequest {
   name: string;
   seatType: string;
   price: number;
-  totalQuantity: number;
   saleStart: string;
   saleEnd: string;
   isActive: boolean;

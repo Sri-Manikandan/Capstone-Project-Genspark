@@ -16,7 +16,7 @@ namespace EMSModelLibrary.DTOs
     public class CreateVenueRequest
     {
         [Required]
-        [StringLength(200, MinimumLength = 2)]
+        [StringLength(100, MinimumLength = 2)]
         public string Name { get; set; } = string.Empty;
 
         [Required]
@@ -37,7 +37,7 @@ namespace EMSModelLibrary.DTOs
     public class UpdateVenueRequest
     {
         [Required]
-        [StringLength(200, MinimumLength = 2)]
+        [StringLength(100, MinimumLength = 2)]
         public string Name { get; set; } = string.Empty;
 
         [Required]
@@ -51,7 +51,8 @@ namespace EMSModelLibrary.DTOs
         [Range(1, 100000)]
         public int TotalCapacity { get; set; }
 
-        [Required]
-        public string LayoutConfig { get; set; } = string.Empty;
+        // Optional on update: when omitted/blank the existing seat-map layout is preserved
+        // rather than being reset (there is no UI to edit the layout from the venue form).
+        public string? LayoutConfig { get; set; }
     }
 }

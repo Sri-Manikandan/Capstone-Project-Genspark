@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { BookingService } from '../../../core/services/booking.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { BookingDto } from '../../../core/models/booking.model';
 import { BookingQrComponent } from '../../../shared/components/booking-qr/booking-qr.component';
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner/loading-spinner.component';
@@ -18,7 +19,9 @@ import { CurrencyInrPipe } from '../../../shared/pipes/currency-inr.pipe';
 })
 export class BookingDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private bookingService = inject(BookingService);
+  private toast = inject(ToastService);
 
   protected booking = signal<BookingDto | null>(null);
   protected loading = signal(false);
@@ -41,7 +44,10 @@ export class BookingDetailComponent implements OnInit {
 
   protected cancel(id: number): void {
     this.bookingService.cancel(id).subscribe({
-      next: b => this.booking.set(b),
+      next: () => {
+        this.toast.success('Ticket successfully canceled.');
+        this.router.navigate(['/bookings']);
+      },
       error: (msg: string) => this.error.set(msg),
     });
   }

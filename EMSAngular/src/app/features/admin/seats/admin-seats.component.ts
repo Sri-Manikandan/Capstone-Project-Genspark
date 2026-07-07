@@ -3,9 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { SeatService } from '../../../core/services/seat.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { SeatDto } from '../../../core/models/seat.model';
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner/loading-spinner.component';
-import { AlertComponent } from '../../../shared/components/alert/alert.component';
 import { BuilderCell, generateGrid, gridToSeats, seatsToGrid } from './seat-grid';
 
 const AISLE = 'Aisle';
@@ -13,18 +13,17 @@ const AISLE = 'Aisle';
 @Component({
   selector: 'ems-admin-seats',
   standalone: true,
-  imports: [CommonModule, FormsModule, LoadingSpinnerComponent, AlertComponent],
+  imports: [CommonModule, FormsModule, LoadingSpinnerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-seats.component.html',
 })
 export class AdminSeatsComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private seatService = inject(SeatService);
+  private toast = inject(ToastService);
 
   protected seats = signal<SeatDto[]>([]);
   protected loading = signal(false);
-  protected error = signal('');
-  protected success = signal('');
   protected selectedScreen = signal<string | null>(null);
   protected grid = signal<BuilderCell[][]>([]);
   protected paint = signal('Normal');
@@ -93,10 +92,10 @@ export class AdminSeatsComponent implements OnInit {
     const screen = this.selectedScreen();
     if (!screen) return;
     const seats = gridToSeats(this.grid());
-    if (seats.length === 0) { this.error.set('Add at least one seat before saving.'); return; }
+    if (seats.length === 0) { this.toast.error('Add at least one seat before saving.'); return; }
     this.seatService.setScreenSeats({ venueId: this.venueId, screen, seats }).subscribe({
-      next: () => { this.success.set('Screen saved.'); this.load(); },
-      error: (m: string) => this.error.set(m),
+      next: () => { this.toast.success('Screen saved.'); this.load(); },
+      error: (m: string) => this.toast.error(m),
     });
   }
 
@@ -105,8 +104,8 @@ export class AdminSeatsComponent implements OnInit {
     if (!screen) return;
     if (!confirm(`Delete screen "${screen}" and all its seats?`)) return;
     this.seatService.deleteScreen(this.venueId, screen).subscribe({
-      next: () => { this.success.set('Screen deleted.'); this.selectedScreen.set(null); this.grid.set([]); this.load(); },
-      error: (m: string) => this.error.set(m),
+      next: () => { this.toast.success('Screen deleted.'); this.selectedScreen.set(null); this.grid.set([]); this.load(); },
+      error: (m: string) => this.toast.error(m),
     });
   }
 
@@ -119,7 +118,7 @@ export class AdminSeatsComponent implements OnInit {
         const current = this.selectedScreen();
         if (current && this.screens().includes(current)) this.selectScreen(current);
       },
-      error: (m: string) => { this.error.set(m); this.loading.set(false); },
+      error: (m: string) => { this.toast.error(m); this.loading.set(false); },
     });
   }
 }

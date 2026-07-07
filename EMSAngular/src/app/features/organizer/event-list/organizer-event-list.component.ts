@@ -6,12 +6,13 @@ import { EventDto } from '../../../core/models/event.model';
 import { PaginationComponent } from '../../../shared/components/pagination/pagination.component';
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner/loading-spinner.component';
 import { AlertComponent } from '../../../shared/components/alert/alert.component';
+import { ModalComponent } from '../../../shared/components/modal/modal.component';
 import { IstDatePipe } from '../../../shared/pipes/ist-date.pipe';
 
 @Component({
   selector: 'ems-organizer-event-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, PaginationComponent, LoadingSpinnerComponent, AlertComponent, IstDatePipe],
+  imports: [CommonModule, RouterLink, PaginationComponent, LoadingSpinnerComponent, AlertComponent, ModalComponent, IstDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './organizer-event-list.component.html',
 })
@@ -23,6 +24,8 @@ export class OrganizerEventListComponent implements OnInit {
   protected error = signal('');
   protected page = signal(1);
   protected totalPages = signal(1);
+  // Id of the event awaiting cancel confirmation; null when the dialog is closed.
+  protected cancelTargetId = signal<number | null>(null);
 
   ngOnInit(): void { this.load(); }
   protected goToPage(p: number): void { this.page.set(p); this.load(); }
@@ -30,7 +33,19 @@ export class OrganizerEventListComponent implements OnInit {
   protected submitEvent(id: number): void {
     this.eventService.submit(id).subscribe({ next: () => this.load(), error: (m: string) => this.error.set(m) });
   }
-  protected cancelEvent(id: number): void {
+
+  protected requestCancel(id: number): void {
+    this.cancelTargetId.set(id);
+  }
+
+  protected dismissCancel(): void {
+    this.cancelTargetId.set(null);
+  }
+
+  protected confirmCancel(): void {
+    const id = this.cancelTargetId();
+    if (id === null) return;
+    this.cancelTargetId.set(null);
     this.eventService.cancel(id).subscribe({ next: () => this.load(), error: (m: string) => this.error.set(m) });
   }
 

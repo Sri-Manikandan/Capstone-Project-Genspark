@@ -1,8 +1,7 @@
     <p class="eyebrow text-plum">Your account</p>
     <h1 class="page-title mt-2 mb-7">Profile</h1>
 
-    <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
-    <ems-alert type="success" [message]="success()" (dismissed)="success.set('')" />
+    <ems-alert type="error" [message]="loadError()" (dismissed)="loadError.set('')" />
     <ems-loading-spinner *ngIf="loading()" />
 
     <div *ngIf="me() as u" class="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -34,6 +33,8 @@
       <!-- ── Organizer access ────────────────────────────────────── -->
       <section class="card p-6">
         <h2 class="eyebrow mb-4">Organizer access</h2>
+        <ems-alert type="error" [message]="requestError()" (dismissed)="requestError.set('')" />
+        <ems-alert type="success" [message]="requestSuccess()" (dismissed)="requestSuccess.set('')" />
 
         <!-- Already an organizer / admin -->
         <ng-container *ngIf="!canRequest(); else userSection">
@@ -62,6 +63,7 @@
               <label class="space-y-1 block">
                 <span class="field-label">Why do you want to organize events?</span>
                 <textarea formControlName="reason" rows="3" class="field" placeholder="Tell the team about the events you'd like to run."></textarea>
+                <ems-field-error [control]="form.controls.reason" label="Reason" />
               </label>
               <button type="submit" [disabled]="submitting()" class="btn-primary">Submit new request</button>
             </form>
@@ -74,6 +76,7 @@
               <label class="space-y-1 block">
                 <span class="field-label">Why do you want to organize events?</span>
                 <textarea formControlName="reason" rows="3" class="field" placeholder="Tell the team about the events you'd like to run."></textarea>
+                <ems-field-error [control]="form.controls.reason" label="Reason" />
               </label>
               <button type="submit" [disabled]="submitting()" class="btn-primary">Become an organizer</button>
             </form>
@@ -84,22 +87,26 @@
       <!-- ── Security ────────────────────────────────────────────── -->
       <section class="card p-6 lg:col-span-2">
         <h2 class="eyebrow mb-4">Security</h2>
+        <ems-alert type="error" [message]="passwordError()" (dismissed)="passwordError.set('')" />
+        <ems-alert type="success" [message]="passwordSuccess()" (dismissed)="passwordSuccess.set('')" />
         <form [formGroup]="passwordForm" (ngSubmit)="changePassword()" class="grid max-w-xl grid-cols-1 gap-4">
           <label class="space-y-1 block">
             <span class="field-label">Current password</span>
             <input type="password" formControlName="currentPassword" autocomplete="current-password" class="field" />
+            <ems-field-error [control]="passwordForm.controls.currentPassword" label="Current password" />
           </label>
           <label class="space-y-1 block">
             <span class="field-label">New password</span>
             <input type="password" formControlName="newPassword" autocomplete="new-password" class="field" />
-            <span *ngIf="passwordForm.controls.newPassword.touched && passwordForm.controls.newPassword.errors?.['minlength']"
-                  class="text-xs text-rose">Use at least 8 characters.</span>
+            <span class="mt-1 block text-xs text-muted">At least 8 characters with an uppercase, lowercase, number, and special character.</span>
+            <ems-field-error [control]="passwordForm.controls.newPassword" label="New password" />
           </label>
           <label class="space-y-1 block">
             <span class="field-label">Confirm new password</span>
             <input type="password" formControlName="confirmPassword" autocomplete="new-password" class="field" />
+            <ems-field-error [control]="passwordForm.controls.confirmPassword" label="Confirm password" />
             <span *ngIf="passwordForm.controls.confirmPassword.touched && passwordForm.errors?.['mismatch']"
-                  class="text-xs text-rose">Passwords don't match.</span>
+                  class="mt-1 block text-xs text-rose">Passwords don't match.</span>
           </label>
           <div>
             <button type="submit" [disabled]="changingPassword()" class="btn-primary">Update password</button>
@@ -110,14 +117,18 @@
       <!-- ── Edit profile ────────────────────────────────────────── -->
       <section class="card p-6">
         <h2 class="eyebrow mb-4">Edit profile</h2>
+        <ems-alert type="error" [message]="profileError()" (dismissed)="profileError.set('')" />
+        <ems-alert type="success" [message]="profileSuccess()" (dismissed)="profileSuccess.set('')" />
         <form [formGroup]="profileForm" (ngSubmit)="saveProfile()" class="space-y-4">
           <label class="space-y-1 block">
             <span class="field-label">Name</span>
             <input formControlName="name" autocomplete="name" class="field" />
+            <ems-field-error [control]="profileForm.controls.name" label="Name" />
           </label>
           <label class="space-y-1 block">
             <span class="field-label">Phone</span>
             <input formControlName="phone" autocomplete="tel" class="field" />
+            <ems-field-error [control]="profileForm.controls.phone" label="Phone" />
           </label>
           <button type="submit" [disabled]="savingProfile()" class="btn-primary">Save changes</button>
         </form>
@@ -126,14 +137,18 @@
       <!-- ── Change email ────────────────────────────────────────── -->
       <section class="card p-6">
         <h2 class="eyebrow mb-4">Change email</h2>
+        <ems-alert type="error" [message]="emailError()" (dismissed)="emailError.set('')" />
+        <ems-alert type="success" [message]="emailSuccess()" (dismissed)="emailSuccess.set('')" />
         <form [formGroup]="emailForm" (ngSubmit)="changeEmail()" class="space-y-4">
           <label class="space-y-1 block">
             <span class="field-label">New email</span>
             <input type="email" formControlName="newEmail" autocomplete="email" class="field" />
+            <ems-field-error [control]="emailForm.controls.newEmail" label="Email" />
           </label>
           <label class="space-y-1 block">
             <span class="field-label">Current password</span>
             <input type="password" formControlName="password" autocomplete="current-password" class="field" />
+            <ems-field-error [control]="emailForm.controls.password" label="Password" />
           </label>
           <button type="submit" [disabled]="changingEmail()" class="btn-primary">Update email</button>
         </form>
@@ -143,10 +158,12 @@
       <section class="card border-rose/40 p-6 lg:col-span-2">
         <h2 class="eyebrow mb-1 text-rose">Danger zone</h2>
         <p class="mb-4 text-sm text-ink-soft">Closing your account is permanent. Enter your password to confirm.</p>
+        <ems-alert type="error" [message]="closeError()" (dismissed)="closeError.set('')" />
         <form [formGroup]="closeForm" (ngSubmit)="closeAccount()" class="flex max-w-xl flex-col gap-4 sm:flex-row sm:items-end">
           <label class="block flex-1 space-y-1">
             <span class="field-label">Password</span>
             <input type="password" formControlName="password" autocomplete="current-password" class="field" />
+            <ems-field-error [control]="closeForm.controls.password" label="Password" />
           </label>
           <button type="submit" [disabled]="closing()" class="btn-danger w-full sm:w-auto">Close account</button>
         </form>

@@ -17,7 +17,6 @@ namespace EMSTests.Services
         private Mock<ITicketTypeRepository> _ttRepo;
         private Mock<IScreeningRepository> _screeningRepo;
         private Mock<IEventRepository> _eventRepo;
-        private Mock<IVenueRepository> _venueRepo;
         private Mock<ISeatRepository> _seatRepo;
         private IMapper _mapper;
         private TicketTypeService _sut;
@@ -28,10 +27,9 @@ namespace EMSTests.Services
             _ttRepo = new Mock<ITicketTypeRepository>();
             _screeningRepo = new Mock<IScreeningRepository>();
             _eventRepo = new Mock<IEventRepository>();
-            _venueRepo = new Mock<IVenueRepository>();
             _seatRepo = new Mock<ISeatRepository>();
             _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
-            _sut = new TicketTypeService(_ttRepo.Object, _screeningRepo.Object, _eventRepo.Object, _venueRepo.Object, _seatRepo.Object, _mapper);
+            _sut = new TicketTypeService(_ttRepo.Object, _screeningRepo.Object, _eventRepo.Object, _seatRepo.Object, _mapper);
         }
 
         private Event OrganizerEvent(int organizerId = 10, int venueId = 1) => new Event
@@ -45,8 +43,6 @@ namespace EMSTests.Services
             StartTime = DateTime.UtcNow.AddDays(15), EndTime = DateTime.UtcNow.AddDays(15).AddHours(3)
         };
 
-        private Venue MakeVenue(int capacity = 500) => new Venue { Id = 1, TotalCapacity = capacity };
-
         // Wires up screening → event for the common happy path.
         private void SetupScreeningAndEvent(int screeningId = 1, int organizerId = 10)
         {
@@ -54,24 +50,39 @@ namespace EMSTests.Services
             _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent(organizerId));
         }
 
+        private CreateTicketTypeRequest ValidCreateRequest(string seatType = "VIP") => new CreateTicketTypeRequest
+        {
+            ScreeningId = 1, Name = "VIP", SeatType = seatType, Price = 500,
+            SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(10)
+        };
+
         // ── Create ───────────────────────────────────────────────────────────────
 
         [Test]
         public async Task Create_ValidRequest_ReturnsDto()
         {
             SetupScreeningAndEvent();
-            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeVenue());
             _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(100);
             _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>());
             _ttRepo.Setup(r => r.Add(It.IsAny<TicketType>())).ReturnsAsync((TicketType t) => t);
 
-            var result = await _sut.Create(10, new CreateTicketTypeRequest
-            {
-                ScreeningId = 1, Name = "VIP", SeatType = "VIP", Price = 500, TotalQuantity = 50,
-                SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(10)
-            });
+            var result = await _sut.Create(10, ValidCreateRequest());
 
             result.Name.Should().Be("VIP");
+        }
+
+        [Test]
+        public async Task Create_SetsQuantityToSeatTypeCapacity()
+        {
+            SetupScreeningAndEvent();
+            _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(100);
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>());
+            _ttRepo.Setup(r => r.Add(It.IsAny<TicketType>())).ReturnsAsync((TicketType t) => t);
+
+            var result = await _sut.Create(10, ValidCreateRequest());
+
+            result.TotalQuantity.Should().Be(100);
+            result.AvailableQuantity.Should().Be(100);
         }
 
         [Test]
@@ -79,11 +90,10 @@ namespace EMSTests.Services
         {
             _screeningRepo.Setup(r => r.GetById(99)).ReturnsAsync((Screening?)null);
 
-            await _sut.Invoking(s => s.Create(10, new CreateTicketTypeRequest
-            {
-                ScreeningId = 99, Name = "VIP", SeatType = "VIP", TotalQuantity = 10,
-                SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(1)
-            })).Should().ThrowAsync<NotFoundException>();
+            var request = ValidCreateRequest();
+            request.ScreeningId = 99;
+
+            await _sut.Invoking(s => s.Create(10, request)).Should().ThrowAsync<NotFoundException>();
         }
 
         [Test]
@@ -91,11 +101,7 @@ namespace EMSTests.Services
         {
             SetupScreeningAndEvent(organizerId: 10);
 
-            await _sut.Invoking(s => s.Create(99, new CreateTicketTypeRequest
-            {
-                ScreeningId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 10,
-                SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(1)
-            })).Should().ThrowAsync<UnauthorizedException>();
+            await _sut.Invoking(s => s.Create(99, ValidCreateRequest())).Should().ThrowAsync<UnauthorizedException>();
         }
 
         [Test]
@@ -103,12 +109,12 @@ namespace EMSTests.Services
         {
             SetupScreeningAndEvent();
             var now = DateTime.UtcNow;
+            var request = ValidCreateRequest();
+            request.SaleStart = now.AddDays(5);
+            request.SaleEnd = now;
 
-            await _sut.Invoking(s => s.Create(10, new CreateTicketTypeRequest
-            {
-                ScreeningId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 10,
-                SaleStart = now.AddDays(5), SaleEnd = now
-            })).Should().ThrowAsync<ValidationException>().WithMessage("*SaleEnd*");
+            await _sut.Invoking(s => s.Create(10, request))
+                .Should().ThrowAsync<ValidationException>().WithMessage("*SaleEnd*");
         }
 
         [Test]
@@ -116,78 +122,36 @@ namespace EMSTests.Services
         {
             // Screening starts in 15 days; a sale window ending in 20 days closes after the show begins.
             SetupScreeningAndEvent();
-            var now = DateTime.UtcNow;
+            var request = ValidCreateRequest();
+            request.SaleStart = DateTime.UtcNow;
+            request.SaleEnd = DateTime.UtcNow.AddDays(20);
 
-            await _sut.Invoking(s => s.Create(10, new CreateTicketTypeRequest
-            {
-                ScreeningId = 1, Name = "VIP", SeatType = "VIP", Price = 500, TotalQuantity = 10,
-                SaleStart = now, SaleEnd = now.AddDays(20)
-            })).Should().ThrowAsync<ValidationException>().WithMessage("*before the screening*");
+            await _sut.Invoking(s => s.Create(10, request))
+                .Should().ThrowAsync<ValidationException>().WithMessage("*before the screening*");
         }
 
         [Test]
-        public async Task Create_VenueNotFound_ThrowsNotFoundException()
+        public async Task Create_DuplicateSeatType_ThrowsValidationException()
         {
             SetupScreeningAndEvent();
-            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync((Venue?)null);
-            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>());
-
-            await _sut.Invoking(s => s.Create(10, new CreateTicketTypeRequest
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>
             {
-                ScreeningId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 10,
-                SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(1)
-            })).Should().ThrowAsync<NotFoundException>();
+                new TicketType { Id = 2, SeatType = "VIP", TotalQuantity = 10 }
+            });
+
+            await _sut.Invoking(s => s.Create(10, ValidCreateRequest("VIP")))
+                .Should().ThrowAsync<ValidationException>().WithMessage("*already exists*");
         }
 
         [Test]
         public async Task Create_NoSeatsOfType_ThrowsValidationException()
         {
             SetupScreeningAndEvent();
-            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeVenue());
             _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(0);
             _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>());
 
-            await _sut.Invoking(s => s.Create(10, new CreateTicketTypeRequest
-            {
-                ScreeningId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 10,
-                SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(1)
-            })).Should().ThrowAsync<ValidationException>().WithMessage("*No seats*");
-        }
-
-        [Test]
-        public async Task Create_ExceedsTypeSeatCount_ThrowsValidationException()
-        {
-            SetupScreeningAndEvent();
-            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeVenue());
-            _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(10);
-            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>
-            {
-                new TicketType { SeatType = "VIP", TotalQuantity = 8 }
-            });
-
-            await _sut.Invoking(s => s.Create(10, new CreateTicketTypeRequest
-            {
-                ScreeningId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 5,
-                SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(1)
-            })).Should().ThrowAsync<ValidationException>().WithMessage("*exceeds available*");
-        }
-
-        [Test]
-        public async Task Create_ExceedsVenueCapacity_ThrowsValidationException()
-        {
-            SetupScreeningAndEvent();
-            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeVenue(capacity: 10));
-            _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(100);
-            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>
-            {
-                new TicketType { SeatType = "General", TotalQuantity = 8 }
-            });
-
-            await _sut.Invoking(s => s.Create(10, new CreateTicketTypeRequest
-            {
-                ScreeningId = 1, Name = "VIP", SeatType = "VIP", TotalQuantity = 5,
-                SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(1)
-            })).Should().ThrowAsync<ValidationException>().WithMessage("*venue capacity*");
+            await _sut.Invoking(s => s.Create(10, ValidCreateRequest()))
+                .Should().ThrowAsync<ValidationException>().WithMessage("*No seats*");
         }
 
         // ── GetById / GetByScreeningId / GetActiveByScreeningId ───────────────────
@@ -232,31 +196,88 @@ namespace EMSTests.Services
 
         // ── Update ───────────────────────────────────────────────────────────────
 
+        private UpdateTicketTypeRequest ValidUpdateRequest(string seatType = "VIP") => new UpdateTicketTypeRequest
+        {
+            Name = "VIP Ticket", SeatType = seatType, Price = 500, IsActive = true,
+            SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(10)
+        };
+
         [Test]
         public async Task Update_ValidRequest_ReturnsUpdatedDto()
         {
             var tt = new TicketType { Id = 1, ScreeningId = 1, SeatType = "VIP", TotalQuantity = 50, AvailableQuantity = 50 };
             _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
             SetupScreeningAndEvent();
-            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeVenue());
             _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(100);
-            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType> { tt });
             _ttRepo.Setup(r => r.Update(It.IsAny<TicketType>())).ReturnsAsync((TicketType t) => t);
 
-            var result = await _sut.Update(1, 10, new UpdateTicketTypeRequest
-            {
-                Name = "VIP+", SeatType = "VIP", Price = 600, TotalQuantity = 60, IsActive = true,
-                SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(10)
-            });
+            var request = ValidUpdateRequest();
+            request.Name = "VIP+";
+            var result = await _sut.Update(1, 10, request);
 
             result.Name.Should().Be("VIP+");
         }
 
-        private UpdateTicketTypeRequest ValidUpdateRequest(int qty = 50, string seatType = "VIP") => new UpdateTicketTypeRequest
+        [Test]
+        public async Task Update_SameSeatType_RecomputesQuantityKeepingSold()
         {
-            Name = "VIP Ticket", SeatType = seatType, Price = 500, TotalQuantity = qty, IsActive = true,
-            SaleStart = DateTime.UtcNow, SaleEnd = DateTime.UtcNow.AddDays(10)
-        };
+            // 10 already sold (50 total, 40 available); capacity recomputes to 100.
+            var tt = new TicketType { Id = 1, ScreeningId = 1, SeatType = "VIP", TotalQuantity = 50, AvailableQuantity = 40 };
+            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
+            SetupScreeningAndEvent();
+            _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(100);
+            _ttRepo.Setup(r => r.Update(It.IsAny<TicketType>())).ReturnsAsync((TicketType t) => t);
+
+            var result = await _sut.Update(1, 10, ValidUpdateRequest("VIP"));
+
+            result.TotalQuantity.Should().Be(100);
+            result.AvailableQuantity.Should().Be(90);
+        }
+
+        [Test]
+        public async Task Update_SeatTypeChangedNoSales_RemapsQuantity()
+        {
+            var tt = new TicketType { Id = 1, ScreeningId = 1, SeatType = "VIP", TotalQuantity = 50, AvailableQuantity = 50 };
+            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
+            SetupScreeningAndEvent();
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType> { tt });
+            _seatRepo.Setup(r => r.CountByVenueAndType(1, "Balcony")).ReturnsAsync(30);
+            _ttRepo.Setup(r => r.Update(It.IsAny<TicketType>())).ReturnsAsync((TicketType t) => t);
+
+            var result = await _sut.Update(1, 10, ValidUpdateRequest("Balcony"));
+
+            result.SeatType.Should().Be("Balcony");
+            result.TotalQuantity.Should().Be(30);
+            result.AvailableQuantity.Should().Be(30);
+        }
+
+        [Test]
+        public async Task Update_SeatTypeChangedAfterSales_ThrowsValidationException()
+        {
+            // 10 sold, so the seat type is locked.
+            var tt = new TicketType { Id = 1, ScreeningId = 1, SeatType = "VIP", TotalQuantity = 50, AvailableQuantity = 40 };
+            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
+            SetupScreeningAndEvent();
+
+            await _sut.Invoking(s => s.Update(1, 10, ValidUpdateRequest("Balcony")))
+                .Should().ThrowAsync<ValidationException>().WithMessage("*Cannot change seat type*");
+        }
+
+        [Test]
+        public async Task Update_SeatTypeChangedToDuplicate_ThrowsValidationException()
+        {
+            var tt = new TicketType { Id = 1, ScreeningId = 1, SeatType = "VIP", TotalQuantity = 50, AvailableQuantity = 50 };
+            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
+            SetupScreeningAndEvent();
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>
+            {
+                tt,
+                new TicketType { Id = 2, SeatType = "Gold", TotalQuantity = 20 }
+            });
+
+            await _sut.Invoking(s => s.Update(1, 10, ValidUpdateRequest("Gold")))
+                .Should().ThrowAsync<ValidationException>().WithMessage("*already exists*");
+        }
 
         [Test]
         public async Task Update_NotFound_ThrowsNotFoundException()
@@ -285,76 +306,15 @@ namespace EMSTests.Services
         }
 
         [Test]
-        public async Task Update_QuantityBelowSold_ThrowsValidationException()
-        {
-            var tt = new TicketType { Id = 1, ScreeningId = 1, TotalQuantity = 50, AvailableQuantity = 40 };
-            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
-            SetupScreeningAndEvent();
-
-            await _sut.Invoking(s => s.Update(1, 10, ValidUpdateRequest(qty: 5)))
-                .Should().ThrowAsync<ValidationException>().WithMessage("*Cannot reduce*");
-        }
-
-        [Test]
-        public async Task Update_VenueNotFound_ThrowsNotFoundException()
-        {
-            var tt = new TicketType { Id = 1, ScreeningId = 1, TotalQuantity = 50, AvailableQuantity = 50 };
-            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
-            SetupScreeningAndEvent();
-            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync((Venue?)null);
-            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType> { tt });
-
-            await _sut.Invoking(s => s.Update(1, 10, ValidUpdateRequest())).Should().ThrowAsync<NotFoundException>();
-        }
-
-        [Test]
         public async Task Update_NoSeatsOfType_ThrowsValidationException()
         {
-            var tt = new TicketType { Id = 1, ScreeningId = 1, TotalQuantity = 50, AvailableQuantity = 50 };
+            var tt = new TicketType { Id = 1, ScreeningId = 1, SeatType = "VIP", TotalQuantity = 50, AvailableQuantity = 50 };
             _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
             SetupScreeningAndEvent();
-            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeVenue());
             _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(0);
-            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType> { tt });
 
             await _sut.Invoking(s => s.Update(1, 10, ValidUpdateRequest()))
                 .Should().ThrowAsync<ValidationException>().WithMessage("*No seats*");
-        }
-
-        [Test]
-        public async Task Update_ExceedsTypeSeatCount_ThrowsValidationException()
-        {
-            var tt = new TicketType { Id = 1, ScreeningId = 1, SeatType = "VIP", TotalQuantity = 10, AvailableQuantity = 10 };
-            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
-            SetupScreeningAndEvent();
-            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeVenue());
-            _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(10);
-            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>
-            {
-                tt,
-                new TicketType { Id = 2, SeatType = "VIP", TotalQuantity = 8 }
-            });
-
-            await _sut.Invoking(s => s.Update(1, 10, ValidUpdateRequest(qty: 5)))
-                .Should().ThrowAsync<ValidationException>().WithMessage("*exceeds available*");
-        }
-
-        [Test]
-        public async Task Update_ExceedsVenueCapacity_ThrowsValidationException()
-        {
-            var tt = new TicketType { Id = 1, ScreeningId = 1, SeatType = "VIP", TotalQuantity = 5, AvailableQuantity = 5 };
-            _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
-            SetupScreeningAndEvent();
-            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeVenue(capacity: 10));
-            _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(100);
-            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>
-            {
-                tt,
-                new TicketType { Id = 2, SeatType = "General", TotalQuantity = 8 }
-            });
-
-            await _sut.Invoking(s => s.Update(1, 10, ValidUpdateRequest(qty: 5)))
-                .Should().ThrowAsync<ValidationException>().WithMessage("*venue capacity*");
         }
 
         // ── Delete ───────────────────────────────────────────────────────────────

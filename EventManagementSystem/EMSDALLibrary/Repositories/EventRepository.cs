@@ -25,6 +25,25 @@ namespace EMSDALLibrary.Repositories
             return await _context.Events.Where(e => e.Status == status).ToListAsync();
         }
 
+        public async Task<(int Published, int Rejected, int Total)> GetStatusCountsByOrganizer(int organizerId)
+        {
+            var counts = await _context.Events
+                .Where(e => e.OrganizerId == organizerId)
+                .GroupBy(e => e.Status)
+                .Select(g => new { Status = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            var total = counts.Sum(c => c.Count);
+            var published = counts.FirstOrDefault(c => c.Status == "Published")?.Count ?? 0;
+            var rejected = counts.FirstOrDefault(c => c.Status == "Rejected")?.Count ?? 0;
+            return (published, rejected, total);
+        }
+
+        public async Task<bool> ExistsByVenue(int venueId)
+        {
+            return await _context.Events.AnyAsync(e => e.VenueId == venueId);
+        }
+
         public async Task<List<Event>> GetByCategory(string category)
         {
             return await _context.Events.Where(e => e.Category == category).ToListAsync();
@@ -71,6 +90,9 @@ namespace EMSDALLibrary.Repositories
                 q = q.Where(e => _context.Venues.Any(v => v.Id == e.VenueId && v.City == city));
             if (!string.IsNullOrWhiteSpace(status))
                 q = q.Where(e => e.Status == status);
+            else
+                // Cancelled events are never surfaced in browse/search unless explicitly requested by status.
+                q = q.Where(e => e.Status != "Cancelled");
             if (startFrom.HasValue)
                 q = q.Where(e => e.StartTime >= startFrom.Value);
             if (startTo.HasValue)

@@ -13,23 +13,21 @@ namespace EMSBLLLibrary.Services
         private readonly ITicketTypeRepository _ticketTypeRepo;
         private readonly IScreeningRepository _screeningRepo;
         private readonly IEventRepository _eventRepo;
-        private readonly IVenueRepository _venueRepo;
         private readonly ISeatRepository _seatRepo;
         private readonly IMapper _mapper;
 
-        public TicketTypeService(ITicketTypeRepository ticketTypeRepo, IScreeningRepository screeningRepo, IEventRepository eventRepo, IVenueRepository venueRepo, ISeatRepository seatRepo, IMapper mapper)
+        public TicketTypeService(ITicketTypeRepository ticketTypeRepo, IScreeningRepository screeningRepo, IEventRepository eventRepo, ISeatRepository seatRepo, IMapper mapper)
         {
             _ticketTypeRepo = ticketTypeRepo;
             _screeningRepo = screeningRepo;
             _eventRepo = eventRepo;
-            _venueRepo = venueRepo;
             _seatRepo = seatRepo;
             _mapper = mapper;
         }
 
         public async Task<TicketTypeDto> Create(int organizerId, CreateTicketTypeRequest request)
         {
-            ValidateFields(request.Name, request.SeatType, request.Price, request.TotalQuantity);
+            ValidateFields(request.Name, request.SeatType, request.Price);
 
             var screening = await _screeningRepo.GetById(request.ScreeningId)
                 ?? throw new NotFoundException($"Screening {request.ScreeningId} not found.");
@@ -42,8 +40,11 @@ namespace EMSBLLLibrary.Services
 
             var (saleStartUtc, saleEndUtc) = ValidateSaleWindow(request.SaleStart, request.SaleEnd, screening.StartTime);
 
-            await ValidateAllocation(ev.VenueId, request.SeatType, request.TotalQuantity,
-                await _ticketTypeRepo.GetByScreeningId(request.ScreeningId));
+            var siblings = await _ticketTypeRepo.GetByScreeningId(request.ScreeningId);
+            EnsureSeatTypeIsUnique(request.SeatType, siblings);
+
+            // Quantity is not user input: it maps to the venue's seats of this type.
+            var capacity = await SeatTypeCapacity(ev.VenueId, request.SeatType);
 
             var ticketType = new TicketType
             {
@@ -51,8 +52,8 @@ namespace EMSBLLLibrary.Services
                 Name = request.Name,
                 SeatType = request.SeatType,
                 Price = request.Price,
-                TotalQuantity = request.TotalQuantity,
-                AvailableQuantity = request.TotalQuantity,
+                TotalQuantity = capacity,
+                AvailableQuantity = capacity,
                 SaleStart = saleStartUtc,
                 SaleEnd = saleEndUtc,
                 IsActive = true
@@ -82,7 +83,7 @@ namespace EMSBLLLibrary.Services
 
         public async Task<TicketTypeDto> Update(int id, int organizerId, UpdateTicketTypeRequest request)
         {
-            ValidateFields(request.Name, request.SeatType, request.Price, request.TotalQuantity);
+            ValidateFields(request.Name, request.SeatType, request.Price);
 
             var tt = await _ticketTypeRepo.GetById(id)
                 ?? throw new NotFoundException($"TicketType {id} not found.");
@@ -96,20 +97,28 @@ namespace EMSBLLLibrary.Services
             if (ev.OrganizerId != organizerId)
                 throw new UnauthorizedException("Not authorized to update this ticket type.");
 
-            var soldQuantity = tt.TotalQuantity - tt.AvailableQuantity;
-            if (request.TotalQuantity < soldQuantity)
-                throw new ValidationException($"Cannot reduce total quantity below {soldQuantity} (already sold).");
-
             var (saleStartUtc, saleEndUtc) = ValidateSaleWindow(request.SaleStart, request.SaleEnd, screening.StartTime);
 
-            var others = (await _ticketTypeRepo.GetByScreeningId(tt.ScreeningId)).Where(t => t.Id != id).ToList();
-            await ValidateAllocation(ev.VenueId, request.SeatType, request.TotalQuantity, others);
+            var soldQuantity = tt.TotalQuantity - tt.AvailableQuantity;
+            var seatTypeChanged = request.SeatType != tt.SeatType;
+            if (seatTypeChanged && soldQuantity > 0)
+                throw new ValidationException("Cannot change seat type after tickets have sold.");
+
+            if (seatTypeChanged)
+            {
+                var others = (await _ticketTypeRepo.GetByScreeningId(tt.ScreeningId)).Where(t => t.Id != id).ToList();
+                EnsureSeatTypeIsUnique(request.SeatType, others);
+            }
+
+            // Quantity always tracks the venue's seats of this type (recomputed in case
+            // it drifted); availability keeps whatever has already been sold.
+            var capacity = await SeatTypeCapacity(ev.VenueId, request.SeatType);
 
             tt.Name = request.Name;
             tt.SeatType = request.SeatType;
             tt.Price = request.Price;
-            tt.AvailableQuantity = request.TotalQuantity - soldQuantity;
-            tt.TotalQuantity = request.TotalQuantity;
+            tt.TotalQuantity = capacity;
+            tt.AvailableQuantity = capacity - soldQuantity;
             tt.SaleStart = saleStartUtc;
             tt.SaleEnd = saleEndUtc;
             tt.IsActive = request.IsActive;
@@ -151,7 +160,7 @@ namespace EMSBLLLibrary.Services
             return (saleStartUtc, saleEndUtc);
         }
 
-        private static void ValidateFields(string name, string seatType, decimal price, int totalQuantity)
+        private static void ValidateFields(string name, string seatType, decimal price)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ValidationException("Ticket type name is required.");
@@ -161,30 +170,24 @@ namespace EMSBLLLibrary.Services
                 throw new ValidationException("SeatType is required.");
             if (price < 0)
                 throw new ValidationException("Price must be zero or greater.");
-            if (totalQuantity <= 0)
-                throw new ValidationException("TotalQuantity must be greater than zero.");
         }
 
-        // Ticket allocation for a screening is bounded by the venue's seats of that type
-        // (each screening tracks its own availability, so counts are per-screening siblings).
-        private async Task ValidateAllocation(int venueId, string seatType, int totalQuantity, List<TicketType> siblings)
+        // Each seat type maps to exactly one ticket type per screening, because a ticket
+        // type's quantity is the full seat-type capacity — sharing a type would oversell.
+        private static void EnsureSeatTypeIsUnique(string seatType, IEnumerable<TicketType> siblings)
         {
-            var venue = await _venueRepo.GetById(venueId)
-                ?? throw new NotFoundException($"Venue {venueId} not found.");
+            if (siblings.Any(t => t.SeatType == seatType))
+                throw new ValidationException(
+                    $"A ticket type for seat type '{seatType}' already exists for this screening.");
+        }
 
+        // A ticket type's quantity is the number of venue seats of that type.
+        private async Task<int> SeatTypeCapacity(int venueId, string seatType)
+        {
             var seatCount = await _seatRepo.CountByVenueAndType(venueId, seatType);
             if (seatCount == 0)
                 throw new ValidationException($"No seats of type '{seatType}' exist in this venue.");
-
-            var allocatedForSameType = siblings.Where(t => t.SeatType == seatType).Sum(t => t.TotalQuantity);
-            if (allocatedForSameType + totalQuantity > seatCount)
-                throw new ValidationException(
-                    $"Total quantity for '{seatType}' tickets ({allocatedForSameType + totalQuantity}) exceeds available '{seatType}' seats in the venue ({seatCount}).");
-
-            var allocatedTotal = siblings.Sum(t => t.TotalQuantity);
-            if (allocatedTotal + totalQuantity > venue.TotalCapacity)
-                throw new ValidationException(
-                    $"Total ticket quantity ({allocatedTotal + totalQuantity}) exceeds venue capacity ({venue.TotalCapacity}).");
+            return seatCount;
         }
     }
 }

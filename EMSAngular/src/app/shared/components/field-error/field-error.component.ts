@@ -23,11 +23,20 @@ export class FieldErrorComponent {
 
     const errors = control.errors;
     if (errors['required']) return `${this.label} is required.`;
+    if (errors['notBlank']) return `${this.label} cannot be blank.`;
     if (errors['email']) return 'Enter a valid email address.';
     if (errors['minlength']) return `Use at least ${errors['minlength'].requiredLength} characters.`;
     if (errors['maxlength']) return `Use at most ${errors['maxlength'].requiredLength} characters.`;
     if (errors['min']) return `Enter a value of at least ${errors['min'].min}.`;
     if (errors['max']) return `Enter a value of at most ${errors['max'].max}.`;
+    if (errors['url']) return 'Enter a valid http(s) URL.';
+    if (errors['notFuture']) return 'Must be a future date and time.';
+    if (errors['minLeadTime']) return `Must be at least ${(errors['minLeadTime'].hours ?? 48) / 24} days (${errors['minLeadTime'].hours ?? 48} hours) from now.`;
+    if (errors['endBeforeStart']) return 'End time must be after the start time.';
+    if (errors['saleAfterScreening']) return 'Ticket sales must end before the screening starts.';
+    if (errors['outsideEventWindow']) return "Must fall within the event's start and end times.";
+    if (errors['complexity']) return 'Include an uppercase, lowercase, number, and special character.';
+    if (errors['pattern']) return `Enter a valid ${this.label.toLowerCase()}.`;
     if (errors['mismatch']) return 'Values do not match.';
     return `${this.label} is invalid.`;
   }

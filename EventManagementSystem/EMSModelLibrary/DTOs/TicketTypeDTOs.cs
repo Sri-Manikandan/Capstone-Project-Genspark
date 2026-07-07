@@ -33,9 +33,6 @@ namespace EMSModelLibrary.DTOs
         [Range(0.0, 100000.0)]
         public decimal Price { get; set; }
 
-        [Range(1, 100000)]
-        public int TotalQuantity { get; set; }
-
         [Required]
         public DateTime SaleStart { get; set; }
 
@@ -55,9 +52,6 @@ namespace EMSModelLibrary.DTOs
 
         [Range(0.0, 100000.0)]
         public decimal Price { get; set; }
-
-        [Range(1, 100000)]
-        public int TotalQuantity { get; set; }
 
         [Required]
         public DateTime SaleStart { get; set; }

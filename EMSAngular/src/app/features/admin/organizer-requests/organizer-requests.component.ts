@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AdminService } from '../../../core/services/admin.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { OrganizerRequestDto, OrganizerRequestQueryRequest } from '../../../core/models/admin.model';
 import { OrganizerRequestFilterStore } from './organizer-request-filter.store';
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner/loading-spinner.component';
@@ -17,6 +18,7 @@ import { IstDatePipe } from '../../../shared/pipes/ist-date.pipe';
 })
 export class OrganizerRequestsComponent {
   private admin = inject(AdminService);
+  private toast = inject(ToastService);
   protected store = inject(OrganizerRequestFilterStore);
 
   protected requests = signal<OrganizerRequestDto[]>([]);
@@ -35,10 +37,17 @@ export class OrganizerRequestsComponent {
   protected goToPage(p: number): void { this.store.setPage(p); }
 
   protected approve(id: number): void {
-    this.admin.approveOrganizerRequest(id, {}).subscribe({ next: () => this.load(this.store.request()), error: (m: string) => this.error.set(m) });
+    this.admin.approveOrganizerRequest(id, {}).subscribe({
+      next: () => { this.toast.success('Request approved.'); this.load(this.store.request()); },
+      error: (m: string) => this.toast.error(m),
+    });
   }
   protected reject(id: number): void {
-    this.admin.rejectOrganizerRequest(id, {}).subscribe({ next: () => this.load(this.store.request()), error: (m: string) => this.error.set(m) });
+    if (!confirm('Reject this organizer request?')) return;
+    this.admin.rejectOrganizerRequest(id, {}).subscribe({
+      next: () => { this.toast.success('Request rejected.'); this.load(this.store.request()); },
+      error: (m: string) => this.toast.error(m),
+    });
   }
 
   private load(req: OrganizerRequestQueryRequest): void {

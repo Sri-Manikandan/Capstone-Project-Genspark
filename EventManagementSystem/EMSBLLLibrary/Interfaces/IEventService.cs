@@ -18,7 +18,7 @@ namespace EMSBLLLibrary.Interfaces
         Task<EventDto> Cancel(int id, int requesterId, bool isAdmin = false);
 
         // Admin-only
-        Task<List<EventDto>> GetPendingApproval();
+        Task<List<PendingEventReviewDto>> GetPendingApproval();
         Task<EventDto> AdminApprove(int id);
         Task<EventDto> AdminReject(int id, string? reason);
     }

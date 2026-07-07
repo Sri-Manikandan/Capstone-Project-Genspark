@@ -14,31 +14,31 @@ const seats: SeatDto[] = [
 describe('SeatMapComponent', () => {
   let fixture: ComponentFixture<SeatMapComponent>;
   let component: SeatMapComponent;
-  let hub: { lastUpdate: ReturnType<typeof signal<any>>; joinEvent: ReturnType<typeof vi.fn>; leaveEvent: ReturnType<typeof vi.fn> };
+  let hub: { lastUpdate: ReturnType<typeof signal<any>>; joinScreening: ReturnType<typeof vi.fn>; leaveScreening: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     hub = {
       lastUpdate: signal(null),
-      joinEvent: vi.fn().mockResolvedValue(undefined),
-      leaveEvent: vi.fn().mockResolvedValue(undefined),
+      joinScreening: vi.fn().mockResolvedValue(undefined),
+      leaveScreening: vi.fn().mockResolvedValue(undefined),
     };
     TestBed.configureTestingModule({
       imports: [SeatMapComponent],
       providers: [
-        { provide: SeatService, useValue: { getAvailableByEvent: () => of(seats) } },
+        { provide: SeatService, useValue: { getAvailableByScreening: () => of(seats) } },
         { provide: SeatHubService, useValue: hub },
       ],
     });
     fixture = TestBed.createComponent(SeatMapComponent);
     component = fixture.componentInstance;
-    fixture.componentRef.setInput('eventId', 10);
+    fixture.componentRef.setInput('screeningId', 10);
     fixture.componentRef.setInput('venueId', 1);
     fixture.detectChanges();
   });
 
-  it('marks fetched seats available and joins the event room', () => {
+  it('marks fetched seats available and joins the screening room', () => {
     expect((component as any)['seatState'](seats[0])).toBe('available');
-    expect(hub.joinEvent).toHaveBeenCalledWith(10);
+    expect(hub.joinScreening).toHaveBeenCalledWith(10);
   });
 
   it('emits when an available seat is clicked', () => {

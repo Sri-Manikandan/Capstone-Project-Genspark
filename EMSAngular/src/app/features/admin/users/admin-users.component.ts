@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AdminService } from '../../../core/services/admin.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { Role, User, UserSearchRequest } from '../../../core/models/user.model';
 import { UserFilterStore, UserFilters } from './user-filter.store';
 import { PaginationComponent } from '../../../shared/components/pagination/pagination.component';
@@ -19,6 +20,7 @@ import { AlertComponent } from '../../../shared/components/alert/alert.component
 })
 export class AdminUsersComponent {
   private admin = inject(AdminService);
+  private toast = inject(ToastService);
   private fb = inject(FormBuilder);
   protected store = inject(UserFilterStore);
 
@@ -49,7 +51,11 @@ export class AdminUsersComponent {
   }
 
   protected remove(id: number): void {
-    this.admin.deleteUser(id).subscribe({ next: () => this.load(this.store.request()), error: (m: string) => this.error.set(m) });
+    if (!confirm('Delete this user? This cannot be undone.')) return;
+    this.admin.deleteUser(id).subscribe({
+      next: () => { this.toast.success('User deleted.'); this.load(this.store.request()); },
+      error: (m: string) => this.toast.error(m),
+    });
   }
 
   private load(req: UserSearchRequest): void {

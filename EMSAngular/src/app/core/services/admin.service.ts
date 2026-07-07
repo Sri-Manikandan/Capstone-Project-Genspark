@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { PagedResult } from '../models/paged-result.model';
-import { EventDto } from '../models/event.model';
+import { EventDto, PendingEventReview } from '../models/event.model';
 import { User, UserSearchRequest } from '../models/user.model';
 import {
   OrganizerRequestDto, ReviewRequest, OrganizerRequestQueryRequest,
@@ -30,9 +30,10 @@ export class AdminService {
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 
-  // The backend returns every pending event as a plain array (no pagination).
-  getPendingEvents(): Observable<EventDto[]> {
-    return this.http.get<EventDto[]>(`${this.base}/events/pending`)
+  // The backend returns every pending event as a plain array (no pagination),
+  // enriched with organizer, ticketing, and review-signal data for the approval queue.
+  getPendingEvents(): Observable<PendingEventReview[]> {
+    return this.http.get<PendingEventReview[]>(`${this.base}/events/pending`)
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 

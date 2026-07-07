@@ -284,42 +284,67 @@ public static class DataSeeder
         // ── 6. TicketTypes ────────────────────────────────────────────────────
         var saleStart = now.AddDays(-7);
 
-        // Three tiers (Silver/Gold/Premium) per screening; sale ends at the screening start.
-        // Tiers(event, …) attaches to the event's primary screening.
-        TicketType[] TiersFor(Screening sc, decimal silver, decimal gold, decimal premium, int qSilver, int qGold, int qPremium) => new[]
+        // Quantity is not a free choice: each tier's quantity is the venue's seat count
+        // for that seat type, and there is exactly one tier per seat type per screening.
+        var seatCountsByVenue = new Dictionary<int, Dictionary<string, int>>
         {
-            new TicketType { ScreeningId = sc.Id, Name = "Silver",  SeatType = "Silver",  Price = silver,  TotalQuantity = qSilver,  AvailableQuantity = qSilver,  SaleStart = saleStart, SaleEnd = sc.StartTime, IsActive = true },
-            new TicketType { ScreeningId = sc.Id, Name = "Gold",    SeatType = "Gold",    Price = gold,    TotalQuantity = qGold,    AvailableQuantity = qGold,    SaleStart = saleStart, SaleEnd = sc.StartTime, IsActive = true },
-            new TicketType { ScreeningId = sc.Id, Name = "Premium", SeatType = "Premium", Price = premium, TotalQuantity = qPremium, AvailableQuantity = qPremium, SaleStart = saleStart, SaleEnd = sc.StartTime, IsActive = true },
+            [nehruStadium.Id]   = nehruSeats.GroupBy(s => s.SeatType).ToDictionary(g => g.Key, g => g.Count()),
+            [sathyamCinema.Id]  = sathyamSeats.GroupBy(s => s.SeatType).ToDictionary(g => g.Key, g => g.Count()),
+            [codissia.Id]       = codissiaSeats.GroupBy(s => s.SeatType).ToDictionary(g => g.Key, g => g.Count()),
+            [tamukkam.Id]       = tamukkamSeats.GroupBy(s => s.SeatType).ToDictionary(g => g.Key, g => g.Count()),
+            [annaAuditorium.Id] = annaSeats.GroupBy(s => s.SeatType).ToDictionary(g => g.Key, g => g.Count()),
         };
-        TicketType[] Tiers(Event ev, decimal silver, decimal gold, decimal premium, int qSilver, int qGold, int qPremium) =>
-            TiersFor(primary[ev.Id], silver, gold, premium, qSilver, qGold, qPremium);
+        var venueByEvent = allEvents.ToDictionary(e => e.Id, e => e.VenueId);
 
-        var ttHiphop    = Tiers(hiphopTamizha,  999m, 1999m, 3499m, 40, 30, 20);
-        var ttAnirudh   = Tiers(anirudhLive,   1499m, 2999m, 4999m, 40, 30, 20);
-        var ttArivu     = Tiers(arivuEmbassy,   799m, 1499m, 2499m, 30, 20, 10);
-        var ttSanthosh  = Tiers(santhoshLive,   899m, 1799m, 2999m, 30, 20, 10);
-        var ttYuvan     = Tiers(yuvanNight,    1299m, 2499m, 3999m, 40, 30, 20);
-        var ttIndie     = Tiers(indieFest,      599m, 1199m, 1999m, 30, 20, 10);
-        var ttAravind   = Tiers(aravindSA,      599m,  999m, 1499m, 20, 10,  5);
-        var ttPraveen   = Tiers(praveenKumar,   499m,  799m, 1299m, 30, 20, 10);
-        var ttAlexander = Tiers(alexanderBabu,  699m, 1099m, 1599m, 30, 20, 10);
-        var ttVignesh   = Tiers(rjVignesh,      399m,  699m,  999m, 20, 10,  5);
-        var ttOpenMic   = Tiers(openMic,        299m,  499m,  799m, 20, 10,  5);
-        var ttVikram    = Tiers(vikramRelease,  150m,  220m,  350m, 40, 30, 20);
-        var ttPs2       = Tiers(ps2Screening,   180m,  260m,  400m, 40, 30, 20);
-        var ttLeo       = Tiers(leoFanShow,     200m,  300m,  450m, 40, 30, 20);
-        var ttMaster    = Tiers(masterRelease,  150m,  220m,  350m, 20, 10,  5);
-        var ttNinety    = Tiers(ninetySix,      150m,  220m,  350m, 40, 30, 20);
-        var ttKovaiCar  = Tiers(kovaiCarnival,   699m, 1299m, 1999m, 30, 20, 10);
-        var ttSidKovai  = Tiers(sidSriramKovai, 1299m, 2499m, 3999m, 30, 20, 10);
-        var ttKovaiCom  = Tiers(kovaiComedyNight, 499m,  899m, 1399m, 30, 20, 10);
-        var ttMadClass  = Tiers(maduraiClassical, 599m, 1099m, 1799m, 30, 20, 10);
-        var ttThaikkudam= Tiers(thaikkudamMadurai, 999m, 1899m, 2999m, 30, 20, 10);
-        var ttMadStand  = Tiers(maduraiStandUp,   399m,  699m, 1099m, 30, 20, 10);
-        var ttKarthik   = Tiers(karthikMadurai,  1099m, 1999m, 3299m, 30, 20, 10);
-        var ttTrichyFst = Tiers(trichyFiesta,     599m,  999m, 1499m, 20, 10,  5);
-        var ttTrichyMov = Tiers(trichyMovieMarathon, 150m, 250m, 400m, 20, 10, 5);
+        // Three tiers (Silver/Gold/Premium) per screening; sale ends at the screening start.
+        // Tiers with no seats of that type in the venue are skipped.
+        TicketType[] TiersFor(Screening sc, int venueId, decimal silver, decimal gold, decimal premium)
+        {
+            var counts = seatCountsByVenue[venueId];
+            var tiers = new List<TicketType>();
+            void AddTier(string type, decimal price)
+            {
+                if (counts.TryGetValue(type, out var qty) && qty > 0)
+                    tiers.Add(new TicketType
+                    {
+                        ScreeningId = sc.Id, Name = type, SeatType = type, Price = price,
+                        TotalQuantity = qty, AvailableQuantity = qty,
+                        SaleStart = saleStart, SaleEnd = sc.StartTime, IsActive = true
+                    });
+            }
+            AddTier("Silver", silver);
+            AddTier("Gold", gold);
+            AddTier("Premium", premium);
+            return tiers.ToArray();
+        }
+        TicketType[] Tiers(Event ev, decimal silver, decimal gold, decimal premium) =>
+            TiersFor(primary[ev.Id], ev.VenueId, silver, gold, premium);
+
+        var ttHiphop    = Tiers(hiphopTamizha,  999m, 1999m, 3499m);
+        var ttAnirudh   = Tiers(anirudhLive,   1499m, 2999m, 4999m);
+        var ttArivu     = Tiers(arivuEmbassy,   799m, 1499m, 2499m);
+        var ttSanthosh  = Tiers(santhoshLive,   899m, 1799m, 2999m);
+        var ttYuvan     = Tiers(yuvanNight,    1299m, 2499m, 3999m);
+        var ttIndie     = Tiers(indieFest,      599m, 1199m, 1999m);
+        var ttAravind   = Tiers(aravindSA,      599m,  999m, 1499m);
+        var ttPraveen   = Tiers(praveenKumar,   499m,  799m, 1299m);
+        var ttAlexander = Tiers(alexanderBabu,  699m, 1099m, 1599m);
+        var ttVignesh   = Tiers(rjVignesh,      399m,  699m,  999m);
+        var ttOpenMic   = Tiers(openMic,        299m,  499m,  799m);
+        var ttVikram    = Tiers(vikramRelease,  150m,  220m,  350m);
+        var ttPs2       = Tiers(ps2Screening,   180m,  260m,  400m);
+        var ttLeo       = Tiers(leoFanShow,     200m,  300m,  450m);
+        var ttMaster    = Tiers(masterRelease,  150m,  220m,  350m);
+        var ttNinety    = Tiers(ninetySix,      150m,  220m,  350m);
+        var ttKovaiCar  = Tiers(kovaiCarnival,   699m, 1299m, 1999m);
+        var ttSidKovai  = Tiers(sidSriramKovai, 1299m, 2499m, 3999m);
+        var ttKovaiCom  = Tiers(kovaiComedyNight, 499m,  899m, 1399m);
+        var ttMadClass  = Tiers(maduraiClassical, 599m, 1099m, 1799m);
+        var ttThaikkudam= Tiers(thaikkudamMadurai, 999m, 1899m, 2999m);
+        var ttMadStand  = Tiers(maduraiStandUp,   399m,  699m, 1099m);
+        var ttKarthik   = Tiers(karthikMadurai,  1099m, 1999m, 3299m);
+        var ttTrichyFst = Tiers(trichyFiesta,     599m,  999m, 1499m);
+        var ttTrichyMov = Tiers(trichyMovieMarathon, 150m, 250m, 400m);
 
         db.TicketTypes.AddRange(ttHiphop.Concat(ttAnirudh).Concat(ttArivu).Concat(ttSanthosh)
             .Concat(ttYuvan).Concat(ttIndie).Concat(ttAravind).Concat(ttPraveen).Concat(ttAlexander)
@@ -331,7 +356,7 @@ public static class DataSeeder
 
         // Each movie's second screening gets its own tiers (independent availability).
         foreach (var sc in extraMovieScreenings)
-            db.TicketTypes.AddRange(TiersFor(sc, 180m, 260m, 400m, 40, 30, 20));
+            db.TicketTypes.AddRange(TiersFor(sc, venueByEvent[sc.EventId], 180m, 260m, 400m));
 
         await db.SaveChangesAsync();
 

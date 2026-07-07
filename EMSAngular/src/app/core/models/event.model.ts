@@ -45,6 +45,53 @@ export interface UpdateEventRequest {
   screen: string;
 }
 
+export interface OrganizerSummary {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  memberSince: string;
+  isActive: boolean;
+  publishedEventCount: number;
+  rejectedEventCount: number;
+  totalEventCount: number;
+}
+
+export interface TicketCategorySummary {
+  name: string;
+  seatType: string;
+  price: number;
+  totalQuantity: number;
+}
+
+export interface ReviewSignals {
+  leadTimeOk: boolean;
+  imageUrlValid: boolean;
+  descriptionAdequate: boolean;
+  hasTicketCategories: boolean;
+  pricingSane: boolean;
+}
+
+// Enriched payload the admin approval queue renders (mirrors PendingEventReviewDto).
+export interface PendingEventReview {
+  id: number;
+  title: string;
+  description: string;
+  category: string;
+  imageUrl: string;
+  startTime: string;
+  endTime: string;
+  screen: string;
+  createdAt: string;
+  rejectionReason?: string | null;
+  venueId: number;
+  venueName: string;
+  city: string;
+  organizer: OrganizerSummary;
+  ticketCategories: TicketCategorySummary[];
+  signals: ReviewSignals;
+}
+
 export interface EventSearchRequest {
   query?: string;
   category?: string;

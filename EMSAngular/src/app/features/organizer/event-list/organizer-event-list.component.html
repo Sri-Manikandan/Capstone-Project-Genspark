@@ -25,7 +25,7 @@
                 <a [routerLink]="['/organizer/events', ev.id, 'orders']" class="link-action">Bookings</a>
                 <a [routerLink]="['/organizer/events', ev.id, 'bookings']" class="link-action">Scan</a>
                 <button *ngIf="ev.status === 'Draft' || ev.status === 'Rejected'" (click)="submitEvent(ev.id)" class="link-go">Submit</button>
-                <button *ngIf="ev.status !== 'Cancelled'" (click)="cancelEvent(ev.id)" class="link-danger">Cancel</button>
+                <button *ngIf="ev.status !== 'Cancelled'" (click)="requestCancel(ev.id)" class="link-danger">Cancel</button>
               </div>
             </td>
           </tr>
@@ -34,4 +34,12 @@
     </div>
     <p *ngIf="!loading() && events().length === 0" class="card mt-2 px-6 py-16 text-center text-muted">No events yet — create your first one.</p>
     <ems-pagination [currentPage]="page()" [totalPages]="totalPages()" (pageChange)="goToPage($event)" />
-  
+
+    <ems-modal title="Cancel event" [open]="cancelTargetId() !== null" (closed)="dismissCancel()">
+      <p class="text-sm text-ink-soft">Are you sure you want to cancel this event? This cannot be undone.</p>
+      <div class="mt-6 flex justify-end gap-3">
+        <button type="button" class="btn-ghost" (click)="dismissCancel()">No, keep it</button>
+        <button type="button" class="btn-primary" (click)="confirmCancel()">Yes, cancel event</button>
+      </div>
+    </ems-modal>
+

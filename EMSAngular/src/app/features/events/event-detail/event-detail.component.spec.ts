@@ -4,6 +4,7 @@ import { of } from 'rxjs';
 import { signal } from '@angular/core';
 import { EventDetailComponent } from './event-detail.component';
 import { EventService } from '../../../core/services/event.service';
+import { ScreeningService } from '../../../core/services/screening.service';
 import { TicketTypeService } from '../../../core/services/ticket-type.service';
 import { SeatService } from '../../../core/services/seat.service';
 import { BookingService } from '../../../core/services/booking.service';
@@ -15,13 +16,18 @@ const ev = {
   startTime: '2026-07-01T19:00:00', endTime: '2026-07-01T22:00:00', imageUrl: '', category: 'Music',
   slug: 'show', createdAt: '2026-06-01T00:00:00',
 };
+const screening = {
+  id: 5, eventId: 5, screen: 'Screen 1',
+  startTime: '2026-07-01T19:00:00', endTime: '2026-07-01T22:00:00', status: 'Scheduled',
+  createdAt: '2026-06-01T00:00:00',
+};
 const tt = {
-  id: 9, eventId: 5, name: 'VIP', seatType: 'VIP', price: 100, totalQuantity: 50,
+  id: 9, screeningId: 5, name: 'VIP', seatType: 'VIP', price: 100, totalQuantity: 50,
   availableQuantity: 50, saleStart: '2026-06-01T00:00:00', saleEnd: '2026-06-30T00:00:00',
   isActive: true, createdAt: '',
 };
 const reservation = {
-  id: 77, seatId: 1, eventId: 5, ticketTypeId: 9, userId: 1,
+  id: 77, seatId: 1, screeningId: 5, ticketTypeId: 9, userId: 1,
   status: 'Active', reservedUntil: '', createdAt: '',
 };
 
@@ -39,7 +45,8 @@ describe('EventDetailComponent', () => {
         provideRouter([]),
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'show' } } } },
         { provide: EventService, useValue: { getBySlug: () => of(ev) } },
-        { provide: TicketTypeService, useValue: { getActiveByEvent: () => of([tt]) } },
+        { provide: ScreeningService, useValue: { getByEvent: () => of([screening]) } },
+        { provide: TicketTypeService, useValue: { getActiveByScreening: () => of([tt]) } },
         {
           provide: SeatService,
           useValue: {
@@ -65,8 +72,14 @@ describe('EventDetailComponent', () => {
     fixture.detectChanges();
   });
 
-  it('loads the event and ticket types', () => {
+  it('loads the event and its screenings', () => {
     expect(component['event']()?.title).toBe('Show');
+    expect(component['screenings']().length).toBe(1);
+  });
+
+  it('selecting a screening loads its ticket types', () => {
+    component['selectScreening'](screening);
+    expect(component['selectedScreening']()?.id).toBe(5);
     expect(component['ticketTypes']().length).toBe(1);
   });
 
@@ -80,6 +93,7 @@ describe('EventDetailComponent', () => {
   });
 
   it('reserves a seat against the chosen category and tracks it in selected', () => {
+    component['selectScreening'](screening);
     component['onPickerConfirm']({ ticketType: tt, quantity: 2 });
     component['onSeatToggled']({ id: 1, venueId: 2, section: 'A', row: '1', seatNumber: 1, seatType: 'VIP' });
     expect(component['selected']().length).toBe(1);
@@ -95,6 +109,7 @@ describe('EventDetailComponent', () => {
   it('checkout creates a booking and navigates', () => {
     const router = TestBed.inject(Router);
     const nav = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    component['selectScreening'](screening);
     component['onPickerConfirm']({ ticketType: tt, quantity: 1 });
     component['onSeatToggled']({ id: 1, venueId: 2, section: 'A', row: '1', seatNumber: 1, seatType: 'VIP' });
     component['checkout']();

@@ -11,11 +11,13 @@ namespace EMSBLLLibrary.Services
     public class VenueService : IVenueService
     {
         private readonly IVenueRepository _venueRepo;
+        private readonly IEventRepository _eventRepo;
         private readonly IMapper _mapper;
 
-        public VenueService(IVenueRepository venueRepo, IMapper mapper)
+        public VenueService(IVenueRepository venueRepo, IEventRepository eventRepo, IMapper mapper)
         {
             _venueRepo = venueRepo;
+            _eventRepo = eventRepo;
             _mapper = mapper;
         }
 
@@ -65,7 +67,10 @@ namespace EMSBLLLibrary.Services
             venue.Address = request.Address;
             venue.City = request.City;
             venue.TotalCapacity = request.TotalCapacity;
-            venue.LayoutConfig = request.LayoutConfig;
+            // Preserve the existing seat-map layout when the request omits it — the venue
+            // form has no layout editor, so a blank value means "leave unchanged".
+            if (!string.IsNullOrWhiteSpace(request.LayoutConfig))
+                venue.LayoutConfig = request.LayoutConfig;
 
             await _venueRepo.Update(venue);
             return _mapper.Map<VenueDto>(venue);
@@ -75,6 +80,10 @@ namespace EMSBLLLibrary.Services
         {
             var venue = await _venueRepo.GetById(id)
                 ?? throw new NotFoundException($"Venue {id} not found.");
+
+            if (await _eventRepo.ExistsByVenue(id))
+                throw new ValidationException("Cannot delete a venue that has events. Delete or reassign its events first.");
+
             await _venueRepo.Delete(venue.Id);
         }
     }

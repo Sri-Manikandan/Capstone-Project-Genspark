@@ -4,15 +4,15 @@
     </ng-template>
     <p class="eyebrow text-plum mt-4">Organizer</p>
     <h1 class="page-title mt-2 mb-6">{{ isEdit() ? 'Edit' : 'Create' }} event</h1>
-    <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <form [formGroup]="form" (ngSubmit)="submit()" class="max-w-xl space-y-4">
       <div class="card space-y-4 p-6">
         <label class="block space-y-1" [class.hidden]="isEdit()">
           <span class="field-label">Venue</span>
-          <select formControlName="venueId" class="field" (change)="loadScreens(form.controls.venueId.value)">
+          <select formControlName="venueId" class="field" (change)="onVenueChange(form.controls.venueId.value)">
             <option [ngValue]="0" disabled>Select venue…</option>
             <option *ngFor="let v of venues()" [ngValue]="v.id">{{ v.name }} — {{ v.city }}</option>
           </select>
+          <ems-field-error [control]="form.controls.venueId" label="Venue" />
         </label>
         <label class="block space-y-1">
           <span class="field-label">Screen</span>
@@ -31,6 +31,13 @@
           <textarea formControlName="description" placeholder="Description" rows="4" class="field"></textarea>
           <ems-field-error [control]="form.controls.description" label="Description" />
         </label>
+        <div class="flex items-start gap-2 rounded-2xl border border-plum/20 bg-plum/5 p-3 text-sm text-ink-soft">
+          <span aria-hidden="true">📅</span>
+          <p><span class="font-semibold text-ink">Heads up:</span> events must be scheduled
+            <span class="font-semibold text-ink">at least 2 days (48 hours) in advance</span>.
+            Plan submissions accordingly — last-minute events can't be published, and this window
+            also gives admins time to review and approve your event.</p>
+        </div>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label class="block space-y-1">
             <span class="field-label">Start time</span>
@@ -50,10 +57,64 @@
         </label>
         <label class="block space-y-1">
           <span class="field-label">Category</span>
-          <input formControlName="category" placeholder="Category" class="field" />
+          <select formControlName="category" class="field">
+            <option value="" disabled>Select category…</option>
+            <option *ngFor="let c of categoryOptions()" [value]="c">{{ c }}</option>
+          </select>
           <ems-field-error [control]="form.controls.category" label="Category" />
         </label>
       </div>
+      <!-- Ticket categories — only when creating; saved against the auto-created screening. -->
+      <div *ngIf="!isEdit()" class="card space-y-4 p-6" formArrayName="ticketTypes">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h2 class="field-label">Ticket categories</h2>
+            <p class="text-sm text-ink-soft">At least one is required so the event is bookable.</p>
+          </div>
+          <button type="button" (click)="addCategory()" [disabled]="!seatTypes().length"
+                  class="link-action text-sm disabled:opacity-50">+ Add category</button>
+        </div>
+
+        <p *ngIf="form.controls.venueId.value && !seatTypes().length" class="text-sm text-amber-600">
+          This venue has no seats yet — add seats to the venue before you can sell tickets.
+        </p>
+
+        <div *ngFor="let c of categories.controls; let i = index" [formGroupName]="i"
+             class="space-y-3 rounded-2xl border border-line p-4">
+          <div class="flex items-center justify-between">
+            <span class="field-label">Category {{ i + 1 }}</span>
+            <button type="button" (click)="removeCategory(i)" class="link-action text-sm">Remove</button>
+          </div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label class="block space-y-1">
+              <span class="field-label">Name</span>
+              <input formControlName="name" placeholder="e.g. VIP" class="field" />
+              <ems-field-error [control]="c.controls.name" label="Name" />
+            </label>
+            <label class="block space-y-1">
+              <span class="field-label">Seat type</span>
+              <select formControlName="seatType" class="field">
+                <option value="" disabled>Select seat type…</option>
+                <option *ngFor="let st of availableSeatTypesFor(i)" [value]="st">{{ st }}</option>
+              </select>
+              <ems-field-error [control]="c.controls.seatType" label="Seat type" />
+            </label>
+            <label class="block space-y-1">
+              <span class="field-label">Price (₹)</span>
+              <input formControlName="price" type="number" min="0" max="100000" step="0.01" class="field" />
+              <ems-field-error [control]="c.controls.price" label="Price" />
+            </label>
+            <div class="block space-y-1">
+              <span class="field-label">Quantity</span>
+              <p class="field bg-paper text-ink-soft">
+                {{ c.controls.seatType.value ? capacityFor(c.controls.seatType.value) + ' seats' : '—' }}
+              </p>
+              <p class="text-xs text-ink-soft">Set automatically from the seat type's capacity.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
         <button type="submit" class="btn-primary">{{ isEdit() ? 'Save changes' : 'Create event' }}</button>
         <a routerLink="/organizer/events" class="btn-ghost text-center">Cancel</a>

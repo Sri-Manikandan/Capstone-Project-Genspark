@@ -1,7 +1,5 @@
     <p class="eyebrow text-plum">Admin</p>
     <h1 class="page-title mt-2 mb-6">Screens & seats</h1>
-    <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
-    <ems-alert type="success" [message]="success()" (dismissed)="success.set('')" />
     <ems-loading-spinner *ngIf="loading()" />
 
     <div *ngIf="!loading()" class="grid grid-cols-1 gap-6 lg:grid-cols-[14rem_1fr]">

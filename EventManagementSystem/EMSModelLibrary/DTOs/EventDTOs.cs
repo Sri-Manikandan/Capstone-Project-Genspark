@@ -79,6 +79,60 @@ namespace EMSModelLibrary.DTOs
         public string Screen { get; set; } = string.Empty;
     }
 
+    // Rich payload for the admin approval queue: the event plus everything an admin needs
+    // to decide — who the organizer is, their track record, ticketing, and computed signals.
+    public class PendingEventReviewDto
+    {
+        public int Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public string ImageUrl { get; set; } = string.Empty;
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
+        public string Screen { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+        public string? RejectionReason { get; set; }
+
+        public int VenueId { get; set; }
+        public string VenueName { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+
+        public OrganizerSummaryDto Organizer { get; set; } = new();
+        public List<TicketCategorySummaryDto> TicketCategories { get; set; } = new();
+        public ReviewSignalsDto Signals { get; set; } = new();
+    }
+
+    public class OrganizerSummaryDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public DateTime MemberSince { get; set; }
+        public bool IsActive { get; set; }
+        public int PublishedEventCount { get; set; }
+        public int RejectedEventCount { get; set; }
+        public int TotalEventCount { get; set; }
+    }
+
+    public class TicketCategorySummaryDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public string SeatType { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public int TotalQuantity { get; set; }
+    }
+
+    public class ReviewSignalsDto
+    {
+        public bool LeadTimeOk { get; set; }
+        public bool ImageUrlValid { get; set; }
+        public bool DescriptionAdequate { get; set; }
+        public bool HasTicketCategories { get; set; }
+        public bool PricingSane { get; set; }
+    }
+
     public class EventSearchRequest
     {
         public string? Query { get; set; }

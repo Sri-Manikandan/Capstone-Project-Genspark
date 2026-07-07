@@ -16,9 +16,13 @@
 
     <form [formGroup]="form" (ngSubmit)="add()" class="card grid max-w-xl grid-cols-1 gap-3 p-6 sm:grid-cols-2">
       <label class="space-y-1"><span class="field-label">Name</span><input formControlName="name" placeholder="Name" class="field" /><ems-field-error [control]="form.controls.name" label="Name" /></label>
-      <label class="space-y-1"><span class="field-label">Seat type</span><input formControlName="seatType" placeholder="Seat type" class="field" /><ems-field-error [control]="form.controls.seatType" label="Seat type" /></label>
-      <label class="space-y-1"><span class="field-label">Price</span><input formControlName="price" type="number" placeholder="Price" class="field" /><ems-field-error [control]="form.controls.price" label="Price" /></label>
-      <label class="space-y-1"><span class="field-label">Quantity</span><input formControlName="totalQuantity" type="number" placeholder="Quantity" class="field" /><ems-field-error [control]="form.controls.totalQuantity" label="Quantity" /></label>
+      <label class="space-y-1"><span class="field-label">Seat type</span>
+        <select formControlName="seatType" class="field">
+          <option value="" disabled>Select seat type…</option>
+          <option *ngFor="let st of availableSeatTypes()" [value]="st">{{ st }}</option>
+        </select>
+        <ems-field-error [control]="form.controls.seatType" label="Seat type" /></label>
+      <label class="space-y-1"><span class="field-label">Price</span><input formControlName="price" type="number" min="0" max="100000" step="0.01" placeholder="Price" class="field" /><ems-field-error [control]="form.controls.price" label="Price" /></label>
       <label class="space-y-1"><span class="field-label">Sale start</span><input formControlName="saleStart" type="datetime-local" class="field" /><ems-field-error [control]="form.controls.saleStart" label="Sale start" /></label>
       <label class="space-y-1"><span class="field-label">Sale end</span><input formControlName="saleEnd" type="datetime-local" class="field" /><ems-field-error [control]="form.controls.saleEnd" label="Sale end" /></label>
       <button type="submit" class="btn-primary sm:col-span-2">Add ticket type</button>
