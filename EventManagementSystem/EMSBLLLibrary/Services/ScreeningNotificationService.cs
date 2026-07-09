@@ -57,16 +57,6 @@ namespace EMSBLLLibrary.Services
             await _notificationRepo.Add(notification);
         }
 
-        public async Task Unsubscribe(int screeningId, int userId)
-        {
-            var existing = await _notificationRepo.GetByScreeningAndUserId(screeningId, userId);
-            if (existing != null && existing.Status == "Active")
-            {
-                existing.Status = "Cancelled";
-                await _notificationRepo.Update(existing);
-            }
-        }
-
         public async Task NotifyAvailableTickets(int screeningId)
         {
             var screening = await _screeningRepo.GetById(screeningId);
@@ -77,7 +67,6 @@ namespace EMSBLLLibrary.Services
 
             var activeNotifications = await _notificationRepo.GetActiveNotificationsByScreeningId(screeningId);
             
-            // Only notify users who have received less than 2 emails
             var eligibleNotifications = activeNotifications
                 .Where(n => n.NotificationCount < 2)
                 .ToList();

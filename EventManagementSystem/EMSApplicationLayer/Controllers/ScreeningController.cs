@@ -73,13 +73,5 @@ namespace EMSApplicationLayer.Controllers
             return Ok(new { message = "Successfully subscribed to screening notifications." });
         }
 
-        [HttpDelete("{id:int}/notifications/unsubscribe")]
-        [Authorize]
-        public async Task<IActionResult> UnsubscribeFromNotifications(int id)
-        {
-            var userId = ClaimsHelper.GetUserId(User);
-            await _notificationService.Unsubscribe(id, userId);
-            return Ok(new { message = "Successfully unsubscribed from screening notifications." });
-        }
     }
 }
