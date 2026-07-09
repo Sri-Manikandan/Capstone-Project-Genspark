@@ -27,6 +27,7 @@ namespace EMSTests.Services
         private Mock<ISeatNotifier> _notifier;
         private Mock<IPaymentRepository> _paymentRepo;
         private Mock<IStripeRefundClient> _refundClient;
+        private Mock<IScreeningNotificationService> _notificationService;
         private IMapper _mapper;
         private BookingService _sut;
 
@@ -46,12 +47,13 @@ namespace EMSTests.Services
             _notifier = new Mock<ISeatNotifier>();
             _paymentRepo = new Mock<IPaymentRepository>();
             _refundClient = new Mock<IStripeRefundClient>();
+            _notificationService = new Mock<IScreeningNotificationService>();
             _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
 
             _sut = new BookingService(
                 _bookingRepo.Object, _bookingItemRepo.Object, _ticketTypeRepo.Object,
                 _seatRepo.Object, _reservationRepo.Object, _screeningRepo.Object, _eventRepo.Object,
-                _notifier.Object, _mapper, _paymentRepo.Object, _refundClient.Object);
+                _notifier.Object, _mapper, _paymentRepo.Object, _refundClient.Object, _notificationService.Object);
         }
 
         private Screening MakeScreening(DateTime? startTime = null) => new Screening

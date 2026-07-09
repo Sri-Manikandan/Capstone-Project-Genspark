@@ -14,31 +14,43 @@ namespace EMSBLLLibrary.Services
         private readonly IScreeningRepository _screeningRepo;
         private readonly IEventRepository _eventRepo;
         private readonly ISeatRepository _seatRepo;
+        private readonly ITicketTypeRepository _ticketTypeRepo;
         private readonly IMapper _mapper;
 
         public ScreeningService(
             IScreeningRepository screeningRepo,
             IEventRepository eventRepo,
             ISeatRepository seatRepo,
+            ITicketTypeRepository ticketTypeRepo,
             IMapper mapper)
         {
             _screeningRepo = screeningRepo;
             _eventRepo = eventRepo;
             _seatRepo = seatRepo;
+            _ticketTypeRepo = ticketTypeRepo;
             _mapper = mapper;
         }
 
         public async Task<List<ScreeningDto>> GetByEventId(int eventId)
         {
             var screenings = await _screeningRepo.GetByEventId(eventId);
-            return _mapper.Map<List<ScreeningDto>>(screenings);
+            var dtos = _mapper.Map<List<ScreeningDto>>(screenings);
+            foreach (var dto in dtos)
+            {
+                var ticketTypes = await _ticketTypeRepo.GetByScreeningId(dto.Id);
+                dto.IsSoldOut = ticketTypes.Count > 0 && ticketTypes.All(t => t.AvailableQuantity == 0);
+            }
+            return dtos;
         }
 
         public async Task<ScreeningDto> GetById(int id)
         {
             var screening = await _screeningRepo.GetById(id)
                 ?? throw new NotFoundException($"Screening {id} not found.");
-            return _mapper.Map<ScreeningDto>(screening);
+            var dto = _mapper.Map<ScreeningDto>(screening);
+            var ticketTypes = await _ticketTypeRepo.GetByScreeningId(dto.Id);
+            dto.IsSoldOut = ticketTypes.Count > 0 && ticketTypes.All(t => t.AvailableQuantity == 0);
+            return dto;
         }
 
         public async Task<ScreeningDto> Create(int organizerId, CreateScreeningRequest request)
@@ -60,7 +72,9 @@ namespace EMSBLLLibrary.Services
                 Status = ScreeningStatus.Scheduled
             };
             await _screeningRepo.Add(screening);
-            return _mapper.Map<ScreeningDto>(screening);
+            var dto = _mapper.Map<ScreeningDto>(screening);
+            dto.IsSoldOut = false; // Brand new screening has no ticket types, so it's not sold out
+            return dto;
         }
 
         public async Task<ScreeningDto> Update(int id, int organizerId, UpdateScreeningRequest request)
@@ -83,7 +97,10 @@ namespace EMSBLLLibrary.Services
             screening.StartTime = startUtc;
             screening.EndTime = endUtc;
             await _screeningRepo.Update(screening);
-            return _mapper.Map<ScreeningDto>(screening);
+            var dto = _mapper.Map<ScreeningDto>(screening);
+            var ticketTypes = await _ticketTypeRepo.GetByScreeningId(dto.Id);
+            dto.IsSoldOut = ticketTypes.Count > 0 && ticketTypes.All(t => t.AvailableQuantity == 0);
+            return dto;
         }
 
         public async Task Delete(int id, int organizerId)

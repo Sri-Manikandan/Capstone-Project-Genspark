@@ -23,6 +23,7 @@ namespace EMSBLLLibrary.Services
         private readonly IMapper _mapper;
         private readonly IPaymentRepository _paymentRepo;
         private readonly IStripeRefundClient _refundClient;
+        private readonly IScreeningNotificationService _notificationService;
 
         public BookingService(
             IBookingRepository bookingRepo,
@@ -35,7 +36,8 @@ namespace EMSBLLLibrary.Services
             ISeatNotifier notifier,
             IMapper mapper,
             IPaymentRepository paymentRepo,
-            IStripeRefundClient refundClient)
+            IStripeRefundClient refundClient,
+            IScreeningNotificationService notificationService)
         {
             _bookingRepo = bookingRepo;
             _bookingItemRepo = bookingItemRepo;
@@ -48,6 +50,7 @@ namespace EMSBLLLibrary.Services
             _mapper = mapper;
             _paymentRepo = paymentRepo;
             _refundClient = refundClient;
+            _notificationService = notificationService;
         }
 
         public async Task<BookingDto> Create(int userId, CreateBookingRequest request)
@@ -234,6 +237,9 @@ namespace EMSBLLLibrary.Services
                 await _ticketTypeRepo.IncrementAvailableQuantity(item.TicketTypeId);
                 await _notifier.SeatReleased(booking.ScreeningId, item.SeatId);
             }
+
+            // Notify users that tickets are available
+            await _notificationService.NotifyAvailableTickets(booking.ScreeningId);
         }
 
         public async Task<BookingDto?> ValidateQr(ValidateQrRequest request, int scannedBy, bool isAdmin)
