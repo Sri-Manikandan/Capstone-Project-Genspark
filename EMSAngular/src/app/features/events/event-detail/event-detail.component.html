@@ -28,13 +28,17 @@
             <h2 class="section-title mt-1">Pick a screen &amp; time</h2>
           </div>
           <div class="grid gap-3 sm:grid-cols-2">
-            <button *ngFor="let sc of screenings()" type="button" (click)="selectScreening(sc)"
-                    class="card flex items-center justify-between gap-3 p-4 text-left transition hover:border-plum">
+            <button *ngFor="let sc of screenings()" type="button" (click)="sc.isSoldOut ? notifyMe(sc) : selectScreening(sc)"
+                    class="group card flex items-center justify-between gap-3 p-4 text-left transition-all duration-200 hover:border-plum"
+                    [ngClass]="{
+                      'opacity-70 border-dashed hover:opacity-100 hover:scale-[1.01] hover:shadow-md': sc.isSoldOut
+                    }">
               <span>
                 <span class="block font-medium text-ink">{{ sc.screen }}</span>
                 <span class="block font-mono text-sm text-muted">{{ sc.startTime | istDate }}</span>
               </span>
-              <span class="link-action">Select →</span>
+              <span *ngIf="!sc.isSoldOut" class="link-action">Select →</span>
+              <span *ngIf="sc.isSoldOut" class="text-sm font-semibold text-plum transition-colors group-hover:text-plum-dark group-hover:underline">Sold Out · Notify Me</span>
             </button>
           </div>
         </section>

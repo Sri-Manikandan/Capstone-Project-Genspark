@@ -35,11 +35,14 @@ namespace EMSBLLLibrary.Services
             var existing = await _notificationRepo.GetByScreeningAndUserId(screeningId, userId);
             if (existing != null)
             {
-                if (existing.Status != "Active")
+                if (existing.Status == "Active")
                 {
-                    existing.Status = "Active";
-                    await _notificationRepo.Update(existing);
+                    throw new ValidationException("Already subscribed to notifications for this screening.");
                 }
+
+                existing.Status = "Active";
+                existing.NotificationCount = 0;
+                await _notificationRepo.Update(existing);
                 return;
             }
 
@@ -85,7 +88,30 @@ namespace EMSBLLLibrary.Services
                 if (user == null || string.IsNullOrEmpty(user.Email)) continue;
 
                 var subject = $"Tickets available for {ev.Title}!";
-                var body = $"<p>Great news!</p><p>Tickets are now available for <strong>{ev.Title}</strong>.</p><p>Click here to book before they sell out again!</p>";
+                
+                var eventImageHtml = !string.IsNullOrEmpty(ev.ImageUrl) 
+                    ? $"<img src=\"{ev.ImageUrl}\" alt=\"{ev.Title}\" style=\"width: 100%; height: auto; max-height: 250px; object-fit: cover;\" />"
+                    : "";
+
+                var eventUrl = $"http://localhost:4200/events/{ev.Slug}";
+
+                var body = $@"
+<div style=""font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; background-color: #ffffff;"">
+    {eventImageHtml}
+    <div style=""padding: 30px;"">
+        <h2 style=""color: #4a148c; margin-top: 0; font-size: 24px;"">{ev.Title}</h2>
+        <p style=""color: #333333; font-size: 16px; line-height: 1.5;"">Great news, <strong>{user.Name}</strong>!</p>
+        <p style=""color: #333333; font-size: 16px; line-height: 1.5;"">Tickets for the <strong>{screening.Screen}</strong> show on <strong>{screening.StartTime:MMM dd, yyyy} at {screening.StartTime:hh:mm tt}</strong> have just become available.</p>
+        
+        <div style=""text-align: center; margin-top: 35px; margin-bottom: 20px;"">
+            <a href=""{eventUrl}"" style=""background-color: #4a148c; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 16px; display: inline-block;"">Book Your Tickets Now</a>
+        </div>
+        
+        <p style=""color: #888888; font-size: 12px; margin-top: 40px; text-align: center;"">
+            You received this email because you subscribed to ticket availability notifications for this showtime.
+        </p>
+    </div>
+</div>";
 
                 await _emailService.SendEmailAsync(user.Email, subject, body);
 

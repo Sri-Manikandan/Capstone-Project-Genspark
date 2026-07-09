@@ -7,6 +7,7 @@ using EMSModelLibrary.DTOs;
 using EMSModelLibrary.Exceptions;
 using EMSModelLibrary.Models;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using NUnit.Framework;
 using Stripe;
@@ -27,7 +28,7 @@ namespace EMSTests.Services
         private Mock<ISeatNotifier> _notifier;
         private Mock<IPaymentRepository> _paymentRepo;
         private Mock<IStripeRefundClient> _refundClient;
-        private Mock<IScreeningNotificationService> _notificationService;
+        private Mock<IServiceScopeFactory> _scopeFactory;
         private IMapper _mapper;
         private BookingService _sut;
 
@@ -47,13 +48,20 @@ namespace EMSTests.Services
             _notifier = new Mock<ISeatNotifier>();
             _paymentRepo = new Mock<IPaymentRepository>();
             _refundClient = new Mock<IStripeRefundClient>();
-            _notificationService = new Mock<IScreeningNotificationService>();
+
+            var mockScope = new Mock<IServiceScope>();
+            var mockServiceProvider = new Mock<IServiceProvider>();
+            mockScope.Setup(s => s.ServiceProvider).Returns(mockServiceProvider.Object);
+
+            _scopeFactory = new Mock<IServiceScopeFactory>();
+            _scopeFactory.Setup(f => f.CreateScope()).Returns(mockScope.Object);
+
             _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
 
             _sut = new BookingService(
                 _bookingRepo.Object, _bookingItemRepo.Object, _ticketTypeRepo.Object,
                 _seatRepo.Object, _reservationRepo.Object, _screeningRepo.Object, _eventRepo.Object,
-                _notifier.Object, _mapper, _paymentRepo.Object, _refundClient.Object, _notificationService.Object);
+                _notifier.Object, _mapper, _paymentRepo.Object, _refundClient.Object, _scopeFactory.Object);
         }
 
         private Screening MakeScreening(DateTime? startTime = null) => new Screening

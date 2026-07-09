@@ -36,4 +36,14 @@ export class ScreeningService {
     return this.http.delete<void>(`${this.base}/${id}`)
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
+
+  subscribeToNotifications(id: number): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.base}/${id}/notifications/subscribe`, {})
+      .pipe(catchError(e => throwError(() => extractError(e))));
+  }
+
+  unsubscribeFromNotifications(id: number): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.base}/${id}/notifications/unsubscribe`)
+      .pipe(catchError(e => throwError(() => extractError(e))));
+  }
 }
