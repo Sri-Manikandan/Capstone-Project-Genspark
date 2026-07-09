@@ -37,6 +37,7 @@ namespace EMSDALLibrary.Contexts
         public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
         public DbSet<OrganizerRequest> OrganizerRequests { get; set; } = null!;
         public DbSet<ChangeLog> ChangeLogs { get; set; } = null!;
+        public DbSet<ScreeningNotification> ScreeningNotifications { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -131,6 +132,13 @@ namespace EMSDALLibrary.Contexts
                 e.HasIndex(c => new { c.EntityName, c.EntityKey });
                 e.HasIndex(c => c.CreatedAt);
                 e.HasIndex(c => c.UserId);
+            });
+
+            modelBuilder.Entity<ScreeningNotification>(e =>
+            {
+                e.HasOne<Screening>().WithMany().HasForeignKey(sn => sn.ScreeningId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne<User>().WithMany().HasForeignKey(sn => sn.UserId).OnDelete(DeleteBehavior.Cascade);
+                e.HasIndex(sn => new { sn.ScreeningId, sn.UserId }).IsUnique();
             });
         }
 

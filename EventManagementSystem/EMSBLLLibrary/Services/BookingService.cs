@@ -8,6 +8,8 @@ using EMSDALLibrary.Interfaces;
 using EMSModelLibrary.Models;
 using Stripe;
 
+using Microsoft.Extensions.DependencyInjection;
+
 namespace EMSBLLLibrary.Services
 {
     public class BookingService : IBookingService
@@ -23,6 +25,7 @@ namespace EMSBLLLibrary.Services
         private readonly IMapper _mapper;
         private readonly IPaymentRepository _paymentRepo;
         private readonly IStripeRefundClient _refundClient;
+        private readonly IServiceScopeFactory _scopeFactory;
 
         public BookingService(
             IBookingRepository bookingRepo,
@@ -35,7 +38,8 @@ namespace EMSBLLLibrary.Services
             ISeatNotifier notifier,
             IMapper mapper,
             IPaymentRepository paymentRepo,
-            IStripeRefundClient refundClient)
+            IStripeRefundClient refundClient,
+            IServiceScopeFactory scopeFactory)
         {
             _bookingRepo = bookingRepo;
             _bookingItemRepo = bookingItemRepo;
@@ -48,6 +52,7 @@ namespace EMSBLLLibrary.Services
             _mapper = mapper;
             _paymentRepo = paymentRepo;
             _refundClient = refundClient;
+            _scopeFactory = scopeFactory;
         }
 
         public async Task<BookingDto> Create(int userId, CreateBookingRequest request)
@@ -234,6 +239,21 @@ namespace EMSBLLLibrary.Services
                 await _ticketTypeRepo.IncrementAvailableQuantity(item.TicketTypeId);
                 await _notifier.SeatReleased(booking.ScreeningId, item.SeatId);
             }
+
+            // Notify users that tickets are available in background (Fire-and-forget)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var notificationService = scope.ServiceProvider.GetRequiredService<IScreeningNotificationService>();
+                    await notificationService.NotifyAvailableTickets(booking.ScreeningId);
+                }
+                catch (Exception)
+                {
+                    // Swallow background exceptions to not crash the process
+                }
+            });
         }
 
         public async Task<BookingDto?> ValidateQr(ValidateQrRequest request, int scannedBy, bool isAdmin)

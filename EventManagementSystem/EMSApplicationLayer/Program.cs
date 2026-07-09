@@ -86,6 +86,7 @@ builder.Services.AddScoped<ISeatReservationRepository, SeatReservationRepository
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IOrganizerRequestRepository, OrganizerRequestRepository>();
 builder.Services.AddScoped<IChangeLogRepository, ChangeLogRepository>();
+builder.Services.AddScoped<IScreeningNotificationRepository, ScreeningNotificationRepository>();
 
 // ── Services ──────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -102,6 +103,8 @@ builder.Services.AddScoped<IStripeRefundClient, StripeRefundClient>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IStripeWebhookService, StripeWebhookService>();
 builder.Services.AddScoped<IChangeLogService, ChangeLogService>();
+builder.Services.AddScoped<IScreeningNotificationService, ScreeningNotificationService>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 // ── SignalR ───────────────────────────────────────────────────────────────────
 builder.Services.AddSignalR();
 builder.Services.AddScoped<ISeatNotifier, SignalRSeatNotifier>();

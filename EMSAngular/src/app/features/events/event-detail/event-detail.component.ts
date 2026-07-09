@@ -6,6 +6,7 @@ import { ScreeningService } from '../../../core/services/screening.service';
 import { TicketTypeService } from '../../../core/services/ticket-type.service';
 import { SeatService } from '../../../core/services/seat.service';
 import { BookingService } from '../../../core/services/booking.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { newIdempotencyKey } from '../../../core/services/idempotency-key';
 import { AuthService } from '../../../core/services/auth.service';
 import { EventDto } from '../../../core/models/event.model';
@@ -38,6 +39,7 @@ export class EventDetailComponent implements OnInit {
   private seatService = inject(SeatService);
   private bookingService = inject(BookingService);
   private auth = inject(AuthService);
+  private toastService = inject(ToastService);
 
   protected readonly maxQuantity = 10;
 
@@ -88,11 +90,22 @@ export class EventDetailComponent implements OnInit {
       return;
     }
     // With a single screening the screen step adds nothing — auto-select and go to tickets.
-    if (screenings.length === 1) {
+    if (screenings.length === 1 && !screenings[0].isSoldOut) {
       this.selectScreening(screenings[0]);
       return;
     }
     this.step.set('screen');
+  }
+
+  protected notifyMe(screening: ScreeningDto): void {
+    if (!this.auth.isAuthenticated()) {
+      this.router.navigate(['/auth/login'], { queryParams: { returnUrl: this.router.url } });
+      return;
+    }
+    this.screeningService.subscribeToNotifications(screening.id).subscribe({
+      next: (res) => this.toastService.success(res.message || 'Successfully subscribed to screening notifications.'),
+      error: (msg: string) => this.toastService.error(msg),
+    });
   }
 
   protected selectScreening(screening: ScreeningDto): void {

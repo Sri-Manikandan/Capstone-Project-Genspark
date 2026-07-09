@@ -13,10 +13,12 @@ namespace EMSApplicationLayer.Controllers
     public class ScreeningController : ControllerBase
     {
         private readonly IScreeningService _screeningService;
+        private readonly IScreeningNotificationService _notificationService;
 
-        public ScreeningController(IScreeningService screeningService)
+        public ScreeningController(IScreeningService screeningService, IScreeningNotificationService notificationService)
         {
             _screeningService = screeningService;
+            _notificationService = notificationService;
         }
 
         [HttpGet("event/{eventId:int}")]
@@ -61,5 +63,15 @@ namespace EMSApplicationLayer.Controllers
             await _screeningService.Delete(id, organizerId);
             return NoContent();
         }
+
+        [HttpPost("{id:int}/notifications/subscribe")]
+        [Authorize]
+        public async Task<IActionResult> SubscribeToNotifications(int id)
+        {
+            var userId = ClaimsHelper.GetUserId(User);
+            await _notificationService.Subscribe(id, userId);
+            return Ok(new { message = "Successfully subscribed to screening notifications." });
+        }
+
     }
 }

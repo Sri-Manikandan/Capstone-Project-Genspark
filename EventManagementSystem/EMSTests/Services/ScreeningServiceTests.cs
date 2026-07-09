@@ -17,6 +17,7 @@ namespace EMSTests.Services
         private Mock<IScreeningRepository> _screeningRepo;
         private Mock<IEventRepository> _eventRepo;
         private Mock<ISeatRepository> _seatRepo;
+        private Mock<ITicketTypeRepository> _ticketTypeRepo;
         private IMapper _mapper;
         private ScreeningService _sut;
 
@@ -30,8 +31,10 @@ namespace EMSTests.Services
             _eventRepo = new Mock<IEventRepository>();
             _seatRepo = new Mock<ISeatRepository>();
             _seatRepo.Setup(r => r.GetByVenueId(1)).ReturnsAsync(new List<Seat> { new Seat { Id = 1, VenueId = 1, Section = "A", SeatType = "Silver" } });
+            _ticketTypeRepo = new Mock<ITicketTypeRepository>();
+            _ticketTypeRepo.Setup(r => r.GetByScreeningId(It.IsAny<int>())).ReturnsAsync(new List<TicketType>());
             _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
-            _sut = new ScreeningService(_screeningRepo.Object, _eventRepo.Object, _seatRepo.Object, _mapper);
+            _sut = new ScreeningService(_screeningRepo.Object, _eventRepo.Object, _seatRepo.Object, _ticketTypeRepo.Object, _mapper);
         }
 
         private Event OrganizerEvent(int organizerId = 10) => new Event

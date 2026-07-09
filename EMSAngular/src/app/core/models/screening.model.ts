@@ -6,6 +6,7 @@ export interface ScreeningDto {
   endTime: string;
   status: string;
   createdAt: string;
+  isSoldOut: boolean;
 }
 
 export interface CreateScreeningRequest {
