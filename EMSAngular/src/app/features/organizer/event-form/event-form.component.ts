@@ -14,6 +14,7 @@ import { EventDto } from '../../../core/models/event.model';
 import { EVENT_CATEGORIES } from '../../../core/constants/event-categories';
 import { FieldErrorComponent } from '../../../shared/components/field-error/field-error.component';
 import { endAfterStart, httpUrl, minLeadTime, notBlank, selectRequired } from '../../../shared/validators/form-validators';
+import { istNowWallClock } from '../../../shared/date/ist-now';
 import { RouterLink } from '@angular/router';
 import { OrganizerEventNavComponent } from '../event-nav/organizer-event-nav.component';
 
@@ -180,7 +181,7 @@ export class EventFormComponent implements OnInit {
           this.router.navigate(['/organizer/events']);
           return;
         }
-        const saleStart = this.nowLocal();
+        const saleStart = istNowWallClock();
         const requests = this.categories.controls.map(c => {
           const cv = c.getRawValue();
           return this.ticketTypeService.create({
@@ -195,12 +196,5 @@ export class EventFormComponent implements OnInit {
       },
       error: (m: string) => this.toast.error(m),
     });
-  }
-
-  // datetime-local wall-clock string ("YYYY-MM-DDTHH:mm"), matching how the rest of the app sends times.
-  private nowLocal(): string {
-    const d = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 }

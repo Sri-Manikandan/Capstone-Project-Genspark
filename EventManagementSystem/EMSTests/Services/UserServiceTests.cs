@@ -289,6 +289,24 @@ namespace EMSTests.Services
         }
 
         [Test]
+        public async Task GetMyOrganizerRequest_ReturnsTimestamps_InIst()
+        {
+            var requestedAtUtc = new DateTime(2026, 7, 13, 6, 0, 0, DateTimeKind.Utc);
+            var reviewedAtUtc = new DateTime(2026, 7, 13, 9, 30, 0, DateTimeKind.Utc);
+            _orgRequestRepo.Setup(r => r.GetLatestByUserId(1)).ReturnsAsync(new OrganizerRequest
+            {
+                Id = 1, UserId = 1, Status = "Approved",
+                RequestedAt = requestedAtUtc, ReviewedAt = reviewedAtUtc
+            });
+            _userRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeUser());
+
+            var result = await _sut.GetMyOrganizerRequest(1);
+
+            result!.RequestedAt.Should().Be(new DateTime(2026, 7, 13, 11, 30, 0)); // 06:00 UTC → 11:30 IST
+            result.ReviewedAt.Should().Be(new DateTime(2026, 7, 13, 15, 0, 0));    // 09:30 UTC → 15:00 IST
+        }
+
+        [Test]
         public async Task RequestOrganizerRole_AlreadyOrganizer_ThrowsValidationException()
         {
             _userRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeUser(role: "Organizer"));

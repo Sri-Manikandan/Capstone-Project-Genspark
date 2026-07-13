@@ -22,6 +22,9 @@ namespace EMSBLLLibrary.Helpers
             return TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(dt, DateTimeKind.Unspecified), Ist);
         }
 
+        public static DateTime? AssumeIstToUtc(DateTime? dt) =>
+            dt.HasValue ? AssumeIstToUtc(dt.Value) : null;
+
         // Converts a UTC DateTime to IST for API responses.
         public static DateTime UtcToIst(DateTime utcDt)
         {

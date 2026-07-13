@@ -1,8 +1,12 @@
 import { AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
+import { istNowMs } from '../date/ist-now';
 
 /**
  * Reusable reactive-form validators that mirror the backend `InputValidator`
  * and event/venue service rules, so the client rejects the same input the API would.
+ *
+ * Datetime values are IST wall-clock strings, which is how the API reads them, so
+ * anything compared against "now" uses `istNowMs()` rather than the browser's clock.
  */
 
 /** Requires an absolute http(s) URL. Mirrors `InputValidator.ValidateUrl`. */
@@ -24,7 +28,7 @@ export function futureDateTime(control: AbstractControl): ValidationErrors | nul
   if (!value) return null;
   const when = new Date(value).getTime();
   if (Number.isNaN(when)) return null;
-  return when > Date.now() ? null : { notFuture: true };
+  return when > istNowMs() ? null : { notFuture: true };
 }
 
 /**
@@ -38,7 +42,7 @@ export function minLeadTime(hours: number): ValidatorFn {
     if (!value) return null; // let `required` own the empty case
     const when = new Date(value).getTime();
     if (Number.isNaN(when)) return null;
-    return when >= Date.now() + hours * 3600_000 ? null : { minLeadTime: { hours } };
+    return when >= istNowMs() + hours * 3600_000 ? null : { minLeadTime: { hours } };
   };
 }
 

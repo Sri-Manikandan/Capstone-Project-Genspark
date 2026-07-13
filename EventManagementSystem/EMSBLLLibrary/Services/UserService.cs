@@ -212,8 +212,8 @@ namespace EMSBLLLibrary.Services
             UserEmail = user?.Email ?? string.Empty,
             Status = request.Status,
             Reason = request.Reason,
-            RequestedAt = request.RequestedAt,
-            ReviewedAt = request.ReviewedAt,
+            RequestedAt = TimeHelper.UtcToIst(request.RequestedAt),
+            ReviewedAt = TimeHelper.UtcToIst(request.ReviewedAt),
             ReviewedByAdminId = request.ReviewedByAdminId
         };
     }

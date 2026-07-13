@@ -109,7 +109,8 @@ namespace EMSBLLLibrary.Services
         {
             var (items, total) = await _eventRepo.Search(
                 request.Query, request.Category, request.City, request.Status,
-                request.StartFrom, request.StartTo,
+                TimeHelper.AssumeIstToUtc(request.StartFrom),
+                TimeHelper.AssumeIstToUtc(request.StartTo),
                 request.SortBy, request.SortOrder,
                 request.Page, request.PageSize);
 

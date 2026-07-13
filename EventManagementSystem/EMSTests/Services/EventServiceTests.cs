@@ -258,6 +258,28 @@ namespace EMSTests.Services
         }
 
         [Test]
+        public async Task Search_ConvertsIstDateFilters_ToUtcForRepository()
+        {
+            // StartFrom/StartTo arrive as IST wall-clock, but StartTime is stored in UTC.
+            var startFromIst = new DateTime(2026, 7, 13, 0, 0, 0);   // 13 Jul 00:00 IST
+            var startToIst = new DateTime(2026, 7, 14, 0, 0, 0);     // 14 Jul 00:00 IST
+            var startFromUtc = new DateTime(2026, 7, 12, 18, 30, 0); // = 12 Jul 18:30 UTC
+            var startToUtc = new DateTime(2026, 7, 13, 18, 30, 0);   // = 13 Jul 18:30 UTC
+
+            _eventRepo.Setup(r => r.Search(null, null, null, null, startFromUtc, startToUtc, null, null, 1, 10))
+                      .ReturnsAsync((new List<Event> { MakeEvent() }, 1));
+
+            await _sut.Search(new EventSearchRequest
+            {
+                StartFrom = startFromIst, StartTo = startToIst, Page = 1, PageSize = 10
+            });
+
+            _eventRepo.Verify(
+                r => r.Search(null, null, null, null, startFromUtc, startToUtc, null, null, 1, 10),
+                Times.Once);
+        }
+
+        [Test]
         public async Task GetCities_ReturnsPublishedCities()
         {
             _eventRepo.Setup(r => r.GetCities(EventStatus.Published))

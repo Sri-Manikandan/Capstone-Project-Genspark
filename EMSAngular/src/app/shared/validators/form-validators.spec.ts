@@ -1,5 +1,17 @@
 import { FormControl, FormGroup } from '@angular/forms';
 import { endAfterStart, futureDateTime, httpUrl, minLeadTime, notAfter, notBefore, notBlank, selectRequired } from './form-validators';
+import { istNowMs } from '../date/ist-now';
+
+/**
+ * A datetime-local wall-clock string ("YYYY-MM-DDTHH:mm") `ms` from now *on the IST clock* —
+ * the frame the validators and the API both use. Built off `istNowMs()` rather than the
+ * browser's clock so these expectations hold in any timezone.
+ */
+const istOffset = (ms: number) => {
+  const d = new Date(istNowMs() + ms);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 describe('httpUrl', () => {
   it('passes for absolute http and https URLs', () => {
@@ -19,20 +31,12 @@ describe('httpUrl', () => {
 });
 
 describe('futureDateTime', () => {
-  // datetime-local inputs emit a local wall-clock string ("YYYY-MM-DDTHH:mm"), so build
-  // the test values in local time rather than UTC to match how the validator parses them.
-  const localOffset = (ms: number) => {
-    const d = new Date(Date.now() + ms);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
-
   it('passes for a datetime in the future', () => {
-    expect(futureDateTime(new FormControl(localOffset(60 * 60_000)))).toBeNull();
+    expect(futureDateTime(new FormControl(istOffset(60 * 60_000)))).toBeNull();
   });
 
   it('fails for a datetime in the past', () => {
-    expect(futureDateTime(new FormControl(localOffset(-60 * 60_000)))).toEqual({ notFuture: true });
+    expect(futureDateTime(new FormControl(istOffset(-60 * 60_000)))).toEqual({ notFuture: true });
   });
 
   it('ignores empty values', () => {
@@ -41,23 +45,16 @@ describe('futureDateTime', () => {
 });
 
 describe('minLeadTime', () => {
-  // datetime-local emits local wall-clock strings; build test values in local time.
-  const localOffset = (ms: number) => {
-    const d = new Date(Date.now() + ms);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
-
   it('passes for a datetime at least the required hours ahead', () => {
-    expect(minLeadTime(48)(new FormControl(localOffset(49 * 60 * 60_000)))).toBeNull();
+    expect(minLeadTime(48)(new FormControl(istOffset(49 * 60 * 60_000)))).toBeNull();
   });
 
   it('fails for a datetime within the lead-time window', () => {
-    expect(minLeadTime(48)(new FormControl(localOffset(24 * 60 * 60_000)))).toEqual({ minLeadTime: { hours: 48 } });
+    expect(minLeadTime(48)(new FormControl(istOffset(24 * 60 * 60_000)))).toEqual({ minLeadTime: { hours: 48 } });
   });
 
   it('fails for a datetime in the past', () => {
-    expect(minLeadTime(48)(new FormControl(localOffset(-60 * 60_000)))).toEqual({ minLeadTime: { hours: 48 } });
+    expect(minLeadTime(48)(new FormControl(istOffset(-60 * 60_000)))).toEqual({ minLeadTime: { hours: 48 } });
   });
 
   it('ignores empty values (required owns that case)', () => {

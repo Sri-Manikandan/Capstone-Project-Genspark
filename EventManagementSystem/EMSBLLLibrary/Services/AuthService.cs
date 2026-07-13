@@ -172,7 +172,7 @@ namespace EMSBLLLibrary.Services
             {
                 AccessToken = GenerateAccessToken(user),
                 RefreshToken = rawRefresh,
-                AccessTokenExpiry = accessExpiry,
+                AccessTokenExpiry = TimeHelper.UtcToIst(accessExpiry),
                 User = _mapper.Map<UserDto>(user)
             };
         }
