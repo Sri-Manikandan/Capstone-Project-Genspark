@@ -19,6 +19,10 @@ param prefix string = 'ems'
 @secure()
 param postgresAdminPassword string
 
+// Object ID of whoever runs the deployment. They need an explicit Key Vault access policy:
+// with RBAC disabled, Contributor confers no data-plane access to secrets.
+param deployerObjectId string
+
 // Keeps globally-unique names (ACR, Key Vault) collision-free.
 var suffix = uniqueString(resourceGroup().id)
 var shortSuffix = take(suffix, 8)
@@ -71,6 +75,7 @@ module keyvault 'modules/keyvault.bicep' = {
     name: kvName
     location: location
     workloadIdentityPrincipalId: workloadIdentity.properties.principalId
+    deployerObjectId: deployerObjectId
   }
 }
 

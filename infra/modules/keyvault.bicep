@@ -4,6 +4,11 @@ param location string
 // Object ID of the user-assigned managed identity the pods run as.
 param workloadIdentityPrincipalId string
 
+// Object ID of the human/principal running the deployment. Required: with RBAC disabled,
+// subscription Contributor grants NO data-plane access to Key Vault, so without an explicit
+// policy the deployer cannot even write the secrets ("does not have secrets set permission").
+param deployerObjectId string
+
 resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: name
   location: location
@@ -20,10 +25,19 @@ resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
     enableRbacAuthorization: false
     accessPolicies: [
       {
+        // The pods. Read-only: they never write secrets.
         tenantId: subscription().tenantId
         objectId: workloadIdentityPrincipalId
         permissions: {
-          secrets: ['get', 'list'] // read-only: pods never write secrets
+          secrets: ['get', 'list']
+        }
+      }
+      {
+        // The deployer, so provision.sh can populate the vault.
+        tenantId: subscription().tenantId
+        objectId: deployerObjectId
+        permissions: {
+          secrets: ['get', 'list', 'set', 'delete']
         }
       }
     ]

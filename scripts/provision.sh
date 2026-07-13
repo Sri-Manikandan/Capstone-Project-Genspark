@@ -54,12 +54,21 @@ gh secret set POSTGRES_ADMIN_PASSWORD --body "$PG_PASS"
 echo "==> Creating resource group"
 az group create -n "$RG" -l "$LOCATION" -o none
 
+# Object ID of the signed-in principal. Read from the access token's `oid` claim rather than
+# `az ad signed-in-user show`, because Graph API queries are not reliably permitted on this
+# subscription. The deployer needs an explicit Key Vault access policy: with RBAC disabled,
+# subscription Contributor grants no data-plane access, so writing a secret is refused.
+DEPLOYER_OID=$(az account get-access-token --query accessToken -o tsv \
+  | cut -d. -f2 \
+  | python3 -c "import sys,base64,json; t=sys.stdin.read().strip(); t+='='*(-len(t)%4); print(json.loads(base64.urlsafe_b64decode(t))['oid'])")
+echo "==> Deploying as principal $DEPLOYER_OID"
+
 echo "==> Deploying Bicep (this takes ~10 minutes, mostly AKS)"
 az deployment group create \
   --resource-group "$RG" \
   --name main \
   --template-file infra/main.bicep \
-  --parameters postgresAdminPassword="$PG_PASS" \
+  --parameters postgresAdminPassword="$PG_PASS" deployerObjectId="$DEPLOYER_OID" \
   -o none
 
 OUT="$(az deployment group show -g "$RG" -n main --query properties.outputs -o json)"
