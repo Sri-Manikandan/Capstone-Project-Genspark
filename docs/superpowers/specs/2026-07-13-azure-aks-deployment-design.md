@@ -186,12 +186,41 @@ The app will not run correctly on AKS without these.
 `DataSeeder` is left enabled: seeded demo data is wanted, and the default password
 (`Test@1234`) is acceptable for a demo. It would be a security hole in production.
 
+## Subscription permission constraint (discovered during implementation)
+
+The `Training-2026` subscription grants **Contributor**, which cannot:
+
+- perform `Microsoft.Authorization/roleAssignments/write` (needs Owner or User Access Administrator), or
+- create an **Entra app registration** (`Insufficient privileges`).
+
+Both were verified against the live subscription. This invalidated three parts of the
+original design, each of which now has a documented workaround. **If the subscription is
+later granted User Access Administrator + Application Developer, all three should be reverted
+to the model described in the "reverted to" column — it is strictly better.**
+
+| Blocked by permissions | Workaround now in use | Reverted to, if access is granted |
+|---|---|---|
+| Key Vault RBAC role assignment | Key Vault **access policies** (a property of the vault; Contributor can set them) | `enableRbacAuthorization: true` + Key Vault Secrets User role |
+| `AcrPull` role for AKS kubelet | ACR **admin user** + a Kubernetes `imagePullSecret` | `adminUserEnabled: false` + AcrPull role assignment |
+| Network Contributor, so AKS can attach a pre-created static IP in `rg-ems-prod` | **No pre-created IP.** AKS allocates one in its own node resource group (which it already owns); a DNS label is attached afterwards | Static IP in `rg-ems-prod` + Network Contributor grant |
+| GitHub Actions **OIDC** (needs an app registration) | **Stored long-lived credentials** in GitHub secrets: ACR admin password, AKS admin kubeconfig, SWA deployment token | Federated OIDC credential, no stored secrets |
+
+The security cost is real and should be stated plainly: long-lived credentials in GitHub
+secrets instead of short-lived federated tokens, and a shared ACR password instead of a
+scoped managed identity. For a time-boxed capstone demo on a locked-down training
+subscription this is an acceptable trade; for production it would not be.
+
+**Workload identity still works.** A user-assigned managed identity plus a federated identity
+credential are `Microsoft.ManagedIdentity` resources, not Entra app registrations, so
+Contributor can create both. Pods therefore still read Key Vault with no stored credential —
+only the *GitHub → Azure* hop falls back to stored secrets.
+
 ## Secrets
 
-Bicep provisions Key Vault with RBAC. AKS uses **workload identity** federated to a
-Kubernetes ServiceAccount, and the **Secrets Store CSI driver** mounts secrets into pods and
-syncs them to a Kubernetes Secret consumed as env vars. No secrets in git, in manifests, or
-in GitHub.
+Bicep provisions Key Vault with an **access policy** granting the workload identity `get` and
+`list` on secrets. AKS uses **workload identity** federated to a Kubernetes ServiceAccount,
+and the **Secrets Store CSI driver** mounts secrets into pods and syncs them to a Kubernetes
+Secret consumed as env vars. No secrets in git or in manifests.
 
 Secrets stored: `db-connection-string`, `jwt-key`, `stripe-secret-key`,
 `stripe-webhook-secret`, `resend-api-key`.
@@ -206,10 +235,19 @@ Postgres uses public access with a firewall rule pinned to the AKS egress IP (th
 Balancer's outbound public IP). This is simpler than VNet integration and adequate, since
 TLS is enforced regardless.
 
-The ingress gets a Standard static public IP with an Azure DNS label, giving a stable
-`ems-api-<suffix>.southindia.cloudapp.azure.com` hostname. cert-manager issues a free
-Let's Encrypt certificate against it — no domain purchase needed. Stripe webhooks require a
-valid TLS cert, which this satisfies.
+The ingress gets a Standard public IP **allocated by AKS in its own node resource group**
+(rather than pre-created in `rg-ems-prod`, which would have required a Network Contributor
+grant we cannot make — see the permission constraint above). After ingress-nginx is
+installed, a **DNS label is attached to that IP**, giving a stable
+`ems-api-<suffix>.southindia.cloudapp.azure.com` hostname.
+
+The hostname is load-bearing, not cosmetic: cert-manager issues a free Let's Encrypt
+certificate against it, and **Let's Encrypt issues certificates for domain names, not bare
+IPs**. No hostname would mean no certificate, and Stripe webhooks require valid TLS — so
+without this the payment flow does not work at all.
+
+The IP persists as long as the ingress Service exists. Deleting and recreating that Service
+would allocate a new IP, which would require re-attaching the DNS label.
 
 ## Bicep layout
 
@@ -226,16 +264,29 @@ infra/
     └── swa.bicep
 ```
 
+## Branch model
+
+- **`main`** — integration. Everything merges here; CI runs the tests. **Nothing deploys.**
+- **`prod`** — production. This branch *is* what runs in Azure.
+- Ship by promoting: `git checkout prod && git merge main && git push`.
+
 ## CI/CD
 
-GitHub Actions authenticating via **OIDC federated credentials** — no service-principal
-secret stored in GitHub.
+GitHub Actions using **stored credentials**, not OIDC — an app registration cannot be created
+on this subscription (see the permission constraint above). Three GitHub secrets carry the
+auth: the ACR admin password, an AKS admin kubeconfig, and the SWA deployment token.
 
-| Workflow          | Trigger                                | Steps |
-|-------------------|----------------------------------------|-------|
-| `infra.yml`       | manual dispatch                        | `az deployment group create` against Bicep |
-| `deploy-api.yml`  | push to `main` touching `EventManagementSystem/**` | `dotnet test` → build & push image to ACR (tagged with commit SHA, never `latest`) → run migration Job and wait → `kubectl apply` → wait for rollout |
-| `deploy-web.yml`  | push to `main` touching `EMSAngular/**` | `ng build --configuration production` → deploy to Static Web Apps |
+| Workflow          | Trigger                                   | Steps |
+|-------------------|-------------------------------------------|-------|
+| `ci.yml`          | push / PR to `main`                       | `dotnet build` + `dotnet test`, Angular build + tests under `TZ=UTC`, Docker build |
+| `infra.yml`       | manual dispatch                           | `az deployment group create` against Bicep |
+| `deploy-api.yml`  | push to **`prod`** touching `EventManagementSystem/**` | `dotnet test` → build & push image to ACR (tagged with commit SHA, never `latest`) → run migration Job and wait → `kubectl apply` → wait for rollout |
+| `deploy-web.yml`  | push to **`prod`** touching `EMSAngular/**` | `ng build --configuration production` → deploy to Static Web Apps |
+
+`ci.yml` exists because `main` no longer deploys: without it, a broken commit would sit
+unnoticed on `main` until someone promoted it to `prod` and it failed in Azure instead. Its
+Angular tests run under `TZ=UTC` deliberately — the app's IST datetime handling has a class of
+bug that is invisible on an IST machine.
 
 Images are tagged with the commit SHA so a rollout is reproducible and `kubectl rollout undo`
 means something.
