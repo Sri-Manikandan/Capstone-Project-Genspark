@@ -96,6 +96,7 @@ helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
   --namespace ingress-nginx --create-namespace \
   --set controller.replicaCount=1 \
   --set controller.resources.requests.memory=128Mi \
+  --force-conflicts \
   --wait --timeout 10m
 
 echo "==> Waiting for the LoadBalancer to get a public IP"
@@ -123,9 +124,14 @@ INGRESS_FQDN=$(az network public-ip show -g "$NODE_RG" -n "$PIP_NAME" \
 echo "    Ingress FQDN: $INGRESS_FQDN"
 
 echo "==> Installing cert-manager"
+# --force-conflicts is required on AKS. The managed "admissionsenforcer" addon mutates
+# .webhooks[].namespaceSelector on cert-manager's ValidatingWebhookConfiguration and takes
+# field ownership of it, so a later server-side apply fails with a field conflict. Forcing
+# conflicts lets Helm reclaim the field instead of erroring out on every re-run.
 helm upgrade --install cert-manager jetstack/cert-manager \
   --namespace cert-manager --create-namespace \
   --set crds.enabled=true \
+  --force-conflicts \
   --wait --timeout 10m
 
 # ── 5. Postgres firewall ──────────────────────────────────────────────────────────────
