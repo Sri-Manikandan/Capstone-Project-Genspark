@@ -10,6 +10,18 @@
 
 **Design doc:** `docs/superpowers/specs/2026-07-13-azure-aks-deployment-design.md`
 
+## Branch Model
+
+- **`main`** — integration. Everything merges here. `ci.yml` runs the tests. **Nothing deploys.**
+- **`prod`** — production. This branch *is* what runs in Azure. `deploy-api.yml` and `deploy-web.yml` fire only on push here.
+- Ship by promoting: `git checkout prod && git merge main && git push`.
+- Implementation of this plan happens on **`feat/azure-deployment`**, which merges to `main`.
+
+The OIDC federated credential is **pinned to a specific git ref**. Credentials are registered
+for both `refs/heads/main` (so the manually-dispatched `infra.yml` can run) and
+`refs/heads/prod` (so deploys can run). Getting this wrong produces a token-exchange failure
+that reads like a permissions bug and is painful to diagnose — see Task 10 Step 1.
+
 ## Global Constraints
 
 - **Commit messages must be 5 words or fewer.** No body, no bullets, no co-author lines. (From `CLAUDE.md` — applies to every commit in this plan.)
@@ -1478,10 +1490,22 @@ az role assignment create \
   --role "User Access Administrator" \
   --scope "/subscriptions/$SUB_ID/resourceGroups/rg-ems-prod" -o none
 
+# Federated credentials are pinned to an exact git ref. TWO are needed:
+#   main → so the manually-dispatched infra.yml can run
+#   prod → so the deploy workflows can run
+# A missing credential fails at token exchange with an error that looks like an RBAC
+# problem but is not. If a deploy fails with AADSTS70021, the ref is not registered here.
 az ad app federated-credential create --id "$APP_ID" --parameters '{
   "name": "github-main",
   "issuer": "https://token.actions.githubusercontent.com",
   "subject": "repo:Sri-Manikandan/Capstone-Project-Genspark:ref:refs/heads/main",
+  "audiences": ["api://AzureADTokenExchange"]
+}'
+
+az ad app federated-credential create --id "$APP_ID" --parameters '{
+  "name": "github-prod",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:Sri-Manikandan/Capstone-Project-Genspark:ref:refs/heads/prod",
   "audiences": ["api://AzureADTokenExchange"]
 }'
 
@@ -1582,7 +1606,7 @@ name: Deploy API
 
 on:
   push:
-    branches: [main]
+    branches: [prod]        # NOT main. Promote with: git checkout prod && git merge main
     paths:
       - 'EventManagementSystem/**'
       - 'k8s/**'
@@ -1705,7 +1729,7 @@ name: Deploy Web
 
 on:
   push:
-    branches: [main]
+    branches: [prod]        # NOT main. See deploy-api.yml.
     paths:
       - 'EMSAngular/**'
       - '.github/workflows/deploy-web.yml'
@@ -1761,7 +1785,57 @@ jobs:
 
 Note: confirm the exact `dist` path from Task 9 Step 3's build output — Angular writes to `dist/<projectName>/browser`. Fix `app_location` to match.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Write `.github/workflows/ci.yml`**
+
+`main` no longer deploys, so it needs its own verification — otherwise a broken commit sits
+unnoticed on `main` until someone promotes it to `prod` and it fails in Azure instead.
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build
+        run: dotnet build EventManagementSystem/EMS.sln
+
+      - name: Test
+        run: dotnet test EventManagementSystem/EMSTests/EMSTests.csproj --verbosity minimal
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Angular build and test
+        working-directory: EMSAngular
+        run: |
+          npm ci
+          npx ng build --configuration production
+          TZ=UTC npx ng test --watch=false --browsers=ChromeHeadless
+
+      # Verify the image builds. Catches a broken Dockerfile on main rather than
+      # mid-deploy on prod.
+      - name: Docker build
+        run: docker build -t ems-api:ci EventManagementSystem/
+```
+
+The Angular tests run under `TZ=UTC` deliberately: the app's IST datetime handling has a
+whole class of bug that is invisible on an IST machine, so CI must check another zone.
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git add .github/workflows/
@@ -1848,11 +1922,23 @@ kubectl get svc -n ingress-nginx ingress-nginx-controller \
 
 Expected: exactly the value of `$INGRESS_IP`. If it shows `<pending>` for more than ~3 minutes, the AKS identity lacks Network Contributor on `rg-ems-prod` — recheck the role assignment in Task 7.
 
-- [ ] **Step 4: Deploy the application**
+- [ ] **Step 4: Deploy the application by promoting to `prod`**
+
+Deploys fire on push to `prod`, not `main`. Create the branch and promote:
 
 ```bash
-gh workflow run deploy-api.yml
+git checkout main && git pull
+git checkout -B prod && git push -u origin prod
 gh run watch
+```
+
+`git checkout -B prod` creates `prod` at `main`'s current commit (and resets it there if it
+already exists). Pushing it triggers `deploy-api.yml` and `deploy-web.yml`.
+
+For every subsequent release, promote with a merge instead:
+
+```bash
+git checkout prod && git merge main && git push
 ```
 
 Then confirm the cluster is healthy:
@@ -1914,12 +2000,18 @@ Expected: a 200 response logged for the webhook. A **400 with a signature error*
 
 - [ ] **Step 7: Deploy the frontend and verify it end to end**
 
+The SWA deployment token does not exist until the Static Web App is provisioned, so
+`deploy-web.yml` will have failed on the first promotion in Step 4. Set the token, then
+re-run that workflow:
+
 ```bash
 SWA_NAME=$(jq -r .swaName.value infra-outputs.json)
 gh secret set SWA_DEPLOYMENT_TOKEN --body "$(az staticwebapp secrets list \
   -g rg-ems-prod -n "$SWA_NAME" --query properties.apiKey -o tsv)"
 
-gh workflow run deploy-web.yml
+# Re-run the failed run against prod (workflow_dispatch is not wired for this one).
+gh run list --workflow=deploy-web.yml --branch=prod --limit=1
+gh run rerun "$(gh run list --workflow=deploy-web.yml --branch=prod --limit=1 --json databaseId -q '.[0].databaseId')"
 gh run watch
 
 SWA_HOST=$(az staticwebapp show -g rg-ems-prod -n "$SWA_NAME" --query defaultHostname -o tsv)
