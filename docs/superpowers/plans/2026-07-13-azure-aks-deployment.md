@@ -1,5 +1,24 @@
 # Azure AKS Deployment Implementation Plan
 
+> **STATUS (2026-07-13): Tasks 1–10 are implemented and verified on `feat/azure-deployment`.
+> Task 11 (provisioning) has not been run — it creates ~$82/mo of billable Azure resources.**
+>
+> **Two things changed during implementation, because the `Training-2026` subscription grants
+> only Contributor:**
+>
+> 1. **No role assignments and no Entra app registration are possible.** Key Vault uses access
+>    policies instead of RBAC; ACR uses an admin-user `imagePullSecret` instead of an AcrPull
+>    grant; the ingress IP is allocated by AKS in its own node resource group rather than
+>    pre-created. See the design doc's "Subscription permission constraint" section.
+> 2. **`infra.yml` does not exist.** Provisioning needs `az login`, which in GitHub Actions
+>    would require the app registration we cannot create. It is **`scripts/provision.sh`**,
+>    run once from your laptop. The two deploy workflows still run in CI, authenticating with
+>    a Docker login and a stored kubeconfig instead of OIDC.
+>
+> Task 10 below still describes the OIDC setup. It is retained as the **target state** for if
+> the subscription is ever granted User Access Administrator + Application Developer; it is
+> not what was built.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Deploy the Event Management System to Azure — the .NET 9 API on AKS, the Angular SPA on Static Web Apps, PostgreSQL as a managed service — with all infrastructure in Bicep and all deploys driven by GitHub Actions.
