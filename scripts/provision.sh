@@ -28,23 +28,24 @@ gh auth status >/dev/null 2>&1 || { echo "FATAL: run 'gh auth login'"; exit 1; }
 # ── 1. Postgres admin password ────────────────────────────────────────────────────────
 # Alphanumeric only, deliberately: base64 can emit + / = which are awkward inside an Npgsql
 # connection string, and Azure Postgres rejects ' " and @.
-if gh secret list | grep -q POSTGRES_ADMIN_PASSWORD; then
-  echo "==> POSTGRES_ADMIN_PASSWORD already set in GitHub."
-  echo "    This script cannot read it back. If you do not have it saved, delete the secret"
-  echo "    and re-run, or reset the server password later."
-  read -rp "    Enter the existing Postgres admin password: " PG_PASS
+# Non-interactive. The password is written to PG_PASS_FILE (outside the repo, chmod 600) so
+# it can be retrieved after the run — GitHub secrets cannot be read back.
+# Pass POSTGRES_ADMIN_PASSWORD in the environment to reuse an existing one.
+PG_PASS_FILE="${PG_PASS_FILE:-$HOME/.ems-postgres-password}"
+
+if [ -n "${POSTGRES_ADMIN_PASSWORD:-}" ]; then
+  PG_PASS="$POSTGRES_ADMIN_PASSWORD"
+  echo "==> Using POSTGRES_ADMIN_PASSWORD from the environment"
+elif [ -f "$PG_PASS_FILE" ]; then
+  PG_PASS="$(cat "$PG_PASS_FILE")"
+  echo "==> Reusing the Postgres password from $PG_PASS_FILE"
 else
   PG_PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)"
-  gh secret set POSTGRES_ADMIN_PASSWORD --body "$PG_PASS"
-  echo ""
-  echo "    ############################################################"
-  echo "    #  SAVE THIS NOW — Postgres admin password:"
-  echo "    #  $PG_PASS"
-  echo "    #  It is not recoverable from GitHub."
-  echo "    ############################################################"
-  echo ""
-  read -rp "    Press Enter once you have saved it..."
+  (umask 077; printf '%s' "$PG_PASS" > "$PG_PASS_FILE")
+  echo "==> Generated a Postgres admin password and saved it to $PG_PASS_FILE"
+  echo "    Move it to your password manager; it is not recoverable from GitHub."
 fi
+gh secret set POSTGRES_ADMIN_PASSWORD --body "$PG_PASS"
 
 # ── 2. Infrastructure ─────────────────────────────────────────────────────────────────
 echo "==> Creating resource group"
