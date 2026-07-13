@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ems-api
+  namespace: ems
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # SignalR holds long-lived connections; nginx's 60s default would drop the seat hub.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - __INGRESS_FQDN__
+      secretName: ems-api-tls # cert-manager writes the issued certificate here
+  rules:
+    - host: __INGRESS_FQDN__
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ems-api
+                port:
+                  number: 80
+# No session-affinity annotation: ems-api runs a single replica, so every SignalR client
+# necessarily lands on the same pod. IF YOU EVER RAISE replicas ABOVE 1, you must add cookie
+# affinity here or a Redis backplane, or SignalR negotiation will break intermittently.

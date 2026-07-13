@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ems-api
+  namespace: ems
+spec:
+  type: ClusterIP # the ingress fronts this; it needs no public IP of its own
+  selector:
+    app: ems-api
+  ports:
+    - port: 80
+      targetPort: 8080
