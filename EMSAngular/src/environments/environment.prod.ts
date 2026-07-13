@@ -2,13 +2,14 @@
 // These values are swapped in for environment.ts during a production build
 // (see the "fileReplacements" entry in angular.json).
 //
-// Replace the placeholders below at deploy time. See EMSAngular/README.md
-// ("Production configuration") for what each value should be.
+// __INGRESS_FQDN__ is substituted by the deploy-web workflow at build time from the AKS
+// ingress hostname, so the value is never hardcoded here and cannot go stale.
 export const environment = {
   production: true,
-  // Base URL of the deployed API, e.g. 'https://api.your-domain.com'.
-  apiBaseUrl: 'https://REPLACE_WITH_PRODUCTION_API_URL',
-  // Stripe publishable key for the live account, e.g. 'pk_live_...'.
-  // This key is public and safe to ship in the client bundle.
-  stripePublishableKey: 'pk_live_REPLACE_WITH_YOUR_KEY',
+  apiBaseUrl: 'https://__INGRESS_FQDN__',
+  // Stripe TEST publishable key. This key is public and safe to ship in the client bundle.
+  // It must stay pk_test_ — this is a demo and must never be able to move real money.
+  // deploy-web.yml fails the build if a pk_live_ key is found in the bundle.
+  stripePublishableKey:
+    'pk_test_51Tk1KgDlDAgZgiPTi3aYubmttJEhLKybjjIiOjf9bPknQz70gArdOxFqQNZM2Z0tT90anDA3zw99DdVNCjf73Ul000LaAknaU3',
 };
