@@ -183,13 +183,13 @@ az keyvault secret set --vault-name "$KV_NAME" --name db-connection-string \
 az keyvault secret set --vault-name "$KV_NAME" --name jwt-key \
   --value "$(openssl rand -base64 48)" -o none
 
-# The Resend key is read from the local (gitignored) dev settings rather than hardcoded here,
-# because this script IS committed and that key is a live credential.
+# Secrets are read from the developer's local machine rather than hardcoded, because this
+# script IS committed to git and these are live credentials.
+
+# Resend key: from the gitignored dev settings.
 DEV_SETTINGS="EventManagementSystem/EMSApplicationLayer/appsettings.Development.json"
 RESEND_KEY=""
-if [ -f "$DEV_SETTINGS" ]; then
-  RESEND_KEY=$(jq -r '.Email.ApiKey // empty' "$DEV_SETTINGS")
-fi
+[ -f "$DEV_SETTINGS" ] && RESEND_KEY=$(jq -r '.Email.ApiKey // empty' "$DEV_SETTINGS")
 
 if [ -n "$RESEND_KEY" ]; then
   echo "==> Reusing the Resend API key from $DEV_SETTINGS"
@@ -197,34 +197,60 @@ if [ -n "$RESEND_KEY" ]; then
     --value "$RESEND_KEY" -o none
 else
   echo "==> WARNING: no Email.ApiKey found in $DEV_SETTINGS."
-  echo "    Set resend-api-key by hand or email notifications will fail."
+  echo "    Set resend-api-key by hand, or email notifications will fail."
 fi
 
-# Placeholder so the CSI driver can mount all five secrets on the very first deploy. The
-# real signing secret only exists after the endpoint is registered in Stripe (below).
+# Stripe secret key: from .NET user-secrets.
+USER_SECRETS_ID=$(grep -oE '<UserSecretsId>[^<]+' \
+  EventManagementSystem/EMSApplicationLayer/EMSApplicationLayer.csproj | cut -d'>' -f2)
+SECRETS_JSON="$HOME/.microsoft/usersecrets/$USER_SECRETS_ID/secrets.json"
+STRIPE_KEY=""
+[ -f "$SECRETS_JSON" ] && STRIPE_KEY=$(jq -r '."Stripe:SecretKey" // empty' "$SECRETS_JSON")
+
+if [ -z "$STRIPE_KEY" ]; then
+  echo "FATAL: Stripe:SecretKey not found in user-secrets ($SECRETS_JSON)."
+  echo "       Set it with:"
+  echo "         dotnet user-secrets set 'Stripe:SecretKey' 'sk_test_...' \\"
+  echo "           --project EventManagementSystem/EMSApplicationLayer"
+  exit 1
+fi
+case "$STRIPE_KEY" in
+  sk_live_*)
+    # A live key would let a demo booking move real money. Refuse outright.
+    echo "FATAL: that is a LIVE Stripe key (sk_live_). This deployment is a demo and must"
+    echo "       use a TEST key. Refusing to continue."
+    exit 1
+    ;;
+  sk_test_*) echo "==> Reusing the Stripe TEST secret key from user-secrets" ;;
+  *)         echo "FATAL: Stripe:SecretKey has an unexpected prefix. Expected sk_test_."; exit 1 ;;
+esac
+az keyvault secret set --vault-name "$KV_NAME" --name stripe-secret-key \
+  --value "$STRIPE_KEY" -o none
+
+# The webhook signing secret is deliberately NOT reused from user-secrets. It is issued
+# PER ENDPOINT, so the local one (from `stripe listen`) will fail signature verification
+# against the AKS URL. This placeholder just lets the CSI driver mount all five secrets on
+# the first deploy — the pod will not start if any one of them is missing from Key Vault.
 az keyvault secret set --vault-name "$KV_NAME" --name stripe-webhook-secret \
   --value "whsec_placeholder" -o none
 
 echo ""
 echo "############################################################################"
-echo "  Provisioning done."
+echo "  Provisioning done. All secrets are in Key Vault except the webhook signing"
+echo "  secret, which cannot exist until the endpoint is registered."
 echo ""
-echo "  STILL NEEDED — the Stripe TEST secret key:"
+echo "  1. In the Stripe dashboard (TEST mode), add this webhook endpoint,"
+echo "     subscribed to payment_intent.succeeded, payment_intent.payment_failed,"
+echo "     and charge.refunded:"
 echo ""
-echo "    az keyvault secret set --vault-name $KV_NAME \\"
-echo "      --name stripe-secret-key --value 'sk_test_...'"
+echo "       https://$INGRESS_FQDN/api/stripe/webhook"
 echo ""
-echo "  THEN register this endpoint in the Stripe dashboard (TEST mode), subscribed"
-echo "  to payment_intent.succeeded, payment_intent.payment_failed, charge.refunded:"
+echo "  2. Store the signing secret it gives you (replaces the placeholder):"
 echo ""
-echo "    https://$INGRESS_FQDN/api/stripe/webhook"
+echo "       az keyvault secret set --vault-name $KV_NAME \\"
+echo "         --name stripe-webhook-secret --value 'whsec_...'"
 echo ""
-echo "  and store the signing secret it gives you (this replaces the placeholder):"
-echo ""
-echo "    az keyvault secret set --vault-name $KV_NAME \\"
-echo "      --name stripe-webhook-secret --value 'whsec_...'"
-echo ""
-echo "  Then deploy:   git checkout -B prod && git push -u origin prod"
+echo "  3. Deploy:   git checkout -B prod && git push -u origin prod"
 echo ""
 echo "  API:      https://$INGRESS_FQDN"
 echo "  Frontend: https://$SWA_HOSTNAME"
