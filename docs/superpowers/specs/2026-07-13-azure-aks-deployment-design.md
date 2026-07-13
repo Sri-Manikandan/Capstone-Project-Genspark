@@ -146,9 +146,16 @@ runs on a shared corporate subscription (`Training-2026`) and the spend should b
 
 The Load Balancer is not purely an ingress cost — AKS defaults to `outboundType:
 loadBalancer` and uses it for egress SNAT (reaching Postgres, Stripe, Resend), so it exists
-regardless. Avoiding it via node public IPs + `hostNetwork` was considered and **rejected**:
-it ties the public IP to the node lifecycle, so any node repave changes the IP, silently
-breaking DNS, the Let's Encrypt cert, and the Stripe webhook URL.
+regardless. Roughly half of it would be paid with no ingress at all.
+
+Dropping it (`outboundType: none` + `--enable-node-public-ip` + a `hostNetwork` ingress,
+saving ~$18/mo) was considered and **rejected**. The decisive reason is not the node-lifecycle
+risk but a hard blocker: the LB is what carries the static public IP, and the static public IP
+is what provides the free `*.cloudapp.azure.com` DNS label. Without it there is no hostname —
+and **Let's Encrypt issues certificates for domain names, not bare IPs**, so cert-manager
+cannot issue at all. No cert means Stripe webhooks, which require valid TLS, do not work on
+day one. Working around this needs an external DNS provider plus a CronJob reconciling the
+A record against the node's current IP — real complexity to save $18/mo. Not worth it.
 
 ## Required code changes
 
