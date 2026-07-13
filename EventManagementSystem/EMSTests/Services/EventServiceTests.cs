@@ -1,5 +1,6 @@
 using AutoMapper;
 using EMSBLLLibrary.Constants;
+using EMSBLLLibrary.Interfaces;
 using EMSBLLLibrary.Mappings;
 using EMSBLLLibrary.Services;
 using EMSDALLibrary.Interfaces;
@@ -21,6 +22,7 @@ namespace EMSTests.Services
         private Mock<IUserRepository> _userRepo = null!;
         private Mock<ITicketTypeRepository> _ticketTypeRepo = null!;
         private Mock<IBookingRepository> _bookingRepo = null!;
+        private Mock<IEmailQueue> _emailQueue = null!;
         private IMapper _mapper = null!;
         private EventService _sut = null!;
 
@@ -41,11 +43,87 @@ namespace EMSTests.Services
             _userRepo = new Mock<IUserRepository>();
             _ticketTypeRepo = new Mock<ITicketTypeRepository>();
             _bookingRepo = new Mock<IBookingRepository>();
+            _emailQueue = new Mock<IEmailQueue>();
             _screeningRepo.Setup(r => r.GetByEventId(It.IsAny<int>())).ReturnsAsync(new List<Screening>());
             _bookingRepo.Setup(r => r.GetByEventId(It.IsAny<int>())).ReturnsAsync(new List<Booking>());
+            _userRepo.Setup(r => r.GetAdmins()).ReturnsAsync(new List<User>());
             _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
             _sut = new EventService(_eventRepo.Object, _venueRepo.Object, _screeningRepo.Object,
-                _userRepo.Object, _ticketTypeRepo.Object, _bookingRepo.Object, _mapper);
+                _userRepo.Object, _ticketTypeRepo.Object, _bookingRepo.Object, _mapper, _emailQueue.Object);
+        }
+
+        // ── Approval emails ──────────────────────────────────────────────────────
+
+        [Test]
+        public async Task AdminApprove_ShouldEnqueueApprovalEmailToOrganizer()
+        {
+            var ev = new Event { Id = 1, OrganizerId = 5, Title = "Vaaranam Aayiram", Status = EventStatus.PendingApproval, VenueId = 3 };
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(ev);
+            _eventRepo.Setup(r => r.Update(It.IsAny<Event>())).ReturnsAsync(ev);
+            _userRepo.Setup(r => r.GetById(5))
+                .ReturnsAsync(new User { Id = 5, Name = "Ravi", Email = "ravi@b.com" });
+
+            await _sut.AdminApprove(1);
+
+            _emailQueue.Verify(q => q.Enqueue("ravi@b.com", "Ravi", EmailTemplateKey.EventApproved,
+                It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<string?>(), It.IsAny<DateTime?>()),
+                Times.Once);
+        }
+
+        [Test]
+        public async Task AdminReject_ShouldEnqueueRejectionWithReason()
+        {
+            var ev = new Event { Id = 1, OrganizerId = 5, Title = "Vaaranam Aayiram", Status = EventStatus.PendingApproval, VenueId = 3 };
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(ev);
+            _eventRepo.Setup(r => r.Update(It.IsAny<Event>())).ReturnsAsync(ev);
+            _userRepo.Setup(r => r.GetById(5))
+                .ReturnsAsync(new User { Id = 5, Name = "Ravi", Email = "ravi@b.com" });
+
+            IDictionary<string, string>? tokens = null;
+            _emailQueue.Setup(q => q.Enqueue(It.IsAny<string>(), It.IsAny<string>(), EmailTemplateKey.EventRejected,
+                    It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<string?>(), It.IsAny<DateTime?>()))
+                .Callback<string, string, string, string, IDictionary<string, string>, string?, DateTime?>(
+                    (_, _, _, _, t, _, _) => tokens = t)
+                .Returns(Task.CompletedTask);
+
+            await _sut.AdminReject(1, "Poster image is low resolution");
+
+            tokens!["Reason"].Should().Be("Poster image is low resolution");
+        }
+
+        // An admin submitting publishes outright, so there is nothing left to review.
+        [Test]
+        public async Task Submit_ByAdmin_ShouldNotNotifyAdmins()
+        {
+            var ev = new Event { Id = 1, OrganizerId = 5, Title = "Vaaranam Aayiram", Status = EventStatus.Draft, VenueId = 3 };
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(ev);
+            _eventRepo.Setup(r => r.Update(It.IsAny<Event>())).ReturnsAsync(ev);
+
+            await _sut.Submit(1, organizerId: 5, isAdmin: true);
+
+            _emailQueue.Verify(q => q.EnqueueMany(It.IsAny<List<QueuedEmail>>()), Times.Never);
+        }
+
+        [Test]
+        public async Task Submit_ByOrganizer_ShouldNotifyAllAdmins()
+        {
+            var ev = new Event { Id = 1, OrganizerId = 5, Title = "Vaaranam Aayiram", Status = EventStatus.Draft, VenueId = 3 };
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(ev);
+            _eventRepo.Setup(r => r.Update(It.IsAny<Event>())).ReturnsAsync(ev);
+            _userRepo.Setup(r => r.GetAdmins()).ReturnsAsync(new List<User>
+            {
+                new() { Id = 9, Name = "Admin One", Email = "admin1@b.com" }
+            });
+
+            List<QueuedEmail>? captured = null;
+            _emailQueue.Setup(q => q.EnqueueMany(It.IsAny<List<QueuedEmail>>()))
+                .Callback<List<QueuedEmail>>(e => captured = e)
+                .Returns(Task.CompletedTask);
+
+            await _sut.Submit(1, organizerId: 5);
+
+            captured.Should().ContainSingle();
+            captured![0].TemplateKey.Should().Be(EmailTemplateKey.AdminReviewPending);
         }
 
         private Event MakeEvent(int id = 1, int organizerId = 10, string status = EventStatus.Draft) => new Event

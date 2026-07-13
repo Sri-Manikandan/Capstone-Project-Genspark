@@ -35,5 +35,12 @@ namespace EMSDALLibrary.Repositories
                                .ToListAsync();
             return (items, total);
         }
+
+        public async Task<List<User>> GetAdmins()
+        {
+            return await _context.Users
+                .Where(u => u.Role == "Admin" && u.IsActive)
+                .ToListAsync();
+        }
     }
 }

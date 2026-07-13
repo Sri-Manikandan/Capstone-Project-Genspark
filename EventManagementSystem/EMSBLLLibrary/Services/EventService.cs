@@ -19,6 +19,7 @@ namespace EMSBLLLibrary.Services
         private readonly ITicketTypeRepository _ticketTypeRepo;
         private readonly IBookingRepository _bookingRepo;
         private readonly IMapper _mapper;
+        private readonly IEmailQueue _emailQueue;
 
         // Events must be scheduled far enough ahead that ticket sales are viable and admins
         // have time to review before the event starts. Enforced on create and reschedule.
@@ -26,7 +27,8 @@ namespace EMSBLLLibrary.Services
         private const string LeadTimeMessage = "Events must be scheduled at least 2 days (48 hours) in advance.";
 
         public EventService(IEventRepository eventRepo, IVenueRepository venueRepo, IScreeningRepository screeningRepo,
-            IUserRepository userRepo, ITicketTypeRepository ticketTypeRepo, IBookingRepository bookingRepo, IMapper mapper)
+            IUserRepository userRepo, ITicketTypeRepository ticketTypeRepo, IBookingRepository bookingRepo,
+            IMapper mapper, IEmailQueue emailQueue)
         {
             _eventRepo = eventRepo;
             _venueRepo = venueRepo;
@@ -35,6 +37,7 @@ namespace EMSBLLLibrary.Services
             _ticketTypeRepo = ticketTypeRepo;
             _bookingRepo = bookingRepo;
             _mapper = mapper;
+            _emailQueue = emailQueue;
         }
 
         public async Task<EventDto> Create(int organizerId, CreateEventRequest request)
@@ -228,6 +231,24 @@ namespace EMSBLLLibrary.Services
             ev.RejectionReason = null;
             ev.UpdatedAt = DateTime.UtcNow;
             await _eventRepo.Update(ev);
+
+            // An admin submitting publishes outright — there is nothing left to review.
+            if (ev.Status == EventStatus.PendingApproval)
+            {
+                var admins = await _userRepo.GetAdmins();
+                await _emailQueue.EnqueueMany(admins.Select(a => new QueuedEmail(
+                    a.Email, a.Name, EmailTemplateKey.AdminReviewPending,
+                    "An event is awaiting review",
+                    new Dictionary<string, string>
+                    {
+                        ["Name"] = a.Name,
+                        ["ItemType"] = "Event",
+                        ["ItemTitle"] = ev.Title
+                    },
+                    DedupeKey: null,
+                    SendAfter: null)).ToList());
+            }
+
             return _mapper.Map<EventDto>(ev);
         }
 
@@ -365,6 +386,19 @@ namespace EMSBLLLibrary.Services
             ev.RejectionReason = null;
             ev.UpdatedAt = DateTime.UtcNow;
             await _eventRepo.Update(ev);
+
+            var organizer = await _userRepo.GetById(ev.OrganizerId);
+            if (organizer != null)
+            {
+                await _emailQueue.Enqueue(organizer.Email, organizer.Name, EmailTemplateKey.EventApproved,
+                    $"{ev.Title} is live",
+                    new Dictionary<string, string>
+                    {
+                        ["Name"] = organizer.Name,
+                        ["EventTitle"] = ev.Title
+                    });
+            }
+
             return _mapper.Map<EventDto>(ev);
         }
 
@@ -380,6 +414,20 @@ namespace EMSBLLLibrary.Services
             ev.RejectionReason = reason;
             ev.UpdatedAt = DateTime.UtcNow;
             await _eventRepo.Update(ev);
+
+            var organizer = await _userRepo.GetById(ev.OrganizerId);
+            if (organizer != null)
+            {
+                await _emailQueue.Enqueue(organizer.Email, organizer.Name, EmailTemplateKey.EventRejected,
+                    $"{ev.Title} wasn't approved",
+                    new Dictionary<string, string>
+                    {
+                        ["Name"] = organizer.Name,
+                        ["EventTitle"] = ev.Title,
+                        ["Reason"] = string.IsNullOrWhiteSpace(reason) ? "No reason was provided." : reason
+                    });
+            }
+
             return _mapper.Map<EventDto>(ev);
         }
 

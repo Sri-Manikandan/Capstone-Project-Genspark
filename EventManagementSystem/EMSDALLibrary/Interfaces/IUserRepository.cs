@@ -7,5 +7,6 @@ namespace EMSDALLibrary.Interfaces
         Task<User?> GetByEmail(string email);
         Task<bool> EmailExists(string email);
         Task<(List<User> Items, int TotalCount)> Search(string? query, string? role, bool? isActive, int page, int pageSize);
+        Task<List<User>> GetAdmins();
     }
 }

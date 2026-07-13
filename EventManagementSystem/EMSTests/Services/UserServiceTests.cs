@@ -1,5 +1,6 @@
 using AutoMapper;
 using EMSBLLLibrary.Constants;
+using EMSBLLLibrary.Interfaces;
 using EMSBLLLibrary.Mappings;
 using EMSBLLLibrary.Services;
 using EMSDALLibrary.Interfaces;
@@ -18,6 +19,7 @@ namespace EMSTests.Services
         private Mock<IUserRepository> _userRepo;
         private Mock<IOrganizerRequestRepository> _orgRequestRepo;
         private Mock<IRefreshTokenRepository> _refreshTokenRepo;
+        private Mock<IEmailQueue> _emailQueue;
         private IMapper _mapper;
         private UserService _sut;
 
@@ -27,8 +29,74 @@ namespace EMSTests.Services
             _userRepo = new Mock<IUserRepository>();
             _orgRequestRepo = new Mock<IOrganizerRequestRepository>();
             _refreshTokenRepo = new Mock<IRefreshTokenRepository>();
+            _emailQueue = new Mock<IEmailQueue>();
+            _userRepo.Setup(r => r.GetAdmins()).ReturnsAsync(new List<User>());
             _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
-            _sut = new UserService(_userRepo.Object, _orgRequestRepo.Object, _refreshTokenRepo.Object, _mapper);
+            _sut = new UserService(_userRepo.Object, _orgRequestRepo.Object, _refreshTokenRepo.Object, _mapper, _emailQueue.Object);
+        }
+
+        // ── Approval emails ──────────────────────────────────────────────────────
+
+        [Test]
+        public async Task ApproveOrganizerRequest_ShouldEnqueueApprovalEmail()
+        {
+            var user = new User { Id = 1, Name = "Asha", Email = "a@b.com", Role = "User" };
+            _orgRequestRepo.Setup(r => r.GetById(1))
+                .ReturnsAsync(new OrganizerRequest { Id = 1, UserId = 1, Status = OrganizerRequestStatus.Pending });
+            _userRepo.Setup(r => r.GetById(1)).ReturnsAsync(user);
+            _orgRequestRepo.Setup(r => r.Update(It.IsAny<OrganizerRequest>())).ReturnsAsync((OrganizerRequest r) => r);
+            _userRepo.Setup(r => r.Update(It.IsAny<User>())).ReturnsAsync(user);
+
+            await _sut.ApproveOrganizerRequest(1, adminId: 9);
+
+            _emailQueue.Verify(q => q.Enqueue("a@b.com", "Asha", EmailTemplateKey.OrganizerRequestApproved,
+                It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<string?>(), It.IsAny<DateTime?>()),
+                Times.Once);
+        }
+
+        [Test]
+        public async Task RejectOrganizerRequest_ShouldEnqueueRejectionWithReason()
+        {
+            var user = new User { Id = 1, Name = "Asha", Email = "a@b.com", Role = "User" };
+            _orgRequestRepo.Setup(r => r.GetById(1))
+                .ReturnsAsync(new OrganizerRequest { Id = 1, UserId = 1, Status = OrganizerRequestStatus.Pending });
+            _userRepo.Setup(r => r.GetById(1)).ReturnsAsync(user);
+            _orgRequestRepo.Setup(r => r.Update(It.IsAny<OrganizerRequest>())).ReturnsAsync((OrganizerRequest r) => r);
+
+            IDictionary<string, string>? tokens = null;
+            _emailQueue.Setup(q => q.Enqueue(It.IsAny<string>(), It.IsAny<string>(), EmailTemplateKey.OrganizerRequestRejected,
+                    It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<string?>(), It.IsAny<DateTime?>()))
+                .Callback<string, string, string, string, IDictionary<string, string>, string?, DateTime?>(
+                    (_, _, _, _, t, _, _) => tokens = t)
+                .Returns(Task.CompletedTask);
+
+            await _sut.RejectOrganizerRequest(1, adminId: 9, reason: "Incomplete details");
+
+            tokens!["Reason"].Should().Be("Incomplete details");
+        }
+
+        [Test]
+        public async Task RequestOrganizerRole_ShouldNotifyAllAdmins()
+        {
+            var user = new User { Id = 1, Name = "Asha", Email = "a@b.com", Role = "User" };
+            _userRepo.Setup(r => r.GetById(1)).ReturnsAsync(user);
+            _orgRequestRepo.Setup(r => r.GetPendingByUserId(1)).ReturnsAsync((OrganizerRequest?)null);
+            _orgRequestRepo.Setup(r => r.Add(It.IsAny<OrganizerRequest>())).ReturnsAsync((OrganizerRequest r) => r);
+            _userRepo.Setup(r => r.GetAdmins()).ReturnsAsync(new List<User>
+            {
+                new() { Id = 9, Name = "Admin One", Email = "admin1@b.com" },
+                new() { Id = 10, Name = "Admin Two", Email = "admin2@b.com" }
+            });
+
+            List<QueuedEmail>? captured = null;
+            _emailQueue.Setup(q => q.EnqueueMany(It.IsAny<List<QueuedEmail>>()))
+                .Callback<List<QueuedEmail>>(e => captured = e)
+                .Returns(Task.CompletedTask);
+
+            await _sut.RequestOrganizerRole(1);
+
+            captured.Should().HaveCount(2);
+            captured![0].TemplateKey.Should().Be(EmailTemplateKey.AdminReviewPending);
         }
 
         private User MakeUser(int id = 1, string role = "User") => new User

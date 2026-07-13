@@ -15,13 +15,16 @@ namespace EMSBLLLibrary.Services
         private readonly IOrganizerRequestRepository _orgRequestRepo;
         private readonly IRefreshTokenRepository _refreshTokenRepo;
         private readonly IMapper _mapper;
+        private readonly IEmailQueue _emailQueue;
 
-        public UserService(IUserRepository userRepo, IOrganizerRequestRepository orgRequestRepo, IRefreshTokenRepository refreshTokenRepo, IMapper mapper)
+        public UserService(IUserRepository userRepo, IOrganizerRequestRepository orgRequestRepo,
+            IRefreshTokenRepository refreshTokenRepo, IMapper mapper, IEmailQueue emailQueue)
         {
             _userRepo = userRepo;
             _orgRequestRepo = orgRequestRepo;
             _refreshTokenRepo = refreshTokenRepo;
             _mapper = mapper;
+            _emailQueue = emailQueue;
         }
 
         public async Task<UserDto> GetById(int id)
@@ -132,6 +135,20 @@ namespace EMSBLLLibrary.Services
 
             var request = new OrganizerRequest { UserId = userId };
             await _orgRequestRepo.Add(request);
+
+            var admins = await _userRepo.GetAdmins();
+            await _emailQueue.EnqueueMany(admins.Select(a => new QueuedEmail(
+                a.Email, a.Name, EmailTemplateKey.AdminReviewPending,
+                "An organizer request is awaiting review",
+                new Dictionary<string, string>
+                {
+                    ["Name"] = a.Name,
+                    ["ItemType"] = "Organizer request",
+                    ["ItemTitle"] = $"{user.Name} ({user.Email})"
+                },
+                DedupeKey: null,
+                SendAfter: null)).ToList());
+
             return BuildDto(request, user);
         }
 
@@ -182,6 +199,10 @@ namespace EMSBLLLibrary.Services
             user.UpdatedAt = DateTime.UtcNow;
             await _userRepo.Update(user);
 
+            await _emailQueue.Enqueue(user.Email, user.Name, EmailTemplateKey.OrganizerRequestApproved,
+                "You're now an EventHub organizer",
+                new Dictionary<string, string> { ["Name"] = user.Name });
+
             return BuildDto(request, user);
         }
 
@@ -200,6 +221,17 @@ namespace EMSBLLLibrary.Services
             request.ReviewedAt = DateTime.UtcNow;
             request.ReviewedByAdminId = adminId;
             await _orgRequestRepo.Update(request);
+
+            if (user != null)
+            {
+                await _emailQueue.Enqueue(user.Email, user.Name, EmailTemplateKey.OrganizerRequestRejected,
+                    "Your organizer request wasn't approved",
+                    new Dictionary<string, string>
+                    {
+                        ["Name"] = user.Name,
+                        ["Reason"] = string.IsNullOrWhiteSpace(reason) ? "No reason was provided." : reason
+                    });
+            }
 
             return BuildDto(request, user);
         }
