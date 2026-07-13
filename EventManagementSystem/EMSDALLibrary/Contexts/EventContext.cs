@@ -37,6 +37,7 @@ namespace EMSDALLibrary.Contexts
         public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
         public DbSet<OrganizerRequest> OrganizerRequests { get; set; } = null!;
         public DbSet<ChangeLog> ChangeLogs { get; set; } = null!;
+        public DbSet<EmailOutbox> EmailOutbox { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -132,6 +133,15 @@ namespace EMSDALLibrary.Contexts
                 e.HasIndex(c => c.CreatedAt);
                 e.HasIndex(c => c.UserId);
             });
+
+            modelBuilder.Entity<EmailOutbox>(e =>
+            {
+                e.HasIndex(o => new { o.Status, o.SendAfter });
+                e.HasIndex(o => o.DedupeKey)
+                    .IsUnique()
+                    .HasFilter("\"DedupeKey\" IS NOT NULL");
+                e.Property(o => o.PayloadJson).HasColumnType("jsonb");
+            });
         }
 
         // ── Changelog audit trail ────────────────────────────────────────────────
@@ -172,7 +182,10 @@ namespace EMSDALLibrary.Contexts
 
             foreach (var entry in ChangeTracker.Entries())
             {
-                if (entry.Entity is ChangeLog)
+                // The outbox is infrastructure, not domain data. Auditing it would spam
+                // the changelog on every dispatcher tick, and a PasswordReset payload
+                // carries the reset token — which must never be written to a table.
+                if (entry.Entity is ChangeLog || entry.Entity is EmailOutbox)
                     continue;
                 if (entry.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted))
                     continue;
