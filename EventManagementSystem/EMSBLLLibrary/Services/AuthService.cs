@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using AutoMapper;
 using EMSModelLibrary.DTOs;
+using EMSBLLLibrary.Constants;
 using EMSBLLLibrary.Helpers;
 using EMSBLLLibrary.Interfaces;
 using EMSModelLibrary.Exceptions;
@@ -22,6 +23,7 @@ namespace EMSBLLLibrary.Services
         private readonly IConfiguration _config;
         private readonly IMapper _mapper;
         private readonly IMemoryCache _cache;
+        private readonly IEmailQueue _emailQueue;
 
         private const string ResetTokenPrefix = "pwd_reset:";
         private static readonly TimeSpan ResetTokenTtl = TimeSpan.FromMinutes(15);
@@ -31,13 +33,15 @@ namespace EMSBLLLibrary.Services
             IRefreshTokenRepository refreshTokenRepo,
             IConfiguration config,
             IMapper mapper,
-            IMemoryCache cache)
+            IMemoryCache cache,
+            IEmailQueue emailQueue)
         {
             _userRepo = userRepo;
             _refreshTokenRepo = refreshTokenRepo;
             _config = config;
             _mapper = mapper;
             _cache = cache;
+            _emailQueue = emailQueue;
         }
 
         public async Task<AuthResponse> Register(RegisterRequest request)
@@ -63,6 +67,11 @@ namespace EMSBLLLibrary.Services
             };
 
             await _userRepo.Add(user);
+
+            await _emailQueue.Enqueue(user.Email, user.Name, EmailTemplateKey.Welcome,
+                "Welcome to EventHub",
+                new Dictionary<string, string> { ["Name"] = user.Name });
+
             return await BuildAuthResponse(user);
         }
 
@@ -115,24 +124,34 @@ namespace EMSBLLLibrary.Services
 
         public async Task<ForgotPasswordResponse> ForgotPassword(string email)
         {
+            // The same response in every case. Any difference here — a token, a
+            // different message, a different shape — tells an attacker whether an
+            // address is registered.
+            var response = new ForgotPasswordResponse
+            {
+                Message = "If that email is registered, a password reset link has been sent."
+            };
+
             var user = await _userRepo.GetByEmail(email);
 
-            // Silent success — do not reveal whether the email is registered
             if (user == null || !user.IsActive)
-                return new ForgotPasswordResponse
-                {
-                    Message = "If that email is registered, a reset token has been generated.",
-                    ResetToken = string.Empty
-                };
+                return response;
 
             var token = Guid.NewGuid().ToString("N"); // 32-char hex, URL-safe
             _cache.Set($"{ResetTokenPrefix}{token}", user.Id, ResetTokenTtl);
 
-            return new ForgotPasswordResponse
-            {
-                Message = "Password reset token generated. In production this would be sent via email.",
-                ResetToken = token
-            };
+            var appUrl = _config["Email:AppBaseUrl"] ?? "http://localhost:4200";
+
+            await _emailQueue.Enqueue(user.Email, user.Name, EmailTemplateKey.PasswordReset,
+                "Reset your EventHub password",
+                new Dictionary<string, string>
+                {
+                    ["Name"] = user.Name,
+                    ["ResetUrl"] = $"{appUrl}/auth/reset-password?token={token}",
+                    ["ExpiryMinutes"] = ResetTokenTtl.TotalMinutes.ToString("0")
+                });
+
+            return response;
         }
 
         public async Task ResetPassword(ResetPasswordRequest request)

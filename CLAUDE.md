@@ -75,6 +75,16 @@ EMSModelLibrary      (domain models, DTOs, custom exceptions)
 
 **Error handling** — throw domain exceptions from BLL/DAL; `ExceptionMiddleware` translates them. Never return raw error strings from services.
 
+**Datetimes (IST)** — the database stores **UTC**; the API speaks **IST wall-clock strings with no offset or `Z`** (`"2026-07-20T18:30"`). Conversion happens only at the BLL boundary, via `TimeHelper`:
+
+- Outbound: `TimeHelper.UtcToIst` on every DTO datetime. `MappingProfile` does this for mapped DTOs — a **hand-built DTO must do it explicitly**, which is how `OrganizerRequestDto` once shipped raw UTC and displayed 5h30m early.
+- Inbound: `TimeHelper.AssumeIstToUtc` before storing or comparing. This includes **query/filter params** — an IST filter value compared against a UTC column is silently off by 5h30m (the `EventService.Search` `StartFrom`/`StartTo` bug).
+- Anything internal — `DateTime.UtcNow`, expiry checks, `BookingExpiryService` — stays in UTC. Never convert for comparisons, only for display.
+
+The format is deliberate: `datetime-local` inputs round-trip it verbatim and `IstDatePipe` renders the digits literally, so the UI needs no timezone math. The corollary is that **`new Date(apiValue)` in the browser parses in the user's zone**, so comparing an API datetime against `Date.now()` is wrong outside IST. Use `istNowMs()` / `istNowWallClock()` from `EMSAngular/src/app/shared/date/ist-now.ts` (that bug lived in `minLeadTime` / `futureDateTime`).
+
+This whole class of bug is invisible on an IST machine. Datetime specs must build fixtures off `istNowMs()`, not `Date.now()`, and be checked under another zone: `TZ=UTC npx ng test --watch=false`.
+
 **Payment flow** — Stripe PaymentIntent is created via `IStripePaymentIntentClient`; webhook events (payment succeeded/failed/refunded) are handled by `StripeWebhookService` and `StripeWebhookController`. The webhook endpoint skips the global auth middleware.
 
 **Seat reservation** — `SeatReservation` has a partial unique index `WHERE Status = 'Active'` (one active reservation per seat per event). The `BookingExpiryService` cleans up expired reservations. `ISeatNotifier` (implemented by `SignalRSeatNotifier`) broadcasts seat changes to connected clients.

@@ -1,4 +1,6 @@
 using AutoMapper;
+using EMSBLLLibrary.Constants;
+using EMSBLLLibrary.Interfaces;
 using EMSBLLLibrary.Mappings;
 using EMSBLLLibrary.Services;
 using EMSDALLibrary.Interfaces;
@@ -21,6 +23,7 @@ namespace EMSTests.Services
         private IConfiguration _config;
         private IMapper _mapper;
         private IMemoryCache _cache;
+        private Mock<IEmailQueue> _emailQueue;
         private AuthService _sut;
 
         [SetUp]
@@ -29,6 +32,7 @@ namespace EMSTests.Services
             _userRepo = new Mock<IUserRepository>();
             _refreshTokenRepo = new Mock<IRefreshTokenRepository>();
             _cache = new MemoryCache(new MemoryCacheOptions());
+            _emailQueue = new Mock<IEmailQueue>();
 
             var configData = new Dictionary<string, string?>
             {
@@ -36,12 +40,13 @@ namespace EMSTests.Services
                 ["Jwt:Issuer"] = "EMSApi",
                 ["Jwt:Audience"] = "EMSClient",
                 ["Jwt:AccessTokenExpiryMinutes"] = "60",
-                ["Jwt:RefreshTokenExpiryDays"] = "7"
+                ["Jwt:RefreshTokenExpiryDays"] = "7",
+                ["Email:AppBaseUrl"] = "http://localhost:4200"
             };
             _config = new ConfigurationBuilder().AddInMemoryCollection(configData).Build();
 
             _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
-            _sut = new AuthService(_userRepo.Object, _refreshTokenRepo.Object, _config, _mapper, _cache);
+            _sut = new AuthService(_userRepo.Object, _refreshTokenRepo.Object, _config, _mapper, _cache, _emailQueue.Object);
         }
 
         // ── Register ─────────────────────────────────────────────────────────────
@@ -274,36 +279,67 @@ namespace EMSTests.Services
 
         // ── ForgotPassword ───────────────────────────────────────────────────────
 
+        // The whole point of this feature: the reset token must never cross the wire in
+        // the HTTP response. Anyone who knew an address could otherwise take the account.
         [Test]
-        public async Task ForgotPassword_ExistingActiveUser_ReturnsToken()
+        public async Task ForgotPassword_ShouldNotReturnTokenInResponse()
         {
-            var user = new User { Id = 1, Email = "j@j.com", IsActive = true };
+            var user = new User { Id = 1, Name = "Jay", Email = "j@j.com", IsActive = true };
             _userRepo.Setup(r => r.GetByEmail("j@j.com")).ReturnsAsync(user);
 
             var result = await _sut.ForgotPassword("j@j.com");
 
-            result.ResetToken.Should().NotBeNullOrEmpty();
+            typeof(ForgotPasswordResponse).GetProperty("ResetToken").Should().BeNull(
+                "returning a reset token in the HTTP response is account takeover");
+            result.Message.Should().NotBeNullOrWhiteSpace();
         }
 
         [Test]
-        public async Task ForgotPassword_UnknownEmail_ReturnsSilentSuccess()
+        public async Task ForgotPassword_ShouldEnqueueResetEmail_WhenUserExists()
+        {
+            var user = new User { Id = 1, Name = "Jay", Email = "j@j.com", IsActive = true };
+            _userRepo.Setup(r => r.GetByEmail("j@j.com")).ReturnsAsync(user);
+
+            IDictionary<string, string>? tokens = null;
+            _emailQueue.Setup(q => q.Enqueue("j@j.com", "Jay", EmailTemplateKey.PasswordReset,
+                    It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<string?>(), It.IsAny<DateTime?>()))
+                .Callback<string, string, string, string, IDictionary<string, string>, string?, DateTime?>(
+                    (_, _, _, _, t, _, _) => tokens = t)
+                .Returns(Task.CompletedTask);
+
+            await _sut.ForgotPassword("j@j.com");
+
+            tokens.Should().NotBeNull();
+            tokens!["ResetUrl"].Should().StartWith("http://localhost:4200/auth/reset-password?token=");
+        }
+
+        // Enqueueing for an unknown address would turn this endpoint into an email
+        // enumeration oracle.
+        [Test]
+        public async Task ForgotPassword_UnknownEmail_ReturnsSilentSuccessAndSendsNothing()
         {
             _userRepo.Setup(r => r.GetByEmail("x@x.com")).ReturnsAsync((User?)null);
 
             var result = await _sut.ForgotPassword("x@x.com");
 
-            result.ResetToken.Should().BeEmpty();
+            result.Message.Should().NotBeNullOrWhiteSpace();
+            _emailQueue.Verify(q => q.Enqueue(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<string?>(), It.IsAny<DateTime?>()),
+                Times.Never);
         }
 
         [Test]
-        public async Task ForgotPassword_InactiveUser_ReturnsSilentSuccess()
+        public async Task ForgotPassword_InactiveUser_ReturnsSilentSuccessAndSendsNothing()
         {
             var user = new User { Id = 1, Email = "j@j.com", IsActive = false };
             _userRepo.Setup(r => r.GetByEmail("j@j.com")).ReturnsAsync(user);
 
             var result = await _sut.ForgotPassword("j@j.com");
 
-            result.ResetToken.Should().BeEmpty();
+            result.Message.Should().NotBeNullOrWhiteSpace();
+            _emailQueue.Verify(q => q.Enqueue(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<string?>(), It.IsAny<DateTime?>()),
+                Times.Never);
         }
 
         // ── ResetPassword ────────────────────────────────────────────────────────
@@ -312,13 +348,26 @@ namespace EMSTests.Services
         public async Task ResetPassword_ValidToken_UpdatesPassword()
         {
             var user = new User { Id = 1, PasswordHash = "old" };
-            _userRepo.Setup(r => r.GetByEmail("j@j.com")).ReturnsAsync(new User { Id = 1, IsActive = true });
-            var fp = await _sut.ForgotPassword("j@j.com"); // stores token in cache
+            _userRepo.Setup(r => r.GetByEmail("j@j.com")).ReturnsAsync(new User { Id = 1, Name = "Jay", Email = "j@j.com", IsActive = true });
+
+            // The token now only reaches the user through the emailed link, so the test
+            // reads it back out of the queued email — exactly as a real user reads it
+            // out of their inbox.
+            IDictionary<string, string>? captured = null;
+            _emailQueue.Setup(q => q.Enqueue(It.IsAny<string>(), It.IsAny<string>(), EmailTemplateKey.PasswordReset,
+                    It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<string?>(), It.IsAny<DateTime?>()))
+                .Callback<string, string, string, string, IDictionary<string, string>, string?, DateTime?>(
+                    (_, _, _, _, t, _, _) => captured = t)
+                .Returns(Task.CompletedTask);
+
+            await _sut.ForgotPassword("j@j.com"); // queues the email carrying the token
+            var token = captured!["ResetUrl"].Split("token=")[1];
+
             _userRepo.Setup(r => r.GetById(1)).ReturnsAsync(user);
             _userRepo.Setup(r => r.Update(It.IsAny<User>())).ReturnsAsync(user);
             _refreshTokenRepo.Setup(r => r.RevokeByUserId(1)).Returns(Task.CompletedTask);
 
-            await _sut.ResetPassword(new ResetPasswordRequest { Token = fp.ResetToken, NewPassword = "NewPass@1234" });
+            await _sut.ResetPassword(new ResetPasswordRequest { Token = token, NewPassword = "NewPass@1234" });
 
             _userRepo.Verify(r => r.Update(It.Is<User>(u => u.PasswordHash != "old")), Times.Once);
         }
@@ -333,12 +382,43 @@ namespace EMSTests.Services
         [Test]
         public async Task ResetPassword_WeakPassword_ThrowsValidationException()
         {
-            var user = new User { Id = 1, IsActive = true };
-            _userRepo.Setup(r => r.GetByEmail("j@j.com")).ReturnsAsync(user);
-            var fp = await _sut.ForgotPassword("j@j.com");
+            _userRepo.Setup(r => r.GetByEmail("j@j.com"))
+                .ReturnsAsync(new User { Id = 1, Name = "Jay", Email = "j@j.com", IsActive = true });
 
-            await _sut.Invoking(s => s.ResetPassword(new ResetPasswordRequest { Token = fp.ResetToken, NewPassword = "weak" }))
+            IDictionary<string, string>? captured = null;
+            _emailQueue.Setup(q => q.Enqueue(It.IsAny<string>(), It.IsAny<string>(), EmailTemplateKey.PasswordReset,
+                    It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<string?>(), It.IsAny<DateTime?>()))
+                .Callback<string, string, string, string, IDictionary<string, string>, string?, DateTime?>(
+                    (_, _, _, _, t, _, _) => captured = t)
+                .Returns(Task.CompletedTask);
+
+            await _sut.ForgotPassword("j@j.com");
+            var token = captured!["ResetUrl"].Split("token=")[1];
+
+            await _sut.Invoking(s => s.ResetPassword(new ResetPasswordRequest { Token = token, NewPassword = "weak" }))
                 .Should().ThrowAsync<ValidationException>();
+        }
+
+        // ── Welcome email ────────────────────────────────────────────────────────
+
+        [Test]
+        public async Task Register_ShouldEnqueueWelcomeEmail()
+        {
+            _userRepo.Setup(r => r.EmailExists(It.IsAny<string>())).ReturnsAsync(false);
+            _userRepo.Setup(r => r.Add(It.IsAny<User>()))
+                .ReturnsAsync((User u) => { u.Id = 1; return u; });
+
+            await _sut.Register(new RegisterRequest
+            {
+                Name = "Jay",
+                Email = "j@j.com",
+                Phone = "9999999999",
+                Password = "Test@1234"
+            });
+
+            _emailQueue.Verify(q => q.Enqueue("j@j.com", "Jay", EmailTemplateKey.Welcome,
+                It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<string?>(), It.IsAny<DateTime?>()),
+                Times.Once);
         }
     }
 }
