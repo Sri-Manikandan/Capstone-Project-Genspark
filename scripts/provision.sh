@@ -183,18 +183,46 @@ az keyvault secret set --vault-name "$KV_NAME" --name db-connection-string \
 az keyvault secret set --vault-name "$KV_NAME" --name jwt-key \
   --value "$(openssl rand -base64 48)" -o none
 
+# The Resend key is read from the local (gitignored) dev settings rather than hardcoded here,
+# because this script IS committed and that key is a live credential.
+DEV_SETTINGS="EventManagementSystem/EMSApplicationLayer/appsettings.Development.json"
+RESEND_KEY=""
+if [ -f "$DEV_SETTINGS" ]; then
+  RESEND_KEY=$(jq -r '.Email.ApiKey // empty' "$DEV_SETTINGS")
+fi
+
+if [ -n "$RESEND_KEY" ]; then
+  echo "==> Reusing the Resend API key from $DEV_SETTINGS"
+  az keyvault secret set --vault-name "$KV_NAME" --name resend-api-key \
+    --value "$RESEND_KEY" -o none
+else
+  echo "==> WARNING: no Email.ApiKey found in $DEV_SETTINGS."
+  echo "    Set resend-api-key by hand or email notifications will fail."
+fi
+
+# Placeholder so the CSI driver can mount all five secrets on the very first deploy. The
+# real signing secret only exists after the endpoint is registered in Stripe (below).
+az keyvault secret set --vault-name "$KV_NAME" --name stripe-webhook-secret \
+  --value "whsec_placeholder" -o none
+
 echo ""
 echo "############################################################################"
-echo "  Provisioning done. THREE secrets still need real values before deploying:"
+echo "  Provisioning done."
 echo ""
-echo "    az keyvault secret set --vault-name $KV_NAME --name stripe-secret-key     --value 'sk_test_...'"
-echo "    az keyvault secret set --vault-name $KV_NAME --name stripe-webhook-secret --value 'whsec_...'"
-echo "    az keyvault secret set --vault-name $KV_NAME --name resend-api-key        --value 're_...'"
+echo "  STILL NEEDED — the Stripe TEST secret key:"
 echo ""
-echo "  For stripe-webhook-secret, first register this endpoint in the Stripe"
-echo "  dashboard (TEST mode) and copy the signing secret it gives you:"
+echo "    az keyvault secret set --vault-name $KV_NAME \\"
+echo "      --name stripe-secret-key --value 'sk_test_...'"
+echo ""
+echo "  THEN register this endpoint in the Stripe dashboard (TEST mode), subscribed"
+echo "  to payment_intent.succeeded, payment_intent.payment_failed, charge.refunded:"
 echo ""
 echo "    https://$INGRESS_FQDN/api/stripe/webhook"
+echo ""
+echo "  and store the signing secret it gives you (this replaces the placeholder):"
+echo ""
+echo "    az keyvault secret set --vault-name $KV_NAME \\"
+echo "      --name stripe-webhook-secret --value 'whsec_...'"
 echo ""
 echo "  Then deploy:   git checkout -B prod && git push -u origin prod"
 echo ""
