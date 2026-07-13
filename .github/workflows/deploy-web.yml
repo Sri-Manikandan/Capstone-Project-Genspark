@@ -36,6 +36,15 @@ jobs:
           npm ci
           npx ng build --configuration production
 
+      # staticwebapp.config.json MUST sit at the root of the UPLOADED artifact, not at the
+      # root of the repo — Azure only reads it from what is deployed. Without it there is no
+      # navigationFallback, so every deep link and every page refresh returns
+      # "Azure Static Web Apps - 404: Not found" while the homepage still works fine.
+      - name: Copy the SWA config into the build output
+        run: |
+          cp EMSAngular/staticwebapp.config.json EMSAngular/dist/EMSAngular/browser/
+          ls -la EMSAngular/dist/EMSAngular/browser/staticwebapp.config.json
+
       # A live key in a public bundle can move real money. Fail loudly rather than ship it.
       - name: Guard against a live Stripe key
         run: |
