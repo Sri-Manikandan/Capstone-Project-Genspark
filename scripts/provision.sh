@@ -132,11 +132,19 @@ helm upgrade --install cert-manager jetstack/cert-manager \
 # The AKS egress IP does not exist until AKS has built its load balancer, which is why this
 # cannot live in the Bicep template.
 echo "==> Allowing the AKS egress IP through the Postgres firewall"
-EGRESS_IP=$(az network public-ip list -g "$NODE_RG" \
-  --query "[?starts_with(name,'kubernetes')].ipAddress | [0]" -o tsv)
+# Ask AKS which IP it actually SNATs through. Do NOT guess by name: the node resource group
+# holds two public IPs, and the one named "kubernetes-*" is the INGRESS IP, not the egress
+# one (the egress IP has a GUID name). Matching on the name picks the inbound address, the
+# firewall then allows the wrong IP, and pods fail to reach Postgres with a 503 on
+# /health/ready that looks like a database fault rather than a firewall one.
+OUTBOUND_IP_ID=$(az aks show -g "$RG" -n "$AKS_NAME" \
+  --query "networkProfile.loadBalancerProfile.effectiveOutboundIPs[0].id" -o tsv)
+EGRESS_IP=$(az network public-ip show --ids "$OUTBOUND_IP_ID" --query ipAddress -o tsv)
 echo "    AKS egress IP: $EGRESS_IP"
+
+# -s is the SERVER, -n is the RULE. (--rule-name is not a valid flag.)
 az postgres flexible-server firewall-rule create \
-  -g "$RG" -n "$PG_NAME" --rule-name allow-aks-egress \
+  -g "$RG" -s "$PG_NAME" -n allow-aks-egress \
   --start-ip-address "$EGRESS_IP" --end-ip-address "$EGRESS_IP" -o none
 
 # ── 6. Image pull secret ──────────────────────────────────────────────────────────────
