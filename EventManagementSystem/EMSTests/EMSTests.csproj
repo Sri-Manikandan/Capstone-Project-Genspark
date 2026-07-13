@@ -24,6 +24,7 @@
     <ProjectReference Include="..\EMSBLLLibrary\EMSBLLLibrary.csproj" />
     <ProjectReference Include="..\EMSModelLibrary\EMSModelLibrary.csproj" />
     <ProjectReference Include="..\EMSDALLibrary\EMSDALLibrary.csproj" />
+    <ProjectReference Include="..\EMSApplicationLayer\EMSApplicationLayer.csproj" />
   </ItemGroup>
 
 </Project>

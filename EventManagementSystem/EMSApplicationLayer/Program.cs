@@ -9,6 +9,7 @@ using EMSApplicationLayer.Helpers;
 using EMSApplicationLayer.Hubs;
 using EMSApplicationLayer.Middleware;
 using EMSApplicationLayer.Notifications;
+using EMSBLLLibrary.Emails;
 using EMSBLLLibrary.Interfaces;
 using EMSBLLLibrary.Mappings;
 using EMSBLLLibrary.Services;
@@ -86,6 +87,7 @@ builder.Services.AddScoped<ISeatReservationRepository, SeatReservationRepository
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IOrganizerRequestRepository, OrganizerRequestRepository>();
 builder.Services.AddScoped<IChangeLogRepository, ChangeLogRepository>();
+builder.Services.AddScoped<IEmailOutboxRepository, EmailOutboxRepository>();
 
 // ── Services ──────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -102,12 +104,30 @@ builder.Services.AddScoped<IStripeRefundClient, StripeRefundClient>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IStripeWebhookService, StripeWebhookService>();
 builder.Services.AddScoped<IChangeLogService, ChangeLogService>();
+
+// ── Email ─────────────────────────────────────────────────────────────────────
+builder.Services.AddScoped<IEmailQueue, EmailQueue>();
+builder.Services.AddSingleton<IEmailTemplateRenderer, EmailTemplateRenderer>();
+builder.Services.AddScoped<EmailDispatcher>();
+
+builder.Services.AddHttpClient<IEmailSender, ResendEmailSender>((sp, client) =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    client.BaseAddress = new Uri("https://api.resend.com/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+
+    var apiKey = config["Email:ApiKey"];
+    if (!string.IsNullOrWhiteSpace(apiKey))
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+});
 // ── SignalR ───────────────────────────────────────────────────────────────────
 builder.Services.AddSignalR();
 builder.Services.AddScoped<ISeatNotifier, SignalRSeatNotifier>();
 
 // ── Background Services ───────────────────────────────────────────────────────
 builder.Services.AddHostedService<BookingExpiryService>();
+builder.Services.AddHostedService<EmailDispatcherService>();
 
 // ── AutoMapper ────────────────────────────────────────────────────────────────
 builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
