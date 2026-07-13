@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ems-api
+  namespace: ems
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0 # single tight node: no room to schedule an extra pod alongside the old one
+      maxUnavailable: 1 # costs a few seconds of downtime per deploy. Accepted for a demo.
+  selector:
+    matchLabels:
+      app: ems-api
+  template:
+    metadata:
+      labels:
+        app: ems-api
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: ems-sa
+      imagePullSecrets:
+        # Built from the ACR admin credentials. The cleaner AcrPull managed-identity model
+        # needs a role assignment this subscription cannot make. See the design doc.
+        - name: acr-pull
+      containers:
+        - name: api
+          image: __ACR__/ems-api:__IMAGE_TAG__
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: Workers__Enabled
+              value: "false" # background jobs belong to ems-worker only
+            - name: Cors__AllowedOrigins__0
+              value: "https://__SWA_HOSTNAME__"
+            - name: Email__Enabled
+              value: "true"
+            - name: Email__AppBaseUrl
+              value: "https://__SWA_HOSTNAME__"
+          envFrom:
+            - secretRef:
+                name: ems-secrets # synced from Key Vault by the CSI driver
+          volumeMounts:
+            - name: secrets-store
+              mountPath: /mnt/secrets-store
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi # no CPU limit: throttling on a burstable node hurts more than it helps
+          livenessProbe:
+            # No DB check here on purpose: a transient Postgres blip must not cause Kubernetes
+            # to restart every pod and turn a recoverable hiccup into an outage.
+            httpGet:
+              path: /health/live
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        # Mounting the volume is what triggers the CSI driver to fetch from Key Vault and
+        # populate the ems-secrets Secret. Without this mount, envFrom above finds nothing.
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: ems-keyvault

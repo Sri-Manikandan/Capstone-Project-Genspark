@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ems-worker
+  namespace: ems
+spec:
+  replicas: 1 # MUST stay 1: the background services have no leader election
+  strategy:
+    # Recreate, not RollingUpdate. The default would briefly run two worker pods at once,
+    # and for those few seconds every queued email would be sent twice.
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ems-worker
+  template:
+    metadata:
+      labels:
+        app: ems-worker
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: ems-sa
+      imagePullSecrets:
+        - name: acr-pull
+      containers:
+        - name: worker
+          # Same image as ems-api. The only difference is Workers__Enabled.
+          image: __ACR__/ems-api:__IMAGE_TAG__
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: Workers__Enabled
+              value: "true"
+            - name: Email__Enabled
+              value: "true"
+            - name: Email__AppBaseUrl
+              value: "https://__SWA_HOSTNAME__"
+          envFrom:
+            - secretRef:
+                name: ems-secrets
+          volumeMounts:
+            - name: secrets-store
+              mountPath: /mnt/secrets-store
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 200Mi
+            limits:
+              memory: 400Mi
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: ems-keyvault

@@ -1,0 +1,45 @@
+# Runs on main, which no longer deploys. Without this, a broken commit would sit unnoticed
+# on main until someone promoted it to prod and it failed in Azure instead.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build
+        run: dotnet build EventManagementSystem/EMS.sln
+
+      - name: Test
+        run: dotnet test EventManagementSystem/EMSTests/EMSTests.csproj --verbosity minimal
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Angular build
+        working-directory: EMSAngular
+        run: |
+          npm ci
+          npx ng build --configuration production
+
+      # TZ=UTC is deliberate. The app's IST datetime handling has a class of bug that is
+      # invisible on an IST machine, so CI must exercise another timezone.
+      - name: Angular tests (UTC)
+        working-directory: EMSAngular
+        run: TZ=UTC npx ng test --watch=false --browsers=ChromeHeadless
+
+      # Catches a broken Dockerfile on main rather than mid-deploy on prod.
+      - name: Docker build
+        run: docker build -t ems-api:ci EventManagementSystem/

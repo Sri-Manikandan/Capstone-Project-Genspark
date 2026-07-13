@@ -17,6 +17,8 @@ using EMSDALLibrary.Contexts;
 using EMSDALLibrary.Interfaces;
 using EMSDALLibrary.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -126,10 +128,25 @@ builder.Services.AddHttpClient<IEmailSender, ResendEmailSender>((sp, client) =>
 builder.Services.AddSignalR();
 builder.Services.AddScoped<ISeatNotifier, SignalRSeatNotifier>();
 
+// ── Health Checks ─────────────────────────────────────────────────────────────
+// "ready" is tagged so the readiness probe can select only the DB check. Liveness
+// intentionally has NO checks: a transient DB failure must not cause Kubernetes to restart
+// every pod, turning a recoverable blip into an outage.
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<EventContext>("database", tags: ["ready"]);
+
 // ── Background Services ───────────────────────────────────────────────────────
-builder.Services.AddHostedService<BookingExpiryService>();
-builder.Services.AddHostedService<EmailDispatcherService>();
-builder.Services.AddHostedService<EventReminderService>();
+// These have no leader election: every replica that registers them runs its own copy, so N
+// API replicas would send N copies of every email and reminder. In Kubernetes only the
+// single-replica `ems-worker` Deployment sets Workers:Enabled; `ems-api` sets it to false.
+// Defaults to true so local development is unchanged.
+var workersEnabled = builder.Configuration.GetValue("Workers:Enabled", true);
+if (workersEnabled)
+{
+    builder.Services.AddHostedService<BookingExpiryService>();
+    builder.Services.AddHostedService<EmailDispatcherService>();
+    builder.Services.AddHostedService<EventReminderService>();
+}
 
 // ── AutoMapper ────────────────────────────────────────────────────────────────
 builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
@@ -248,6 +265,22 @@ builder.Services.ConfigureOptions<EMSApplicationLayer.Swagger.ConfigureSwaggerOp
 
 var app = builder.Build();
 
+// ── Migration mode ────────────────────────────────────────────────────────────
+// `--migrate` applies pending EF migrations and exits. Run as a Kubernetes Job that must
+// complete before the Deployments roll out, so migrations never race across pods. Kestrel is
+// never started and DataSeeder never runs in this mode.
+if (args.Contains("--migrate"))
+{
+    using var migrationScope = app.Services.CreateScope();
+    var migrationContext = migrationScope.ServiceProvider.GetRequiredService<EventContext>();
+    var migrationLogger = migrationScope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    migrationLogger.LogInformation("Applying EF migrations...");
+    await migrationContext.Database.MigrateAsync();
+    migrationLogger.LogInformation("Migrations applied. Exiting.");
+    return;
+}
+
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
@@ -261,8 +294,29 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// The ingress terminates TLS and forwards plain HTTP to the pod. Trust its headers so the
+// app sees the real client scheme and IP — the rate limiter partitions by IP, and without
+// this every request would look like it came from the ingress pod and share one bucket.
+// KnownNetworks/KnownProxies are cleared because the ingress pod's IP is not known ahead of
+// time; the cluster network is not reachable from outside, so this is safe here.
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor
+};
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
+
 app.UseSerilogRequestLogging();
-app.UseHttpsRedirection();
+
+// Only redirect in development. In the cluster the pod only ever speaks HTTP (TLS is the
+// ingress's job), so redirecting here would loop forever AND 307 the kubelet health probes,
+// which would crash-loop the pod.
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseCors();
 app.UseRateLimiter();
 app.UseMiddleware<ExceptionMiddleware>();
@@ -271,6 +325,28 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHub<SeatHub>("/hubs/seats");
 
+// Probes are called by kubelet over plain HTTP from inside the cluster. They must be
+// anonymous and must not be rate limited, or a throttled probe would get the pod killed.
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false   // no checks: a 200 means "the process is running"
+}).AllowAnonymous().DisableRateLimiting();
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+}).AllowAnonymous().DisableRateLimiting();
+
+// The background services only log when they actually do work, so without this line there is
+// no way to tell an `ems-api` pod from an `ems-worker` pod in `kubectl logs`.
+app.Logger.LogInformation(
+    "Background services {State}. This instance is running as {Role}.",
+    workersEnabled ? "ENABLED" : "DISABLED",
+    workersEnabled ? "worker" : "api");
+
 await DataSeeder.SeedAsync(app.Services);
 
 app.Run();
+
+// Named so ILogger<Program> can be resolved in the --migrate branch above.
+public partial class Program { }

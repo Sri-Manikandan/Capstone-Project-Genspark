@@ -1,0 +1,126 @@
+# Deploys the API to AKS.
+#
+# AUTH NOTE: there is no `azure/login` step. This subscription's permissions do not allow
+# creating the Entra app registration that OIDC requires, so this workflow authenticates with
+# stored credentials instead: a Docker login to ACR, and an admin kubeconfig. Both are set by
+# scripts/provision.sh. If the subscription is ever granted Application Developer, switch this
+# to OIDC — it is strictly better.
+name: Deploy API
+
+on:
+  push:
+    branches: [prod] # NOT main. Promote with: git checkout prod && git merge main && git push
+    paths:
+      - 'EventManagementSystem/**'
+      - 'k8s/**'
+      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Run tests
+        run: dotnet test EventManagementSystem/EMSTests/EMSTests.csproj --verbosity minimal
+
+      - name: Log in to ACR
+        run: |
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login "${{ vars.ACR_LOGIN_SERVER }}" \
+            --username "${{ vars.ACR_USERNAME }}" --password-stdin
+
+      # Tagged with the commit SHA, never `latest`, so a rollout is reproducible and
+      # `kubectl rollout undo` refers to a real, distinct image.
+      - name: Build and push image
+        run: |
+          IMAGE="${{ vars.ACR_LOGIN_SERVER }}/ems-api:${{ github.sha }}"
+          docker build -t "$IMAGE" EventManagementSystem/
+          docker push "$IMAGE"
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          kubectl version --client
+
+      - name: Render manifests
+        env:
+          ACR: ${{ vars.ACR_LOGIN_SERVER }}
+          IMAGE_TAG: ${{ github.sha }}
+          KEYVAULT_NAME: ${{ vars.KEYVAULT_NAME }}
+          WORKLOAD_IDENTITY_CLIENT_ID: ${{ vars.WORKLOAD_IDENTITY_CLIENT_ID }}
+          TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          INGRESS_FQDN: ${{ vars.INGRESS_FQDN }}
+          SWA_HOSTNAME: ${{ vars.SWA_HOSTNAME }}
+          LETSENCRYPT_EMAIL: ${{ vars.LETSENCRYPT_EMAIL }}
+        run: |
+          # Deliberately sed, not envsubst: envsubst only expands shell-style ${VAR} and would
+          # silently leave every __PLACEHOLDER__ in place, applying broken manifests.
+          mkdir -p rendered
+          for f in k8s/*.yaml; do
+            sed -e "s|__ACR__|${ACR}|g" \
+                -e "s|__IMAGE_TAG__|${IMAGE_TAG}|g" \
+                -e "s|__KEYVAULT_NAME__|${KEYVAULT_NAME}|g" \
+                -e "s|__WORKLOAD_IDENTITY_CLIENT_ID__|${WORKLOAD_IDENTITY_CLIENT_ID}|g" \
+                -e "s|__TENANT_ID__|${TENANT_ID}|g" \
+                -e "s|__INGRESS_FQDN__|${INGRESS_FQDN}|g" \
+                -e "s|__SWA_HOSTNAME__|${SWA_HOSTNAME}|g" \
+                -e "s|__LETSENCRYPT_EMAIL__|${LETSENCRYPT_EMAIL}|g" \
+                "$f" > "rendered/$(basename "$f")"
+          done
+
+          # Anchored to __UPPER_CASE__ so it does not false-positive on the legitimate .NET
+          # env vars in these files (ConnectionStrings__Default, Workers__Enabled).
+          if grep -rnE '__[A-Z][A-Z0-9_]*__' rendered/; then
+            echo "ERROR: unsubstituted placeholder above"; exit 1
+          fi
+          echo "All placeholders substituted."
+
+      - name: Apply base resources
+        run: |
+          kubectl apply -f rendered/namespace.yaml
+          kubectl apply -f rendered/serviceaccount.yaml
+          kubectl apply -f rendered/secretproviderclass.yaml
+          kubectl apply -f rendered/cluster-issuer.yaml
+
+      # Migrations must finish BEFORE new pods start, or a pod could query a table that does
+      # not exist yet.
+      - name: Run migrations and wait
+        run: |
+          kubectl apply -f rendered/migrate-job.yaml
+          if ! kubectl wait --for=condition=complete --timeout=300s \
+               "job/ems-migrate-${{ github.sha }}" -n ems; then
+            echo "--- migration job did not complete; logs: ---"
+            kubectl logs "job/ems-migrate-${{ github.sha }}" -n ems || true
+            kubectl describe "job/ems-migrate-${{ github.sha }}" -n ems || true
+            exit 1
+          fi
+          kubectl logs "job/ems-migrate-${{ github.sha }}" -n ems
+
+      - name: Deploy application
+        run: |
+          kubectl apply -f rendered/api-deployment.yaml
+          kubectl apply -f rendered/api-service.yaml
+          kubectl apply -f rendered/worker-deployment.yaml
+          kubectl apply -f rendered/ingress.yaml
+          kubectl rollout status deployment/ems-api    -n ems --timeout=300s
+          kubectl rollout status deployment/ems-worker -n ems --timeout=300s
+
+      - name: Smoke test
+        run: |
+          for _ in $(seq 1 20); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              "https://${{ vars.INGRESS_FQDN }}/health/ready" || echo "000")
+            echo "health/ready -> $CODE"
+            [ "$CODE" = "200" ] && exit 0
+            sleep 15
+          done
+          echo "ERROR: API did not become ready"
+          kubectl logs -n ems deploy/ems-api --tail=50
+          exit 1

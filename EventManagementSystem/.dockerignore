@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+**/logs/
+**/*.user
+# Contains local DB credentials and a live Resend API key. Must never enter an image.
+**/appsettings.Development.json
+.git/
+.vs/

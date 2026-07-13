@@ -1,0 +1,43 @@
+# Applies EF migrations and exits. CI waits for this to complete BEFORE rolling out the
+# Deployments, so migrations never race across pods and no pod ever queries a table that
+# does not exist yet.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ems-migrate-__IMAGE_TAG__ # unique per deploy; Jobs are immutable once created
+  namespace: ems
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 600 # tidy itself up 10 minutes after completion
+  template:
+    metadata:
+      labels:
+        azure.workload.identity/use: "true"
+    spec:
+      restartPolicy: Never
+      serviceAccountName: ems-sa
+      imagePullSecrets:
+        - name: acr-pull
+      containers:
+        - name: migrate
+          image: __ACR__/ems-api:__IMAGE_TAG__
+          args: ["--migrate"] # applies migrations, then exits; Kestrel never starts
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: Workers__Enabled
+              value: "false"
+          envFrom:
+            - secretRef:
+                name: ems-secrets
+          volumeMounts:
+            - name: secrets-store
+              mountPath: /mnt/secrets-store
+              readOnly: true
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: ems-keyvault
