@@ -1,0 +1,53 @@
+# Deploys the Angular SPA to Azure Static Web Apps.
+# Authenticates with the SWA deployment token (set by scripts/provision.sh) — no Azure login
+# is needed, which is why this workflow is unaffected by the missing app registration.
+name: Deploy Web
+
+on:
+  push:
+    branches: [prod] # NOT main. See deploy-api.yml.
+    paths:
+      - 'EMSAngular/**'
+      - '.github/workflows/deploy-web.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # environment.prod.ts ships a __INGRESS_FQDN__ placeholder so the API URL is never
+      # hardcoded in the repo and cannot go stale.
+      - name: Inject the API URL
+        run: |
+          sed -i "s|__INGRESS_FQDN__|${{ vars.INGRESS_FQDN }}|g" \
+            EMSAngular/src/environments/environment.prod.ts
+          grep apiBaseUrl EMSAngular/src/environments/environment.prod.ts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build
+        working-directory: EMSAngular
+        run: |
+          npm ci
+          npx ng build --configuration production
+
+      # A live key in a public bundle can move real money. Fail loudly rather than ship it.
+      - name: Guard against a live Stripe key
+        run: |
+          if grep -rq "pk_live_" EMSAngular/dist/; then
+            echo "ERROR: a live Stripe key is present in the production bundle"
+            exit 1
+          fi
+          echo "No live Stripe key in the bundle."
+
+      - name: Deploy to Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.SWA_DEPLOYMENT_TOKEN }}
+          action: upload
+          app_location: EMSAngular/dist/EMSAngular/browser
+          skip_app_build: true
