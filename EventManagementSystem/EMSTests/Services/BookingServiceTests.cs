@@ -1,4 +1,5 @@
 using AutoMapper;
+using EMSBLLLibrary.Constants;
 using EMSBLLLibrary.Interfaces;
 using EMSBLLLibrary.Mappings;
 using EMSBLLLibrary.Services;
@@ -27,6 +28,8 @@ namespace EMSTests.Services
         private Mock<ISeatNotifier> _notifier;
         private Mock<IPaymentRepository> _paymentRepo;
         private Mock<IStripeRefundClient> _refundClient;
+        private Mock<IUserRepository> _userRepo;
+        private Mock<IEmailQueue> _emailQueue;
         private IMapper _mapper;
         private BookingService _sut;
 
@@ -46,12 +49,18 @@ namespace EMSTests.Services
             _notifier = new Mock<ISeatNotifier>();
             _paymentRepo = new Mock<IPaymentRepository>();
             _refundClient = new Mock<IStripeRefundClient>();
+            _userRepo = new Mock<IUserRepository>();
+            _emailQueue = new Mock<IEmailQueue>();
             _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
+
+            _userRepo.Setup(r => r.GetById(It.IsAny<int>()))
+                .ReturnsAsync(new User { Id = 1, Name = "Asha", Email = "a@b.com" });
 
             _sut = new BookingService(
                 _bookingRepo.Object, _bookingItemRepo.Object, _ticketTypeRepo.Object,
                 _seatRepo.Object, _reservationRepo.Object, _screeningRepo.Object, _eventRepo.Object,
-                _notifier.Object, _mapper, _paymentRepo.Object, _refundClient.Object);
+                _notifier.Object, _mapper, _paymentRepo.Object, _refundClient.Object,
+                _userRepo.Object, _emailQueue.Object);
         }
 
         private Screening MakeScreening(DateTime? startTime = null) => new Screening
@@ -385,6 +394,51 @@ namespace EMSTests.Services
 
             _refundClient.Verify(r => r.CreateAsync(It.IsAny<RefundCreateOptions>()), Times.Never);
             _bookingRepo.Verify(r => r.Update(It.Is<Booking>(b => b.BookingStatus == "Cancelled")), Times.Once);
+        }
+
+        // Cancellation and refund are one operation, so they are one email. The refund
+        // line only appears when money actually went back.
+        [Test]
+        public async Task Cancel_ConfirmedBookingWithPayment_EnqueuesCancelledEmailWithRefundLine()
+        {
+            var payment = new Payment { StripePaymentIntentId = "pi_test" };
+            _bookingRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeBooking(status: "Confirmed"));
+            _paymentRepo.Setup(r => r.GetByBookingId(1)).ReturnsAsync(payment);
+            _refundClient.Setup(c => c.CreateAsync(It.IsAny<RefundCreateOptions>())).ReturnsAsync(new Refund());
+            _bookingRepo.Setup(r => r.Update(It.IsAny<Booking>())).ReturnsAsync((Booking b) => b);
+            _bookingItemRepo.Setup(r => r.GetByBookingId(1)).ReturnsAsync(new List<BookingItem>());
+
+            IDictionary<string, string>? tokens = null;
+            _emailQueue.Setup(q => q.Enqueue(It.IsAny<string>(), It.IsAny<string>(), EmailTemplateKey.BookingCancelled,
+                    It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<string?>(), It.IsAny<DateTime?>()))
+                .Callback<string, string, string, string, IDictionary<string, string>, string?, DateTime?>(
+                    (_, _, _, _, t, _, _) => tokens = t)
+                .Returns(Task.CompletedTask);
+
+            await _sut.Cancel(1, 1);
+
+            tokens.Should().NotBeNull();
+            tokens!["RefundLine"].Should().Contain("refund");
+        }
+
+        [Test]
+        public async Task Cancel_PendingBooking_EnqueuesCancelledEmailWithoutRefundLine()
+        {
+            _bookingRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeBooking(status: "Pending"));
+            _bookingRepo.Setup(r => r.Update(It.IsAny<Booking>())).ReturnsAsync((Booking b) => b);
+            _bookingItemRepo.Setup(r => r.GetByBookingId(1)).ReturnsAsync(new List<BookingItem>());
+
+            IDictionary<string, string>? tokens = null;
+            _emailQueue.Setup(q => q.Enqueue(It.IsAny<string>(), It.IsAny<string>(), EmailTemplateKey.BookingCancelled,
+                    It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<string?>(), It.IsAny<DateTime?>()))
+                .Callback<string, string, string, string, IDictionary<string, string>, string?, DateTime?>(
+                    (_, _, _, _, t, _, _) => tokens = t)
+                .Returns(Task.CompletedTask);
+
+            await _sut.Cancel(1, 1);
+
+            tokens.Should().NotBeNull();
+            tokens!["RefundLine"].Should().Contain("haven't been charged");
         }
 
         [Test]

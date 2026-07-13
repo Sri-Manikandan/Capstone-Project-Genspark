@@ -1,3 +1,5 @@
+using EMSBLLLibrary.Constants;
+using EMSBLLLibrary.Interfaces;
 using EMSDALLibrary.Contexts;
 using EMSDALLibrary.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -39,6 +41,7 @@ namespace EMSApplicationLayer.BackgroundServices
             var context = scope.ServiceProvider.GetRequiredService<EventContext>();
             var reservationRepo = scope.ServiceProvider.GetRequiredService<ISeatReservationRepository>();
             var ticketTypeRepo = scope.ServiceProvider.GetRequiredService<ITicketTypeRepository>();
+            var emailQueue = scope.ServiceProvider.GetRequiredService<IEmailQueue>();
 
             var now = DateTime.UtcNow;
 
@@ -72,6 +75,27 @@ namespace EMSApplicationLayer.BackgroundServices
                                                 && sr.Status == "Confirmed", ct);
                     if (reservation != null)
                         reservation.Status = "Expired";
+                }
+
+                var user = await context.Users.FirstOrDefaultAsync(u => u.Id == booking.UserId, ct);
+                var screening = await context.Screenings.FirstOrDefaultAsync(s => s.Id == booking.ScreeningId, ct);
+                var ev = screening == null
+                    ? null
+                    : await context.Events.FirstOrDefaultAsync(e => e.Id == screening.EventId, ct);
+
+                if (user != null)
+                {
+                    // The dedupe key matters: this sweep runs every 60s, and a booking
+                    // whose save fails stays eligible on the next pass.
+                    await emailQueue.Enqueue(user.Email, user.Name, EmailTemplateKey.BookingExpired,
+                        "Your booking expired",
+                        new Dictionary<string, string>
+                        {
+                            ["Name"] = user.Name,
+                            ["EventTitle"] = ev?.Title ?? "your event",
+                            ["BookingReference"] = booking.BookingReference
+                        },
+                        dedupeKey: $"expired:booking:{booking.Id}");
                 }
             }
 

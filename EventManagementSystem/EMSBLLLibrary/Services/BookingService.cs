@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using AutoMapper;
 using EMSModelLibrary.DTOs;
+using EMSBLLLibrary.Constants;
 using EMSBLLLibrary.Helpers;
 using EMSBLLLibrary.Interfaces;
 using EMSModelLibrary.Exceptions;
@@ -23,6 +24,8 @@ namespace EMSBLLLibrary.Services
         private readonly IMapper _mapper;
         private readonly IPaymentRepository _paymentRepo;
         private readonly IStripeRefundClient _refundClient;
+        private readonly IUserRepository _userRepo;
+        private readonly IEmailQueue _emailQueue;
 
         public BookingService(
             IBookingRepository bookingRepo,
@@ -35,7 +38,9 @@ namespace EMSBLLLibrary.Services
             ISeatNotifier notifier,
             IMapper mapper,
             IPaymentRepository paymentRepo,
-            IStripeRefundClient refundClient)
+            IStripeRefundClient refundClient,
+            IUserRepository userRepo,
+            IEmailQueue emailQueue)
         {
             _bookingRepo = bookingRepo;
             _bookingItemRepo = bookingItemRepo;
@@ -48,6 +53,8 @@ namespace EMSBLLLibrary.Services
             _mapper = mapper;
             _paymentRepo = paymentRepo;
             _refundClient = refundClient;
+            _userRepo = userRepo;
+            _emailQueue = emailQueue;
         }
 
         public async Task<BookingDto> Create(int userId, CreateBookingRequest request)
@@ -210,6 +217,8 @@ namespace EMSBLLLibrary.Services
 
             if (booking.BookingStatus == "Attended")
                 throw new ValidationException("Cannot cancel a booking that has been attended.");
+
+            var refunded = false;
             if (booking.BookingStatus == "Confirmed")
             {
                 var payment = await _paymentRepo.GetByBookingId(id);
@@ -219,6 +228,7 @@ namespace EMSBLLLibrary.Services
                     {
                         PaymentIntent = payment.StripePaymentIntentId
                     });
+                    refunded = true;
                 }
             }
 
@@ -234,6 +244,33 @@ namespace EMSBLLLibrary.Services
                 await _ticketTypeRepo.IncrementAvailableQuantity(item.TicketTypeId);
                 await _notifier.SeatReleased(booking.ScreeningId, item.SeatId);
             }
+
+            await EnqueueBookingCancelled(booking, refunded);
+        }
+
+        // Cancellation and refund are one operation, so they are one email. The refund
+        // line is rendered in only when a refund was actually issued.
+        private async Task EnqueueBookingCancelled(Booking booking, bool refunded)
+        {
+            var user = await _userRepo.GetById(booking.UserId);
+            if (user == null) return;
+
+            var screening = await _screeningRepo.GetById(booking.ScreeningId);
+            var ev = screening == null ? null : await _eventRepo.GetById(screening.EventId);
+
+            var refundLine = refunded
+                ? $"<p style=\"margin:0 0 24px;\">A refund of &#8377;{booking.TotalAmount:0.00} is on its way back to your original payment method. It usually lands within 5&ndash;10 business days.</p>"
+                : "<p style=\"margin:0 0 24px;\">You haven't been charged.</p>";
+
+            await _emailQueue.Enqueue(user.Email, user.Name, EmailTemplateKey.BookingCancelled,
+                "Your booking has been cancelled",
+                new Dictionary<string, string>
+                {
+                    ["Name"] = user.Name,
+                    ["EventTitle"] = ev?.Title ?? "your event",
+                    ["BookingReference"] = booking.BookingReference,
+                    ["RefundLine"] = refundLine
+                });
         }
 
         public async Task<BookingDto?> ValidateQr(ValidateQrRequest request, int scannedBy, bool isAdmin)
