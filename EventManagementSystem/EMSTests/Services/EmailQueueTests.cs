@@ -1,5 +1,6 @@
 using System.Text.Json;
 using EMSBLLLibrary.Constants;
+using EMSBLLLibrary.Helpers;
 using EMSBLLLibrary.Interfaces;
 using EMSBLLLibrary.Services;
 using EMSDALLibrary.Interfaces;
@@ -65,7 +66,7 @@ namespace EMSTests.Services
 
             var tokens = JsonSerializer.Deserialize<Dictionary<string, string>>(captured!.PayloadJson)!;
             tokens["AppUrl"].Should().Be("http://localhost:4200");
-            tokens["Year"].Should().Be(DateTime.UtcNow.Year.ToString());
+            tokens["Year"].Should().Be(TimeHelper.UtcToIst(DateTime.UtcNow).Year.ToString());
             tokens["Name"].Should().Be("Asha");
         }
 

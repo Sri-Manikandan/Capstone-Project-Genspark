@@ -1,5 +1,6 @@
 using System.Text.Json;
 using EMSBLLLibrary.Constants;
+using EMSBLLLibrary.Helpers;
 using EMSBLLLibrary.Interfaces;
 using EMSDALLibrary.Interfaces;
 using EMSModelLibrary.Models;
@@ -55,7 +56,9 @@ namespace EMSBLLLibrary.Services
             var tokens = new Dictionary<string, string>(email.Tokens)
             {
                 ["AppUrl"] = _appUrl,
-                ["Year"] = DateTime.UtcNow.Year.ToString()
+                // IST, not UTC: between 00:00 and 05:29 IST on 1 Jan the UTC year is still
+                // the old one, which would date every email's footer a year behind.
+                ["Year"] = TimeHelper.UtcToIst(DateTime.UtcNow).Year.ToString()
             };
 
             return new EmailOutbox
