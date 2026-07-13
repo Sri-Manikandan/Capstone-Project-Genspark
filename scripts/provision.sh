@@ -40,7 +40,10 @@ elif [ -f "$PG_PASS_FILE" ]; then
   PG_PASS="$(cat "$PG_PASS_FILE")"
   echo "==> Reusing the Postgres password from $PG_PASS_FILE"
 else
-  PG_PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)"
+  # `tr -dc ... < /dev/urandom | head -c 32` looks tempting but head closes the pipe after 32
+  # bytes, SIGPIPEs tr, and `set -o pipefail` turns that into a fatal exit 141.
+  # openssl rand -hex gives 32 alphanumeric chars with no pipe at all.
+  PG_PASS="$(openssl rand -hex 16)"
   (umask 077; printf '%s' "$PG_PASS" > "$PG_PASS_FILE")
   echo "==> Generated a Postgres admin password and saved it to $PG_PASS_FILE"
   echo "    Move it to your password manager; it is not recoverable from GitHub."
@@ -110,7 +113,9 @@ echo "    Ingress IP: $INGRESS_IP"
 echo "==> Attaching a DNS label to the ingress IP"
 PIP_NAME=$(az network public-ip list -g "$NODE_RG" \
   --query "[?ipAddress=='$INGRESS_IP'].name | [0]" -o tsv)
-DNS_LABEL="ems-api-$(echo "$AKS_NAME$RG" | shasum | head -c 8)"
+# Same SIGPIPE trap as above: `shasum | head -c 8` under `set -o pipefail` exits 141.
+# cut consumes its whole input, so it never closes the pipe early.
+DNS_LABEL="ems-api-$(echo "$AKS_NAME$RG" | shasum | cut -c1-8)"
 
 az network public-ip update -g "$NODE_RG" -n "$PIP_NAME" --dns-name "$DNS_LABEL" -o none
 INGRESS_FQDN=$(az network public-ip show -g "$NODE_RG" -n "$PIP_NAME" \
