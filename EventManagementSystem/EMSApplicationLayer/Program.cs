@@ -109,6 +109,7 @@ builder.Services.AddScoped<IChangeLogService, ChangeLogService>();
 builder.Services.AddScoped<IEmailQueue, EmailQueue>();
 builder.Services.AddSingleton<IEmailTemplateRenderer, EmailTemplateRenderer>();
 builder.Services.AddScoped<EmailDispatcher>();
+builder.Services.AddScoped<EventReminderSweeper>();
 
 builder.Services.AddHttpClient<IEmailSender, ResendEmailSender>((sp, client) =>
 {
@@ -128,6 +129,7 @@ builder.Services.AddScoped<ISeatNotifier, SignalRSeatNotifier>();
 // ── Background Services ───────────────────────────────────────────────────────
 builder.Services.AddHostedService<BookingExpiryService>();
 builder.Services.AddHostedService<EmailDispatcherService>();
+builder.Services.AddHostedService<EventReminderService>();
 
 // ── AutoMapper ────────────────────────────────────────────────────────────────
 builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());

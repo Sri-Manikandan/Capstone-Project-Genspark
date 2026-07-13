@@ -1,5 +1,6 @@
 using EMSDALLibrary.Contexts;
 using EMSDALLibrary.Interfaces;
+using EMSModelLibrary.DTOs;
 using EMSModelLibrary.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -55,6 +56,42 @@ namespace EMSDALLibrary.Repositories
                                .Take(pageSize)
                                .ToListAsync();
             return (items, total);
+        }
+
+        // A projection, not entities. A blast to every ticket holder must not
+        // materialise hundreds of tracked Booking graphs.
+        public async Task<List<TicketHolderDto>> GetConfirmedTicketHoldersByScreening(int screeningId)
+        {
+            return await (from b in _context.Bookings
+                          join u in _context.Users on b.UserId equals u.Id
+                          join s in _context.Screenings on b.ScreeningId equals s.Id
+                          where b.ScreeningId == screeningId && b.BookingStatus == "Confirmed"
+                          select new TicketHolderDto
+                          {
+                              BookingId = b.Id,
+                              BookingReference = b.BookingReference,
+                              UserEmail = u.Email,
+                              UserName = u.Name,
+                              ScreeningId = s.Id,
+                              ScreeningStartTime = s.StartTime
+                          }).ToListAsync();
+        }
+
+        public async Task<List<TicketHolderDto>> GetConfirmedTicketHoldersByEvent(int eventId)
+        {
+            return await (from b in _context.Bookings
+                          join u in _context.Users on b.UserId equals u.Id
+                          join s in _context.Screenings on b.ScreeningId equals s.Id
+                          where s.EventId == eventId && b.BookingStatus == "Confirmed"
+                          select new TicketHolderDto
+                          {
+                              BookingId = b.Id,
+                              BookingReference = b.BookingReference,
+                              UserEmail = u.Email,
+                              UserName = u.Name,
+                              ScreeningId = s.Id,
+                              ScreeningStartTime = s.StartTime
+                          }).ToListAsync();
         }
     }
 }

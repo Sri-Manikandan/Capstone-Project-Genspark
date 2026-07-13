@@ -7,5 +7,6 @@ namespace EMSDALLibrary.Interfaces
         Task<List<Screening>> GetByEventId(int eventId);
         // True when the screening already has non-cancelled bookings or active reservations.
         Task<bool> HasActivity(int screeningId);
+        Task<List<Screening>> GetStartingBetween(DateTime from, DateTime to);
     }
 }

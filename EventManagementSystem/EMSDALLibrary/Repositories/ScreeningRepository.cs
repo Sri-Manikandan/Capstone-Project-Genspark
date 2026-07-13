@@ -9,6 +9,13 @@ namespace EMSDALLibrary.Repositories
     {
         public ScreeningRepository(EventContext context) : base(context) { }
 
+        public async Task<List<Screening>> GetStartingBetween(DateTime from, DateTime to)
+        {
+            return await _context.Screenings
+                .Where(s => s.StartTime >= from && s.StartTime < to)
+                .ToListAsync();
+        }
+
         public async Task<List<Screening>> GetByEventId(int eventId)
         {
             return await _context.Screenings
