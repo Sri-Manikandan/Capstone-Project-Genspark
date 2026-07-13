@@ -24,9 +24,11 @@ jobs:
       - name: Test
         run: dotnet test EventManagementSystem/EMSTests/EMSTests.csproj --verbosity minimal
 
+      # Angular CLI 22 requires node ^22.22.3 || ^24.15.0 || >=26. Node 20 fails at
+      # `ng build` with "The Angular CLI requires a minimum Node.js version of v22.22.3".
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Angular build
         working-directory: EMSAngular
@@ -36,9 +38,13 @@ jobs:
 
       # TZ=UTC is deliberate. The app's IST datetime handling has a class of bug that is
       # invisible on an IST machine, so CI must exercise another timezone.
+      #
+      # No --browsers flag: this project's test builder is @angular/build:unit-test (Vitest,
+      # jsdom), not Karma. Passing --browsers=ChromeHeadless fails with a demand for
+      # @vitest/browser-* packages that are not installed.
       - name: Angular tests (UTC)
         working-directory: EMSAngular
-        run: TZ=UTC npx ng test --watch=false --browsers=ChromeHeadless
+        run: TZ=UTC npx ng test --watch=false
 
       # Catches a broken Dockerfile on main rather than mid-deploy on prod.
       - name: Docker build
