@@ -1,0 +1,17 @@
+<h1 style="margin:0 0 16px;color:#e8eaed;font-size:22px;">You're going to {{EventTitle}}</h1>
+<p style="margin:0 0 24px;">Hi {{Name}}, your booking is confirmed. Your ticket QR is attached &mdash; show it at the gate.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#12151b;border-radius:8px;">
+  <tr><td style="padding:16px;color:#9aa1ad;font-size:13px;">Booking reference</td><td style="padding:16px;color:#e8eaed;font-weight:600;" align="right">{{BookingReference}}</td></tr>
+  <tr><td style="padding:0 16px 16px;color:#9aa1ad;font-size:13px;">When</td><td style="padding:0 16px 16px;color:#e8eaed;" align="right">{{ScreeningTime}}</td></tr>
+  <tr><td style="padding:0 16px 16px;color:#9aa1ad;font-size:13px;">Where</td><td style="padding:0 16px 16px;color:#e8eaed;" align="right">{{VenueName}}</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">
+  <tr>
+    <th align="left" style="padding:8px 0;border-bottom:1px solid #262a33;color:#9aa1ad;font-size:13px;font-weight:500;">Ticket</th>
+    <th align="left" style="padding:8px 0;border-bottom:1px solid #262a33;color:#9aa1ad;font-size:13px;font-weight:500;">Seat</th>
+    <th align="right" style="padding:8px 0;border-bottom:1px solid #262a33;color:#9aa1ad;font-size:13px;font-weight:500;">Price</th>
+  </tr>
+  {{ItemsHtml}}
+</table>
+<p style="margin:0 0 24px;color:#e8eaed;font-size:16px;font-weight:600;text-align:right;">Total &#8377;{{TotalAmount}}</p>
+<a href="{{AppUrl}}/bookings" style="display:inline-block;padding:12px 20px;background:#6366f1;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">View booking</a>
