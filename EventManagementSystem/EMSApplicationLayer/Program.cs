@@ -140,7 +140,8 @@ builder.Services.AddHealthChecks()
 // API replicas would send N copies of every email and reminder. In Kubernetes only the
 // single-replica `ems-worker` Deployment sets Workers:Enabled; `ems-api` sets it to false.
 // Defaults to true so local development is unchanged.
-if (builder.Configuration.GetValue("Workers:Enabled", true))
+var workersEnabled = builder.Configuration.GetValue("Workers:Enabled", true);
+if (workersEnabled)
 {
     builder.Services.AddHostedService<BookingExpiryService>();
     builder.Services.AddHostedService<EmailDispatcherService>();
@@ -335,6 +336,13 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("ready")
 }).AllowAnonymous().DisableRateLimiting();
+
+// The background services only log when they actually do work, so without this line there is
+// no way to tell an `ems-api` pod from an `ems-worker` pod in `kubectl logs`.
+app.Logger.LogInformation(
+    "Background services {State}. This instance is running as {Role}.",
+    workersEnabled ? "ENABLED" : "DISABLED",
+    workersEnabled ? "worker" : "api");
 
 await DataSeeder.SeedAsync(app.Services);
 
