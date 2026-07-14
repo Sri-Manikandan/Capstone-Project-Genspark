@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -38,6 +38,17 @@ export class EventListComponent implements OnInit {
   protected detectingLocation = signal(false);
   protected search = this.fb.nonNullable.control('');
 
+  /**
+   * True when the range is backwards (To before From) and so cannot match anything.
+   * Both are `type="date"` values ("YYYY-MM-DD"), which sort correctly as strings — no
+   * parsing, and therefore none of the timezone skew a `new Date()` comparison would add.
+   * An equal From/To is a valid single-day range.
+   */
+  protected dateRangeInvalid = computed(() => {
+    const { startFrom, startTo } = this.store.filters();
+    return !!startFrom && !!startTo && startTo < startFrom;
+  });
+
   constructor() {
     this.search.valueChanges
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed())
@@ -45,6 +56,8 @@ export class EventListComponent implements OnInit {
 
     effect(() => {
       const req = this.store.request();
+      // Don't ask the API for an impossible range; the inline error explains it instead.
+      if (this.dateRangeInvalid()) return;
       this.load(req);
     });
   }

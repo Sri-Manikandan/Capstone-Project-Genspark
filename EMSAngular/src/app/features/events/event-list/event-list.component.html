@@ -47,6 +47,10 @@
           </label>
           <button type="button" (click)="clearFilters()" class="btn-ghost sm:ml-auto">Clear filters</button>
         </div>
+
+        @if (dateRangeInvalid()) {
+          <p class="mt-2 px-1 text-xs text-rose">The "To" date must be on or after the "From" date.</p>
+        }
       </div>
     </section>
 
@@ -68,11 +72,11 @@
     <ems-alert type="error" [message]="error()" (dismissed)="error.set('')" />
     <ems-loading-spinner *ngIf="loading()" />
 
-    <div *ngIf="!loading()" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div *ngIf="!loading() && !dateRangeInvalid()" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <ems-event-card *ngFor="let ev of events()" [event]="ev" />
     </div>
 
-    <div *ngIf="!loading() && events().length === 0" class="card mt-2 px-6 py-16 text-center">
+    <div *ngIf="!loading() && !dateRangeInvalid() && events().length === 0" class="card mt-2 px-6 py-16 text-center">
       <p class="font-display text-xl text-ink">No events match your search</p>
       <p class="mt-1 text-sm text-muted">Try a different keyword or clear the filters.</p>
     </div>
