@@ -44,11 +44,6 @@ namespace EMSDALLibrary.Repositories
             return await _context.Events.AnyAsync(e => e.VenueId == venueId);
         }
 
-        public async Task<List<Event>> GetByCategory(string category)
-        {
-            return await _context.Events.Where(e => e.Category == category).ToListAsync();
-        }
-
         public async Task<List<string>> GetCategories(string status)
         {
             return await _context.Events

@@ -6,6 +6,5 @@ namespace EMSDALLibrary.Interfaces
     {
         Task<List<EmailOutbox>> GetPendingBatch(int limit, DateTime now);
         Task AddMany(List<EmailOutbox> messages);
-        Task<bool> ExistsByDedupeKey(string dedupeKey);
     }
 }

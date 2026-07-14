@@ -2,8 +2,7 @@
   <div *ngFor="let t of toast.toasts()"
        class="pointer-events-auto flex w-full max-w-md items-start justify-between gap-3 rounded-xl px-4 py-3 text-sm shadow-lg"
        [class.bg-teal-tint]="t.type === 'success'" [class.text-teal-dark]="t.type === 'success'"
-       [class.bg-rose-tint]="t.type === 'error'" [class.text-rose-dark]="t.type === 'error'"
-       [class.bg-plum-tint]="t.type === 'info'" [class.text-plum-dark]="t.type === 'info'">
+       [class.bg-rose-tint]="t.type === 'error'" [class.text-rose-dark]="t.type === 'error'">
     <span class="font-medium">{{ t.message }}</span>
     <button class="text-base font-bold leading-none opacity-60 transition hover:opacity-100"
             (click)="toast.dismiss(t.id)" aria-label="Dismiss">×</button>

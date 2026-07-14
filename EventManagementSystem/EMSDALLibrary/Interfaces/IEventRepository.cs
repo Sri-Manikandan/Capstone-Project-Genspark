@@ -8,7 +8,6 @@ namespace EMSDALLibrary.Interfaces
         Task<List<Event>> GetByStatus(string status);
         Task<(int Published, int Rejected, int Total)> GetStatusCountsByOrganizer(int organizerId);
         Task<bool> ExistsByVenue(int venueId);
-        Task<List<Event>> GetByCategory(string category);
         Task<List<string>> GetCategories(string status);
         Task<List<string>> GetCities(string status);
         Task<Event?> GetBySlug(string slug);

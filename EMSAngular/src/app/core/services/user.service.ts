@@ -51,11 +51,6 @@ export class UserService {
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 
-  deleteById(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.base}/${id}`)
-      .pipe(catchError(e => throwError(() => extractError(e))));
-  }
-
   requestOrganizer(reason: string): Observable<OrganizerRequestDto> {
     return this.http.post<OrganizerRequestDto>(`${this.base}/request-organizer`, { reason })
       .pipe(catchError(e => throwError(() => extractError(e))));

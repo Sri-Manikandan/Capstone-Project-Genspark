@@ -15,15 +15,6 @@ export interface CreateSeatRequest {
   seatType: string;
 }
 
-export interface BulkCreateSeatsRequest {
-  venueId: number;
-  section: string;
-  row: string;
-  startNumber: number;
-  endNumber: number;
-  seatType: string;
-}
-
 export interface ReserveSeatRequest {
   screeningId: number;
   seatId: number;

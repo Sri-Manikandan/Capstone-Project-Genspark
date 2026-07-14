@@ -6,7 +6,6 @@ namespace EMSDALLibrary.Interfaces
     public interface IBookingRepository : IRepository<Booking>
     {
         Task<List<TicketHolderDto>> GetConfirmedTicketHoldersByScreening(int screeningId);
-        Task<List<TicketHolderDto>> GetConfirmedTicketHoldersByEvent(int eventId);
         Task<List<Booking>> GetByUserId(int userId);
         Task<List<Booking>> GetByEventId(int eventId);
         Task<Booking?> GetByReference(string reference);

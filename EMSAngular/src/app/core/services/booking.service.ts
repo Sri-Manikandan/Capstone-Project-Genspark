@@ -24,11 +24,6 @@ export class BookingService {
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 
-  getByReference(reference: string): Observable<BookingDto> {
-    return this.http.get<BookingDto>(`${this.base}/reference/${reference}`)
-      .pipe(catchError(e => throwError(() => extractError(e))));
-  }
-
   getMyBookings(req: BookingQueryRequest): Observable<PagedResult<BookingDto>> {
     return this.http.get<PagedResult<BookingDto>>(`${this.base}/my`, { params: toHttpParams({ ...req }) })
       .pipe(catchError(e => throwError(() => extractError(e))));

@@ -24,9 +24,4 @@ export class PaymentService {
       idempotencyHeader(`payment-confirm-${req.stripePaymentIntentId}`))
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
-
-  getByBooking(bookingId: number): Observable<PaymentDto> {
-    return this.http.get<PaymentDto>(`${this.base}/booking/${bookingId}`)
-      .pipe(catchError(e => throwError(() => extractError(e))));
-  }
 }

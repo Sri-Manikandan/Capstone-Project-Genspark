@@ -62,17 +62,5 @@ namespace EMSDALLibrary.Repositories
                 throw new DatabaseException($"Failed to queue emails. {ex.InnerException?.Message ?? ex.Message}", ex);
             }
         }
-
-        public async Task<bool> ExistsByDedupeKey(string dedupeKey)
-        {
-            try
-            {
-                return await _context.EmailOutbox.AnyAsync(e => e.DedupeKey == dedupeKey);
-            }
-            catch (Exception ex) when (ex is not LibraryException)
-            {
-                throw new DatabaseException("Failed to check email dedupe key.", ex);
-            }
-        }
     }
 }

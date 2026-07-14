@@ -76,22 +76,5 @@ namespace EMSDALLibrary.Repositories
                               ScreeningStartTime = s.StartTime
                           }).ToListAsync();
         }
-
-        public async Task<List<TicketHolderDto>> GetConfirmedTicketHoldersByEvent(int eventId)
-        {
-            return await (from b in _context.Bookings
-                          join u in _context.Users on b.UserId equals u.Id
-                          join s in _context.Screenings on b.ScreeningId equals s.Id
-                          where s.EventId == eventId && b.BookingStatus == "Confirmed"
-                          select new TicketHolderDto
-                          {
-                              BookingId = b.Id,
-                              BookingReference = b.BookingReference,
-                              UserEmail = u.Email,
-                              UserName = u.Name,
-                              ScreeningId = s.Id,
-                              ScreeningStartTime = s.StartTime
-                          }).ToListAsync();
-        }
     }
 }
