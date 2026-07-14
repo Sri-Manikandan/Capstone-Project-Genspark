@@ -10,6 +10,7 @@ import { LoadingSpinnerComponent } from '../../shared/components/loading-spinner
 import { AlertComponent } from '../../shared/components/alert/alert.component';
 import { FieldErrorComponent } from '../../shared/components/field-error/field-error.component';
 import { IstDatePipe } from '../../shared/pipes/ist-date.pipe';
+import { passwordComplexity } from '../../shared/validators/form-validators';
 
 @Component({
   selector: 'ems-profile',
@@ -172,16 +173,23 @@ export class ProfileComponent implements OnInit {
   }
 }
 
+// Sets `mismatch` on the confirm control rather than the group (the way `endAfterStart`
+// does), so the inline field error next to that input can render it.
 function passwordsMatch(group: AbstractControl): ValidationErrors | null {
   const next = group.get('newPassword')?.value;
-  const confirm = group.get('confirmPassword')?.value;
-  return next && confirm && next !== confirm ? { mismatch: true } : null;
-}
+  const confirmControl = group.get('confirmPassword');
+  const confirm = confirmControl?.value;
+  if (!confirmControl) return null;
 
-// Mirrors the backend InputValidator: an upper, a lower, a digit, and a special character.
-function passwordComplexity(control: AbstractControl): ValidationErrors | null {
-  const value: string = control.value ?? '';
-  if (!value) return null;
-  const hasComplexity = /[A-Z]/.test(value) && /[a-z]/.test(value) && /[0-9]/.test(value) && /[^a-zA-Z0-9]/.test(value);
-  return hasComplexity ? null : { complexity: true };
+  const existing = confirmControl.errors ?? {};
+  if (!next || !confirm || next === confirm) {
+    if (existing['mismatch']) {
+      const { mismatch: _removed, ...rest } = existing;
+      confirmControl.setErrors(Object.keys(rest).length ? rest : null);
+    }
+    return null;
+  }
+
+  confirmControl.setErrors({ ...existing, mismatch: true });
+  return { mismatch: true };
 }

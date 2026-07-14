@@ -91,6 +91,19 @@ export function notAfter(boundFn: () => string | null | undefined, key: string):
   };
 }
 
+/**
+ * Requires an uppercase, a lowercase, a digit, and a special character. Mirrors the
+ * backend `InputValidator.ValidatePassword`, which rejects anything weaker — without this
+ * the client accepts a password the API then refuses. Surfaces `{ complexity: true }`.
+ */
+export function passwordComplexity(control: AbstractControl): ValidationErrors | null {
+  const value: string = control.value ?? '';
+  if (!value) return null; // let `required` own the empty case
+  const hasComplexity =
+    /[A-Z]/.test(value) && /[a-z]/.test(value) && /[0-9]/.test(value) && /[^a-zA-Z0-9]/.test(value);
+  return hasComplexity ? null : { complexity: true };
+}
+
 /** Requires a numeric select to hold a positive id (0 is the placeholder option). */
 export function selectRequired(control: AbstractControl): ValidationErrors | null {
   return Number(control.value) > 0 ? null : { required: true };

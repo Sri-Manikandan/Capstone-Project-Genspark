@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { AlertComponent } from '../../../shared/components/alert/alert.component';
 import { FieldErrorComponent } from '../../../shared/components/field-error/field-error.component';
+import { passwordComplexity } from '../../../shared/validators/form-validators';
 
 @Component({
   selector: 'ems-reset-password',
@@ -22,7 +23,7 @@ export class ResetPasswordComponent {
   protected error = signal('');
   protected form = this.fb.nonNullable.group({
     token: [this.route.snapshot.queryParamMap.get('token') ?? '', Validators.required],
-    newPassword: ['', [Validators.required, Validators.minLength(8)]],
+    newPassword: ['', [Validators.required, Validators.minLength(8), passwordComplexity]],
   });
 
   submit(): void {

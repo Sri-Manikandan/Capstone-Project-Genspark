@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { AlertComponent } from '../../../shared/components/alert/alert.component';
 import { FieldErrorComponent } from '../../../shared/components/field-error/field-error.component';
+import { passwordComplexity } from '../../../shared/validators/form-validators';
 
 @Component({
   selector: 'ems-register',
@@ -24,7 +25,7 @@ export class RegisterComponent {
     name: ['', [Validators.required, Validators.minLength(2)]],
     email: ['', [Validators.required, Validators.email]],
     phone: ['', [Validators.required, Validators.pattern(/^\+?[0-9]{7,15}$/)]],
-    password: ['', [Validators.required, Validators.minLength(8)]],
+    password: ['', [Validators.required, Validators.minLength(8), passwordComplexity]],
   });
 
   submit(): void {

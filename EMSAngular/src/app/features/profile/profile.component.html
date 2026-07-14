@@ -105,8 +105,6 @@
             <span class="field-label">Confirm new password</span>
             <input type="password" formControlName="confirmPassword" autocomplete="new-password" class="field" />
             <ems-field-error [control]="passwordForm.controls.confirmPassword" label="Confirm password" />
-            <span *ngIf="passwordForm.controls.confirmPassword.touched && passwordForm.errors?.['mismatch']"
-                  class="mt-1 block text-xs text-rose">Passwords don't match.</span>
           </label>
           <div>
             <button type="submit" [disabled]="changingPassword()" class="btn-primary">Update password</button>

@@ -1,29 +1,49 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, input, signal } from '@angular/core';
 import { AbstractControl } from '@angular/forms';
 
 /**
  * Renders the first validation message for a reactive-form control once it has been
- * touched or edited. Uses default change detection (not OnPush) so the message updates
- * on blur/submit even when the host control reference has not changed.
+ * touched or edited.
+ *
+ * A control's touched/dirty/errors state is not a signal, so under this app's zoneless
+ * change detection nothing would re-render this view when validity changes. Subscribing
+ * to `control.events` and bumping `revision` is what makes the message reactive — without
+ * it the message is computed correctly but never reaches the DOM.
  */
 @Component({
   selector: 'ems-field-error',
   standalone: true,
-  template: `@if (message) {
-    <span class="mt-1 block text-xs text-rose">{{ message }}</span>
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `@if (message()) {
+    <span class="mt-1 block text-xs text-rose">{{ message() }}</span>
   }`,
 })
 export class FieldErrorComponent {
-  @Input({ required: true }) control!: AbstractControl | null;
-  @Input() label = 'This field';
+  readonly control = input.required<AbstractControl | null>();
+  readonly label = input('This field');
 
-  protected get message(): string | null {
-    const control = this.control;
+  /** Bumped on every control event so `message` recomputes. */
+  private readonly revision = signal(0);
+
+  constructor() {
+    effect((onCleanup) => {
+      const control = this.control();
+      if (!control) return;
+      const sub = control.events.subscribe(() => this.revision.update((n) => n + 1));
+      onCleanup(() => sub.unsubscribe());
+    });
+  }
+
+  protected readonly message = computed<string | null>(() => {
+    this.revision();
+
+    const control = this.control();
+    const label = this.label();
     if (!control || !(control.touched || control.dirty) || !control.errors) return null;
 
     const errors = control.errors;
-    if (errors['required']) return `${this.label} is required.`;
-    if (errors['notBlank']) return `${this.label} cannot be blank.`;
+    if (errors['required']) return `${label} is required.`;
+    if (errors['notBlank']) return `${label} cannot be blank.`;
     if (errors['email']) return 'Enter a valid email address.';
     if (errors['minlength']) return `Use at least ${errors['minlength'].requiredLength} characters.`;
     if (errors['maxlength']) return `Use at most ${errors['maxlength'].requiredLength} characters.`;
@@ -36,8 +56,8 @@ export class FieldErrorComponent {
     if (errors['saleAfterScreening']) return 'Ticket sales must end before the screening starts.';
     if (errors['outsideEventWindow']) return "Must fall within the event's start and end times.";
     if (errors['complexity']) return 'Include an uppercase, lowercase, number, and special character.';
-    if (errors['pattern']) return `Enter a valid ${this.label.toLowerCase()}.`;
+    if (errors['pattern']) return `Enter a valid ${label.toLowerCase()}.`;
     if (errors['mismatch']) return 'Values do not match.';
-    return `${this.label} is invalid.`;
-  }
+    return `${label} is invalid.`;
+  });
 }
