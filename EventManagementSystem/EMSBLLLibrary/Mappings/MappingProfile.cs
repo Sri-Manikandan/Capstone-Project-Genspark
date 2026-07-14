@@ -51,6 +51,11 @@ namespace EMSBLLLibrary.Mappings
                 .ForMember(dest => dest.Screen, opt => opt.Ignore())
                 .ForMember(dest => dest.ScreeningStartTime, opt => opt.Ignore())
                 .ForMember(dest => dest.Items, opt => opt.Ignore())
+                // The QR only admits at the door once payment has confirmed the booking, so it
+                // must not be exposed while the booking is still Pending (or Cancelled). Gating
+                // it here covers every read path (create, get-by-id, list) in one place.
+                .ForMember(d => d.QrCode, o => o.MapFrom(s =>
+                    s.BookingStatus == "Confirmed" || s.BookingStatus == "Attended" ? s.QrCode : string.Empty))
                 .ForMember(d => d.ExpiresAt, o => o.MapFrom(s => TimeHelper.UtcToIst(s.ExpiresAt)))
                 .ForMember(d => d.CreatedAt, o => o.MapFrom(s => TimeHelper.UtcToIst(s.CreatedAt)));
 

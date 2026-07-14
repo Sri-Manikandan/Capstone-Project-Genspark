@@ -17,23 +17,25 @@
     <ems-loading-spinner *ngIf="loading()" />
 
     <div *ngIf="!loading()" class="space-y-3">
-      <a *ngFor="let b of bookings()" [routerLink]="['/bookings', b.id]"
-         class="flex items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-5 transition hover:-translate-y-0.5 hover:shadow-card">
-        <div>
+      <div *ngFor="let b of bookings()"
+           class="flex items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-5 transition hover:-translate-y-0.5 hover:shadow-card">
+        <a [routerLink]="['/bookings', b.id]" class="min-w-0 flex-1">
           <p class="font-display text-lg font-semibold text-ink">{{ b.eventTitle }}</p>
           <p class="font-mono text-xs text-muted">{{ b.bookingReference }} · {{ b.createdAt | istDate }}</p>
-        </div>
+        </a>
         <div class="text-right">
           <span class="badge"
                 [class.bg-teal-tint]="b.bookingStatus === 'Confirmed'" [class.text-teal-dark]="b.bookingStatus === 'Confirmed'"
                 [class.bg-gold-tint]="b.bookingStatus === 'Pending'" [class.text-gold]="b.bookingStatus === 'Pending'"
                 [class.bg-rose-tint]="b.bookingStatus === 'Cancelled'" [class.text-rose-dark]="b.bookingStatus === 'Cancelled'"
                 [class.bg-paper]="b.bookingStatus === 'Attended'" [class.text-ink-soft]="b.bookingStatus === 'Attended'">
-            {{ b.bookingStatus }}
+            {{ b.bookingStatus === 'Pending' ? 'Payment pending' : b.bookingStatus }}
           </span>
           <p class="mt-1.5 font-mono text-sm text-ink">{{ b.totalAmount | inr }}</p>
+          <a *ngIf="b.bookingStatus === 'Pending'" [routerLink]="['/checkout', b.id]"
+             class="btn-primary mt-2 inline-block">Complete payment</a>
         </div>
-      </a>
+      </div>
       <div *ngIf="bookings().length === 0" class="card px-6 py-16 text-center">
         <p class="font-display text-xl text-ink">No bookings yet</p>
         <p class="mt-1 text-sm text-muted">When you book an event, your tickets show up here.</p>

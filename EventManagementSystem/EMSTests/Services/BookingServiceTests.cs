@@ -119,6 +119,53 @@ namespace EMSTests.Services
         }
 
         [Test]
+        public async Task Create_ExpiresWhenSeatReservationLapses_NotAFixedWindow()
+        {
+            var reservation = ActiveReservation(); // ReservedUntil = now + 10 min
+            Booking? captured = null;
+
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(PublishedEvent());
+            _ticketTypeRepo.Setup(r => r.GetById(1)).ReturnsAsync(ActiveTicket());
+            _reservationRepo.Setup(r => r.GetActiveByScreeningAndSeat(1, 1)).ReturnsAsync(reservation);
+            _seatRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeSeat());
+            _bookingRepo.Setup(r => r.Add(It.IsAny<Booking>())).ReturnsAsync((Booking b) => { captured = b; return b; });
+            _bookingItemRepo.Setup(r => r.Add(It.IsAny<BookingItem>())).ReturnsAsync((BookingItem bi) => bi);
+            _ticketTypeRepo.Setup(r => r.TryDecrementAvailableQuantity(1)).ReturnsAsync(true);
+            _reservationRepo.Setup(r => r.Update(It.IsAny<SeatReservation>())).ReturnsAsync(reservation);
+
+            await _sut.Create(1, new CreateBookingRequest
+            {
+                ScreeningId = 1,
+                Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
+            });
+
+            // The pending booking must expire exactly when its seat hold does, not 30 minutes out.
+            captured!.ExpiresAt.Should().Be(reservation.ReservedUntil);
+        }
+
+        [Test]
+        public async Task Create_DoesNotExposeQrWhileBookingIsPending()
+        {
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(PublishedEvent());
+            _ticketTypeRepo.Setup(r => r.GetById(1)).ReturnsAsync(ActiveTicket());
+            _reservationRepo.Setup(r => r.GetActiveByScreeningAndSeat(1, 1)).ReturnsAsync(ActiveReservation());
+            _seatRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeSeat());
+            _bookingRepo.Setup(r => r.Add(It.IsAny<Booking>())).ReturnsAsync((Booking b) => b);
+            _bookingItemRepo.Setup(r => r.Add(It.IsAny<BookingItem>())).ReturnsAsync((BookingItem bi) => bi);
+            _ticketTypeRepo.Setup(r => r.TryDecrementAvailableQuantity(1)).ReturnsAsync(true);
+            _reservationRepo.Setup(r => r.Update(It.IsAny<SeatReservation>())).ReturnsAsync(ActiveReservation());
+
+            var result = await _sut.Create(1, new CreateBookingRequest
+            {
+                ScreeningId = 1,
+                Items = new List<BookingItemRequest> { new BookingItemRequest { TicketTypeId = 1, SeatId = 1 } }
+            });
+
+            // A Pending (unpaid) booking must not carry a usable QR ticket.
+            result.QrCode.Should().BeNullOrEmpty();
+        }
+
+        [Test]
         public async Task Create_ScreeningNotFound_ThrowsNotFoundException()
         {
             _screeningRepo.Setup(r => r.GetById(99)).ReturnsAsync((Screening?)null);
@@ -270,6 +317,34 @@ namespace EMSTests.Services
             var result = await _sut.GetById(1, 1);
 
             result.Should().NotBeNull();
+        }
+
+        [Test]
+        public async Task GetById_ConfirmedBooking_ExposesQr()
+        {
+            var booking = MakeBooking(status: "Confirmed");
+            booking.QrCode = "QR-IMAGE-DATA";
+            _bookingRepo.Setup(r => r.GetById(1)).ReturnsAsync(booking);
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(PublishedEvent());
+            _bookingItemRepo.Setup(r => r.GetByBookingId(1)).ReturnsAsync(new List<BookingItem>());
+
+            var result = await _sut.GetById(1, 1);
+
+            result.QrCode.Should().Be("QR-IMAGE-DATA");
+        }
+
+        [Test]
+        public async Task GetById_PendingBooking_HidesQr()
+        {
+            var booking = MakeBooking(status: "Pending");
+            booking.QrCode = "QR-IMAGE-DATA";
+            _bookingRepo.Setup(r => r.GetById(1)).ReturnsAsync(booking);
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(PublishedEvent());
+            _bookingItemRepo.Setup(r => r.GetByBookingId(1)).ReturnsAsync(new List<BookingItem>());
+
+            var result = await _sut.GetById(1, 1);
+
+            result.QrCode.Should().BeNullOrEmpty();
         }
 
         [Test]

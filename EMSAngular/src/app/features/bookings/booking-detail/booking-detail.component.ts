@@ -42,6 +42,21 @@ export class BookingDetailComponent implements OnInit {
     return b.bookingStatus === 'Pending' || b.bookingStatus === 'Confirmed';
   }
 
+  // The QR ticket is only valid once payment has confirmed the booking.
+  protected isTicketReady(b: BookingDto): boolean {
+    return b.bookingStatus === 'Confirmed' || b.bookingStatus === 'Attended';
+  }
+
+  protected isAwaitingPayment(b: BookingDto): boolean {
+    return b.bookingStatus === 'Pending';
+  }
+
+  protected totalLabel(b: BookingDto): string {
+    if (this.isTicketReady(b)) return 'Total paid';
+    if (this.isAwaitingPayment(b)) return 'Amount due';
+    return 'Total';
+  }
+
   protected cancel(id: number): void {
     if (!confirm('Cancel this booking? Your seats are released and this cannot be undone.')) return;
     this.bookingService.cancel(id).subscribe({

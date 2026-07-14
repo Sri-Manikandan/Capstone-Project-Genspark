@@ -75,6 +75,9 @@ namespace EMSBLLLibrary.Services
                 throw new ValidationException("At least one ticket item is required.");
 
             decimal totalAmount = 0;
+            // The pending booking holds its seats only as long as their reservations do, so the
+            // payment window must end when the earliest seat hold lapses — not outlive it.
+            DateTime? holdUntil = null;
             foreach (var item in request.Items)
             {
                 var tt = await _ticketTypeRepo.GetById(item.TicketTypeId)
@@ -92,6 +95,9 @@ namespace EMSBLLLibrary.Services
 
                 if (reservation.UserId != userId)
                     throw new ValidationException($"Seat {item.SeatId} is reserved by another user.");
+
+                if (holdUntil == null || reservation.ReservedUntil < holdUntil)
+                    holdUntil = reservation.ReservedUntil;
 
                 var seat = await _seatRepo.GetById(item.SeatId)
                     ?? throw new NotFoundException($"Seat {item.SeatId} not found.");
@@ -113,7 +119,7 @@ namespace EMSBLLLibrary.Services
                 QrPayload = qrPayload,
                 TotalAmount = totalAmount,
                 BookingStatus = "Pending",
-                ExpiresAt = DateTime.UtcNow.AddMinutes(30)
+                ExpiresAt = holdUntil ?? DateTime.UtcNow
             };
             await _bookingRepo.Add(booking);
 
