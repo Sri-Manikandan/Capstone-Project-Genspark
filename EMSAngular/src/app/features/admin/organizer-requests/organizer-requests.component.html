@@ -23,8 +23,13 @@
             <td><span class="font-medium text-ink">{{ r.userName }}</span><br /><span class="text-muted">{{ r.userEmail }}</span></td>
             <td class="font-mono text-xs">{{ r.requestedAt | istDate }}</td>
             <td>
-              <button (click)="approve(r.id)" class="link-go mr-3">Approve</button>
-              <button (click)="reject(r.id)" class="link-danger">Reject</button>
+              <ng-container *ngIf="r.status === 'Pending'; else decided">
+                <button (click)="approve(r.id)" class="link-go mr-3">Approve</button>
+                <button (click)="reject(r.id)" class="link-danger">Reject</button>
+              </ng-container>
+              <ng-template #decided>
+                <span class="badge">{{ r.status }}</span>
+              </ng-template>
             </td>
           </tr>
         </tbody>

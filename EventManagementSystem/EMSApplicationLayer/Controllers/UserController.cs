@@ -80,7 +80,7 @@ namespace EMSApplicationLayer.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Deactivate(int id)
         {
-            await _userService.Deactivate(id);
+            await _userService.Deactivate(id, ClaimsHelper.GetUserId(User));
             return NoContent();
         }
 

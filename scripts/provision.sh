@@ -101,10 +101,19 @@ helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx >/dev/nul
 helm repo add jetstack https://charts.jetstack.io >/dev/null
 helm repo update >/dev/null
 
+# The health-probe path annotation is REQUIRED on AKS and is not a nicety.
+# Azure's HTTP load-balancer probe only accepts a 200. By default it probes the ingress
+# node port at "/", where nginx returns 404 — so the probe fails, the LB marks the node
+# unhealthy, and every inbound packet is silently dropped. The symptom is a total connection
+# timeout on 80/443 while every Kubernetes object looks perfectly healthy, and it also fails
+# the Let's Encrypt HTTP-01 challenge ("Timeout during connect (likely firewall problem)"),
+# which sends you hunting through NSG rules that turn out to be correct.
+# nginx serves /healthz with a 200; point the probe there.
 helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
   --namespace ingress-nginx --create-namespace \
   --set controller.replicaCount=1 \
   --set controller.resources.requests.memory=128Mi \
+  --set-string controller.service.annotations."service\.beta\.kubernetes\.io/azure-load-balancer-health-probe-request-path"=/healthz \
   --force-conflicts \
   --wait --timeout 10m
 

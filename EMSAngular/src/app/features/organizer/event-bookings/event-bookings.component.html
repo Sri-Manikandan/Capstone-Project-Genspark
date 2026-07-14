@@ -14,7 +14,7 @@
             <td class="font-mono text-xs text-ink">{{ b.bookingReference }}</td>
             <td><span class="badge bg-paper text-ink-soft">{{ b.bookingStatus }}</span></td>
             <td>{{ b.items.length }}</td>
-            <td class="font-mono">₹{{ b.totalAmount }}</td>
+            <td class="font-mono">{{ b.totalAmount | inr }}</td>
             <td class="font-mono text-xs">{{ b.createdAt | istDate }}</td>
           </tr>
         </tbody>

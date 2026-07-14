@@ -298,7 +298,7 @@ namespace EMSTests.Services
             _userRepo.Setup(r => r.Update(It.IsAny<User>())).ReturnsAsync(user);
             _refreshTokenRepo.Setup(r => r.RevokeByUserId(1)).Returns(Task.CompletedTask);
 
-            await _sut.Deactivate(1);
+            await _sut.Deactivate(1, actingAdminId: 2);
 
             _userRepo.Verify(r => r.Update(It.Is<User>(u => !u.IsActive)), Times.Once);
         }
@@ -308,7 +308,63 @@ namespace EMSTests.Services
         {
             _userRepo.Setup(r => r.GetById(99)).ReturnsAsync((User?)null);
 
-            await _sut.Invoking(s => s.Deactivate(99)).Should().ThrowAsync<NotFoundException>();
+            await _sut.Invoking(s => s.Deactivate(99, actingAdminId: 2)).Should().ThrowAsync<NotFoundException>();
+        }
+
+        [Test]
+        public async Task Deactivate_Self_Throws_AndLeavesAccountActive()
+        {
+            var admin = MakeUser(id: 1, role: "Admin");
+            _userRepo.Setup(r => r.GetById(1)).ReturnsAsync(admin);
+
+            await _sut.Invoking(s => s.Deactivate(1, actingAdminId: 1))
+                .Should().ThrowAsync<ValidationException>();
+
+            _userRepo.Verify(r => r.Update(It.IsAny<User>()), Times.Never);
+        }
+
+        [Test]
+        public async Task Deactivate_LastActiveAdmin_Throws_AndLeavesAccountActive()
+        {
+            // Another admin is acting, so the self-check passes — only the last-admin
+            // guard stands between this call and locking everyone out of the admin area.
+            var target = MakeUser(id: 1, role: "Admin");
+            _userRepo.Setup(r => r.GetById(1)).ReturnsAsync(target);
+            _userRepo.Setup(r => r.GetAdmins()).ReturnsAsync(new List<User> { target });
+
+            await _sut.Invoking(s => s.Deactivate(1, actingAdminId: 2))
+                .Should().ThrowAsync<ValidationException>();
+
+            _userRepo.Verify(r => r.Update(It.IsAny<User>()), Times.Never);
+        }
+
+        [Test]
+        public async Task Deactivate_AdminWithAnotherAdminRemaining_Succeeds()
+        {
+            var target = MakeUser(id: 1, role: "Admin");
+            var other = MakeUser(id: 2, role: "Admin");
+            _userRepo.Setup(r => r.GetById(1)).ReturnsAsync(target);
+            _userRepo.Setup(r => r.GetAdmins()).ReturnsAsync(new List<User> { target, other });
+            _userRepo.Setup(r => r.Update(It.IsAny<User>())).ReturnsAsync(target);
+            _refreshTokenRepo.Setup(r => r.RevokeByUserId(1)).Returns(Task.CompletedTask);
+
+            await _sut.Deactivate(1, actingAdminId: 2);
+
+            _userRepo.Verify(r => r.Update(It.Is<User>(u => !u.IsActive)), Times.Once);
+        }
+
+        [Test]
+        public async Task DeactivateSelf_LastActiveAdmin_Throws()
+        {
+            // The profile "Danger zone" is the other route into the same lockout.
+            var admin = MakeUser(id: 1, role: "Admin");
+            _userRepo.Setup(r => r.GetById(1)).ReturnsAsync(admin);
+            _userRepo.Setup(r => r.GetAdmins()).ReturnsAsync(new List<User> { admin });
+
+            await _sut.Invoking(s => s.DeactivateSelf(1, "Pass@1234"))
+                .Should().ThrowAsync<ValidationException>();
+
+            _userRepo.Verify(r => r.Update(It.IsAny<User>()), Times.Never);
         }
 
         [Test]

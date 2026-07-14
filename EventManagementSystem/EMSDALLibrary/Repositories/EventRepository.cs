@@ -78,7 +78,12 @@ namespace EMSDALLibrary.Repositories
             var q = _context.Events.AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(query))
-                q = q.Where(e => e.Title.Contains(query) || e.Description.Contains(query));
+            {
+                // ILIKE, not Contains: Contains maps to a case-sensitive LIKE on Postgres,
+                // so searching "leo" would miss the event titled "Leo".
+                var pattern = LikePattern.Contains(query);
+                q = q.Where(e => EF.Functions.ILike(e.Title, pattern) || EF.Functions.ILike(e.Description, pattern));
+            }
             if (!string.IsNullOrWhiteSpace(category))
                 q = q.Where(e => e.Category == category);
             if (!string.IsNullOrWhiteSpace(city))

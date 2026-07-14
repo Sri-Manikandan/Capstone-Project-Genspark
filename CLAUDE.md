@@ -217,7 +217,7 @@ constructor(private eventService: EventService) {}
 - All HTTP calls go through domain services in `core/services/` (e.g., `EventService`, `BookingService`)
 - The `JwtInterceptor` in `core/interceptors/` attaches the `Authorization: Bearer <token>` header
 - API base URL is set in `environments/environment.ts` / `environment.prod.ts`
-- The backend API runs at `http://localhost:5062` in development (check `EventManagementSystem/EMSApplicationLayer/Properties/launchSettings.json` for the exact port)
+- The backend API runs at `http://localhost:5222` in development (check `EventManagementSystem/EMSApplicationLayer/Properties/launchSettings.json` for the exact port); `EMSAngular/proxy.conf.json` proxies `/api` and `/hubs` there, which is why `environment.ts` sets an empty `apiBaseUrl`
 - SignalR hub is at `/hubs/seats`; use `@microsoft/signalr` package for real-time seat updates
 
 ### Auth

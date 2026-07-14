@@ -8,11 +8,12 @@ import { LoadingSpinnerComponent } from '../../../shared/components/loading-spin
 import { AlertComponent } from '../../../shared/components/alert/alert.component';
 import { ModalComponent } from '../../../shared/components/modal/modal.component';
 import { IstDatePipe } from '../../../shared/pipes/ist-date.pipe';
+import { StatusLabelPipe } from '../../../shared/pipes/status-label.pipe';
 
 @Component({
   selector: 'ems-organizer-event-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, PaginationComponent, LoadingSpinnerComponent, AlertComponent, ModalComponent, IstDatePipe],
+  imports: [CommonModule, RouterLink, PaginationComponent, LoadingSpinnerComponent, AlertComponent, ModalComponent, IstDatePipe, StatusLabelPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './organizer-event-list.component.html',
 })

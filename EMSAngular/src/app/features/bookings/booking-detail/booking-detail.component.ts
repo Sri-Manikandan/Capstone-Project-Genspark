@@ -43,6 +43,7 @@ export class BookingDetailComponent implements OnInit {
   }
 
   protected cancel(id: number): void {
+    if (!confirm('Cancel this booking? Your seats are released and this cannot be undone.')) return;
     this.bookingService.cancel(id).subscribe({
       next: () => {
         this.toast.success('Ticket successfully canceled.');

@@ -17,7 +17,7 @@
           <tr *ngFor="let ev of events()">
             <td class="font-medium text-ink">{{ ev.title }}</td>
             <td class="font-mono text-xs">{{ ev.startTime | istDate }}</td>
-            <td><span class="badge bg-paper text-ink-soft">{{ ev.status }}</span></td>
+            <td><span class="badge bg-paper text-ink-soft">{{ ev.status | statusLabel }}</span></td>
             <td>
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <a [routerLink]="['/organizer/events', ev.id, 'edit']" class="link-action">Edit</a>

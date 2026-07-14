@@ -90,7 +90,7 @@ namespace EMSApplicationLayer.Controllers
         [HttpDelete("users/{id:int}")]
         public async Task<IActionResult> DeactivateUser(int id)
         {
-            await _userService.Deactivate(id);
+            await _userService.Deactivate(id, ClaimsHelper.GetUserId(User));
             return NoContent();
         }
     }

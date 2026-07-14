@@ -9,7 +9,7 @@ namespace EMSBLLLibrary.Interfaces
         Task<UserDto> Update(int id, UpdateUserRequest request);
         Task ChangePassword(int id, ChangePasswordRequest request);
         Task ChangeEmail(int id, ChangeEmailRequest request);
-        Task Deactivate(int id);
+        Task Deactivate(int id, int actingAdminId);
         Task DeactivateSelf(int id, string password);
 
         // Organizer role requests (user-facing)

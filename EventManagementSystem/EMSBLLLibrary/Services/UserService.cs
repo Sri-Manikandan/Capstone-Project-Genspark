@@ -97,10 +97,16 @@ namespace EMSBLLLibrary.Services
             await _refreshTokenRepo.RevokeByUserId(id);
         }
 
-        public async Task Deactivate(int id)
+        public async Task Deactivate(int id, int actingAdminId)
         {
             var user = await _userRepo.GetById(id)
                 ?? throw new NotFoundException($"User {id} not found.");
+
+            if (id == actingAdminId)
+                throw new ValidationException("You cannot deactivate your own account.");
+
+            await EnsureNotLastActiveAdmin(user);
+
             user.IsActive = false;
             user.UpdatedAt = DateTime.UtcNow;
             await _userRepo.Update(user);
@@ -115,10 +121,25 @@ namespace EMSBLLLibrary.Services
             if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
                 throw new ValidationException("Password is incorrect.");
 
+            await EnsureNotLastActiveAdmin(user);
+
             user.IsActive = false;
             user.UpdatedAt = DateTime.UtcNow;
             await _userRepo.Update(user);
             await _refreshTokenRepo.RevokeByUserId(id);
+        }
+
+        // Deactivating the only remaining admin locks everyone out of event approvals,
+        // organizer requests, user and venue admin — with no way back in through the app.
+        private async Task EnsureNotLastActiveAdmin(User user)
+        {
+            if (user.Role != "Admin" || !user.IsActive)
+                return;
+
+            var activeAdmins = await _userRepo.GetAdmins();
+            if (activeAdmins.Count <= 1)
+                throw new ValidationException(
+                    "This is the last active admin account. Promote another admin before deactivating it.");
         }
 
         public async Task<OrganizerRequestDto> RequestOrganizerRole(int userId)

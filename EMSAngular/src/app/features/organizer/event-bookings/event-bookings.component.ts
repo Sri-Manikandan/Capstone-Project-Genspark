@@ -8,12 +8,13 @@ import { PaginationComponent } from '../../../shared/components/pagination/pagin
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner/loading-spinner.component';
 import { AlertComponent } from '../../../shared/components/alert/alert.component';
 import { IstDatePipe } from '../../../shared/pipes/ist-date.pipe';
+import { CurrencyInrPipe } from '../../../shared/pipes/currency-inr.pipe';
 import { OrganizerEventNavComponent } from '../event-nav/organizer-event-nav.component';
 
 @Component({
   selector: 'ems-event-bookings',
   standalone: true,
-  imports: [CommonModule, PaginationComponent, LoadingSpinnerComponent, AlertComponent, IstDatePipe, OrganizerEventNavComponent],
+  imports: [CommonModule, PaginationComponent, LoadingSpinnerComponent, AlertComponent, IstDatePipe, CurrencyInrPipe, OrganizerEventNavComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './event-bookings.component.html',
 })

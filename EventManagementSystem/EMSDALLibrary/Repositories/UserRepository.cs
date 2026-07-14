@@ -23,7 +23,12 @@ namespace EMSDALLibrary.Repositories
         {
             var q = _context.Users.AsQueryable();
             if (!string.IsNullOrWhiteSpace(query))
-                q = q.Where(u => u.Name.Contains(query) || u.Email.Contains(query));
+            {
+                // ILIKE, not Contains: Contains maps to a case-sensitive LIKE on Postgres,
+                // so searching "wilson" would miss "Emma Wilson".
+                var pattern = LikePattern.Contains(query);
+                q = q.Where(u => EF.Functions.ILike(u.Name, pattern) || EF.Functions.ILike(u.Email, pattern));
+            }
             if (!string.IsNullOrWhiteSpace(role))
                 q = q.Where(u => u.Role == role);
             if (isActive.HasValue)
