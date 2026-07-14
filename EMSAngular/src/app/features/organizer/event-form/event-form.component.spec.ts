@@ -5,36 +5,40 @@ import { EventFormComponent } from './event-form.component';
 import { EventService } from '../../../core/services/event.service';
 import { VenueService } from '../../../core/services/venue.service';
 import { SeatService } from '../../../core/services/seat.service';
-import { ScreeningService } from '../../../core/services/screening.service';
-import { TicketTypeService } from '../../../core/services/ticket-type.service';
 import { ToastService } from '../../../core/services/toast.service';
 
 describe('EventFormComponent (create mode)', () => {
   let fixture: ComponentFixture<EventFormComponent>;
   let component: EventFormComponent;
-  let eventService: { create: ReturnType<typeof vi.fn> };
+  let eventService: { createWithScreenings: ReturnType<typeof vi.fn> };
   let seatService: { getByVenue: ReturnType<typeof vi.fn> };
-  let screeningService: { getByEvent: ReturnType<typeof vi.fn> };
-  let ticketTypeService: { create: ReturnType<typeof vi.fn> };
+  let toast: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
 
+  // Screen A: VIP + Normal. Screen B: Premium + Normal. The only type common to both is Normal.
   const seats = [
     { id: 1, venueId: 1, section: 'A', row: '1', seatNumber: 1, seatType: 'VIP' },
-    { id: 2, venueId: 1, section: 'B', row: '1', seatNumber: 1, seatType: 'General' },
+    { id: 2, venueId: 1, section: 'A', row: '1', seatNumber: 2, seatType: 'Normal' },
+    { id: 3, venueId: 1, section: 'B', row: '1', seatNumber: 1, seatType: 'Premium' },
+    { id: 4, venueId: 1, section: 'B', row: '1', seatNumber: 2, seatType: 'Normal' },
+    { id: 5, venueId: 1, section: 'B', row: '1', seatNumber: 3, seatType: 'Normal' },
   ];
 
-  function fillEvent(): void {
+  function fillBaseFields(): void {
     component.form.patchValue({
       venueId: 1, title: 'My Event', description: 'A great event',
-      startTime: '2999-07-01T19:00', endTime: '2999-07-01T22:00',
-      imageUrl: 'https://img/x.jpg', category: 'Music', screen: 'Screen 1',
+      imageUrl: 'https://img/x.jpg', category: 'Music',
     });
   }
 
+  function setShowtime(index: number, screen: string, start: string, end: string): void {
+    component['showtimes'].at(index).setValue({ screen, startTime: start, endTime: end });
+    component['onShowtimeScreenChange']();
+  }
+
   beforeEach(async () => {
-    eventService = { create: vi.fn().mockReturnValue(of({ id: 9 })) };
+    eventService = { createWithScreenings: vi.fn().mockReturnValue(of({ id: 9 })) };
     seatService = { getByVenue: vi.fn().mockReturnValue(of(seats)) };
-    screeningService = { getByEvent: vi.fn().mockReturnValue(of([{ id: 5, eventId: 9, screen: '', startTime: '', endTime: '', status: 'Scheduled' }])) };
-    ticketTypeService = { create: vi.fn().mockReturnValue(of({ id: 1 })) };
+    toast = { success: vi.fn(), error: vi.fn() };
 
     await TestBed.configureTestingModule({
       imports: [EventFormComponent],
@@ -44,9 +48,7 @@ describe('EventFormComponent (create mode)', () => {
         { provide: EventService, useValue: eventService },
         { provide: VenueService, useValue: { list: () => of([{ id: 1, name: 'Hall', address: '', city: 'X', totalCapacity: 10, layoutConfig: '', createdAt: '' }]) } },
         { provide: SeatService, useValue: seatService },
-        { provide: ScreeningService, useValue: screeningService },
-        { provide: TicketTypeService, useValue: ticketTypeService },
-        { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn() } },
+        { provide: ToastService, useValue: toast },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(EventFormComponent);
@@ -54,82 +56,80 @@ describe('EventFormComponent (create mode)', () => {
     fixture.detectChanges();
   });
 
-  it('loads venues and is in create mode', () => {
+  it('is in create mode and starts with one showtime and one category', () => {
     expect(component['isEdit']()).toBe(false);
-    expect(component['venues']().length).toBe(1);
-  });
-
-  it('starts with one blank ticket category', () => {
+    expect(component['showtimes'].length).toBe(1);
     expect(component['categories'].length).toBe(1);
   });
 
-  it('shows the 48-hour lead-time disclaimer', () => {
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('at least 2 days (48 hours) in advance');
-  });
-
-  it('marks the start time invalid when it is within 48 hours', () => {
-    const soon = new Date(Date.now() + 24 * 60 * 60_000).toISOString().slice(0, 16);
-    component.form.controls.startTime.setValue(soon);
-    expect(component.form.controls.startTime.hasError('minLeadTime')).toBe(true);
-  });
-
-  it('accepts a start time at least 48 hours out', () => {
-    const later = new Date(Date.now() + 72 * 60 * 60_000).toISOString().slice(0, 16);
-    component.form.controls.startTime.setValue(later);
-    expect(component.form.controls.startTime.hasError('minLeadTime')).toBe(false);
-  });
-
-  it('loads distinct seat types when a venue is chosen', () => {
+  it('loads the venue screens when a venue is chosen', () => {
     component['onVenueChange'](1);
     expect(seatService.getByVenue).toHaveBeenCalledWith(1);
-    expect(component['seatTypes']()).toEqual(['General', 'VIP']);
+    expect(component['screens']()).toEqual(['A', 'B']);
   });
 
-  it('does not submit when the form is invalid', () => {
-    component.submit();
-    expect(eventService.create).not.toHaveBeenCalled();
-  });
-
-  it('does not submit when no ticket category has been added', () => {
-    fillEvent();
-    component['removeCategory'](0);
-    component.submit();
-    expect(eventService.create).not.toHaveBeenCalled();
-  });
-
-  it('reports the seat type capacity read-only, without a quantity control', () => {
+  it('offers only seat types shared by every selected screen', () => {
     component['onVenueChange'](1);
-    expect(component['capacityFor']('VIP')).toBe(1);
-    expect(component['categories'].at(0).get('totalQuantity')).toBeNull();
+    // One screen A → both of A's types.
+    setShowtime(0, 'A', '2999-07-01T18:00', '2999-07-01T21:00');
+    expect(component['seatTypes']()).toEqual(['Normal', 'VIP']);
+
+    // Add screen B → intersection is just Normal.
+    component['addShowtime']();
+    setShowtime(1, 'B', '2999-07-02T18:00', '2999-07-02T21:00');
+    expect(component['seatTypes']()).toEqual(['Normal']);
+    expect(component['totalCapacityFor']('Normal')).toBe(3); // 1 on A + 2 on B
   });
 
-  it('creates the event, then a ticket type on the default screening, then navigates', () => {
+  it('creates the event with one showtime per screening and shared categories', () => {
     const router = TestBed.inject(Router);
     const nav = vi.spyOn(router, 'navigate');
-    fillEvent();
+    fillBaseFields();
+    component['onVenueChange'](1);
+    setShowtime(0, 'A', '2999-07-01T18:00', '2999-07-01T21:00');
+    component['addShowtime']();
+    setShowtime(1, 'B', '2999-07-02T18:00', '2999-07-02T21:00');
+    component['categories'].at(0).setValue({ name: 'Standard', seatType: 'Normal', price: 200 });
+
+    component.submit();
+
+    expect(eventService.createWithScreenings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        venueId: 1, title: 'My Event', category: 'Music',
+        showtimes: [
+          { screen: 'A', startTime: '2999-07-01T18:00', endTime: '2999-07-01T21:00' },
+          { screen: 'B', startTime: '2999-07-02T18:00', endTime: '2999-07-02T21:00' },
+        ],
+        ticketCategories: [{ name: 'Standard', seatType: 'Normal', price: 200 }],
+      }),
+    );
+    expect(nav).toHaveBeenCalledWith(['/organizer/events']);
+  });
+
+  it('blocks submission when a screen has overlapping showtimes', () => {
+    fillBaseFields();
+    component['onVenueChange'](1);
+    setShowtime(0, 'A', '2999-07-01T18:00', '2999-07-01T21:00');
+    component['addShowtime']();
+    setShowtime(1, 'A', '2999-07-01T20:00', '2999-07-01T22:00'); // overlaps the first on A
     component['categories'].at(0).setValue({ name: 'VIP', seatType: 'VIP', price: 500 });
 
     component.submit();
 
-    expect(eventService.create).toHaveBeenCalled();
-    expect(screeningService.getByEvent).toHaveBeenCalledWith(9);
-    expect(ticketTypeService.create).toHaveBeenCalledWith(
-      expect.objectContaining({ screeningId: 5, name: 'VIP', seatType: 'VIP', price: 500, saleEnd: '2999-07-01T19:00' }),
-    );
-    expect(ticketTypeService.create.mock.calls[0][0]).not.toHaveProperty('totalQuantity');
-    expect(nav).toHaveBeenCalledWith(['/organizer/events']);
+    expect(eventService.createWithScreenings).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('overlapping'));
   });
 
-  it('does not submit when two categories use the same seat type', () => {
-    fillEvent();
+  it('blocks submission when two categories share a seat type', () => {
+    fillBaseFields();
     component['onVenueChange'](1);
-    component['categories'].at(0).setValue({ name: 'VIP A', seatType: 'VIP', price: 500 });
+    setShowtime(0, 'A', '2999-07-01T18:00', '2999-07-01T21:00');
+    component['categories'].at(0).setValue({ name: 'A', seatType: 'VIP', price: 500 });
     component['addCategory']();
-    component['categories'].at(1).setValue({ name: 'VIP B', seatType: 'VIP', price: 600 });
+    component['categories'].at(1).setValue({ name: 'B', seatType: 'VIP', price: 600 });
 
     component.submit();
 
-    expect(eventService.create).not.toHaveBeenCalled();
+    expect(eventService.createWithScreenings).not.toHaveBeenCalled();
   });
 });

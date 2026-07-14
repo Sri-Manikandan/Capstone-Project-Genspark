@@ -22,6 +22,7 @@ namespace EMSTests.Services
         private Mock<IUserRepository> _userRepo = null!;
         private Mock<ITicketTypeRepository> _ticketTypeRepo = null!;
         private Mock<IBookingRepository> _bookingRepo = null!;
+        private Mock<ISeatRepository> _seatRepo = null!;
         private Mock<IEmailQueue> _emailQueue = null!;
         private IMapper _mapper = null!;
         private EventService _sut = null!;
@@ -43,13 +44,14 @@ namespace EMSTests.Services
             _userRepo = new Mock<IUserRepository>();
             _ticketTypeRepo = new Mock<ITicketTypeRepository>();
             _bookingRepo = new Mock<IBookingRepository>();
+            _seatRepo = new Mock<ISeatRepository>();
             _emailQueue = new Mock<IEmailQueue>();
             _screeningRepo.Setup(r => r.GetByEventId(It.IsAny<int>())).ReturnsAsync(new List<Screening>());
             _bookingRepo.Setup(r => r.GetByEventId(It.IsAny<int>())).ReturnsAsync(new List<Booking>());
             _userRepo.Setup(r => r.GetAdmins()).ReturnsAsync(new List<User>());
             _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
             _sut = new EventService(_eventRepo.Object, _venueRepo.Object, _screeningRepo.Object,
-                _userRepo.Object, _ticketTypeRepo.Object, _bookingRepo.Object, _mapper, _emailQueue.Object);
+                _userRepo.Object, _ticketTypeRepo.Object, _bookingRepo.Object, _seatRepo.Object, _mapper, _emailQueue.Object);
         }
 
         // ── Approval emails ──────────────────────────────────────────────────────
@@ -891,6 +893,130 @@ namespace EMSTests.Services
 
             saved!.Screen.Should().Be("Screen 2");
             result.Screen.Should().Be("Screen 2");
+        }
+
+        // ── CreateWithScreenings (multi-screen / multi-showtime) ──────────────────
+
+        private static readonly DateTime IstStart = DateTime.UtcNow.AddDays(10);
+        private static readonly DateTime IstEnd = DateTime.UtcNow.AddDays(10).AddHours(3);
+
+        private static EventShowtimeRequest Showtime(string screen, DateTime start, DateTime end)
+            => new EventShowtimeRequest { Screen = screen, StartTime = start, EndTime = end };
+
+        private CreateEventWithScreeningsRequest MultiScreenRequest(
+            List<EventShowtimeRequest> showtimes, List<EventTicketCategoryRequest>? categories = null)
+            => new CreateEventWithScreeningsRequest
+            {
+                VenueId = 1, Title = "Multi Show", Description = ValidDescription,
+                Category = ValidCategory, ImageUrl = ValidImageUrl,
+                Showtimes = showtimes,
+                TicketCategories = categories ?? new List<EventTicketCategoryRequest>
+                {
+                    new EventTicketCategoryRequest { Name = "VIP", SeatType = "VIP", Price = 500 }
+                }
+            };
+
+        [Test]
+        public async Task CreateWithScreenings_CreatesAScreeningPerShowtime_WithPerScreenSharedTicketQuantities()
+        {
+            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(new Venue { Id = 1, Name = "V", TotalCapacity = 1000 });
+            _seatRepo.Setup(r => r.CountByVenueSectionAndType(1, "A", "VIP")).ReturnsAsync(40);
+            _seatRepo.Setup(r => r.CountByVenueSectionAndType(1, "B", "VIP")).ReturnsAsync(30);
+
+            Event? savedEvent = null;
+            var screenings = new List<Screening>();
+            var tickets = new List<TicketType>();
+            _eventRepo.Setup(r => r.Add(It.IsAny<Event>())).ReturnsAsync((Event e) => { savedEvent = e; return e; });
+            _screeningRepo.Setup(r => r.Add(It.IsAny<Screening>())).ReturnsAsync((Screening s) => { screenings.Add(s); return s; });
+            _ticketTypeRepo.Setup(r => r.Add(It.IsAny<TicketType>())).ReturnsAsync((TicketType t) => { tickets.Add(t); return t; });
+
+            // Screen A runs twice, Screen B once.
+            var req = MultiScreenRequest(new List<EventShowtimeRequest>
+            {
+                Showtime("A", IstStart, IstEnd),
+                Showtime("B", IstStart.AddDays(1), IstEnd.AddDays(1)),
+                Showtime("A", IstStart.AddDays(2), IstEnd.AddDays(2)),
+            });
+
+            await _sut.CreateWithScreenings(10, req);
+
+            screenings.Select(s => s.Screen).Should().Equal("A", "B", "A");
+            // Each screening gets the shared VIP category, quantity from that screen's seats.
+            tickets.Select(t => t.TotalQuantity).Should().Equal(40, 30, 40);
+            tickets.Should().OnlyContain(t => t.SeatType == "VIP" && t.AvailableQuantity == t.TotalQuantity);
+            // IST wall-clock is converted to UTC for storage; the event window spans all showtimes.
+            screenings[0].StartTime.Should().Be(EMSBLLLibrary.Helpers.TimeHelper.AssumeIstToUtc(IstStart));
+            savedEvent!.StartTime.Should().Be(EMSBLLLibrary.Helpers.TimeHelper.AssumeIstToUtc(IstStart));
+            savedEvent!.EndTime.Should().Be(EMSBLLLibrary.Helpers.TimeHelper.AssumeIstToUtc(IstEnd.AddDays(2)));
+        }
+
+        [Test]
+        public async Task CreateWithScreenings_Throws_WhenSeatTypeMissingOnAScreen_AndCreatesNothing()
+        {
+            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(new Venue { Id = 1, Name = "V", TotalCapacity = 1000 });
+            _seatRepo.Setup(r => r.CountByVenueSectionAndType(1, "A", "VIP")).ReturnsAsync(40);
+            _seatRepo.Setup(r => r.CountByVenueSectionAndType(1, "B", "VIP")).ReturnsAsync(0);
+
+            var req = MultiScreenRequest(new List<EventShowtimeRequest>
+            {
+                Showtime("A", IstStart, IstEnd),
+                Showtime("B", IstStart, IstEnd),
+            });
+
+            await _sut.Invoking(s => s.CreateWithScreenings(10, req))
+                .Should().ThrowAsync<ValidationException>().WithMessage("*No seats of type 'VIP'*screen 'B'*");
+            _eventRepo.Verify(r => r.Add(It.IsAny<Event>()), Times.Never);
+        }
+
+        [Test]
+        public async Task CreateWithScreenings_Throws_WhenSameScreenHasOverlappingShowtimes()
+        {
+            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(new Venue { Id = 1, Name = "V", TotalCapacity = 1000 });
+
+            var req = MultiScreenRequest(new List<EventShowtimeRequest>
+            {
+                Showtime("A", IstStart, IstStart.AddHours(3)),
+                Showtime("A", IstStart.AddHours(1), IstStart.AddHours(4)),
+            });
+
+            await _sut.Invoking(s => s.CreateWithScreenings(10, req))
+                .Should().ThrowAsync<ValidationException>().WithMessage("*overlapping*");
+            _eventRepo.Verify(r => r.Add(It.IsAny<Event>()), Times.Never);
+        }
+
+        [Test]
+        public async Task CreateWithScreenings_Throws_WhenAShowtimeIsWithinTheLeadTime()
+        {
+            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(new Venue { Id = 1, Name = "V", TotalCapacity = 1000 });
+            var soon = DateTime.UtcNow.AddHours(1);
+            var req = MultiScreenRequest(new List<EventShowtimeRequest> { Showtime("A", soon, soon.AddHours(2)) });
+
+            await _sut.Invoking(s => s.CreateWithScreenings(10, req))
+                .Should().ThrowAsync<ValidationException>().WithMessage("*48 hours*");
+        }
+
+        [Test]
+        public async Task CreateWithScreenings_Throws_WhenTwoCategoriesShareASeatType()
+        {
+            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(new Venue { Id = 1, Name = "V", TotalCapacity = 1000 });
+            var req = MultiScreenRequest(
+                new List<EventShowtimeRequest> { Showtime("A", IstStart, IstEnd) },
+                new List<EventTicketCategoryRequest>
+                {
+                    new EventTicketCategoryRequest { Name = "VIP One", SeatType = "VIP", Price = 500 },
+                    new EventTicketCategoryRequest { Name = "VIP Two", SeatType = "vip", Price = 600 },
+                });
+
+            await _sut.Invoking(s => s.CreateWithScreenings(10, req))
+                .Should().ThrowAsync<ValidationException>().WithMessage("*only one*");
+        }
+
+        [Test]
+        public async Task CreateWithScreenings_Throws_WhenNoShowtimes()
+        {
+            var req = MultiScreenRequest(new List<EventShowtimeRequest>());
+            await _sut.Invoking(s => s.CreateWithScreenings(10, req))
+                .Should().ThrowAsync<ValidationException>().WithMessage("*At least one showtime*");
         }
     }
 }

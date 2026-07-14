@@ -163,4 +163,62 @@ namespace EMSModelLibrary.DTOs
         [Range(1, 100)]
         public int PageSize { get; set; } = 10;
     }
+
+    // Create an event across one or more showtimes. Each showtime becomes its own screening
+    // (a screen may repeat with different times); the ticket categories are shared and applied
+    // to every screening, with each screening's quantity taken from that screen's seats.
+    public class CreateEventWithScreeningsRequest
+    {
+        [Range(1, int.MaxValue)]
+        public int VenueId { get; set; }
+
+        [Required]
+        [StringLength(200, MinimumLength = 2)]
+        public string Title { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(2000, MinimumLength = 1)]
+        public string Description { get; set; } = string.Empty;
+
+        [Required]
+        [Url]
+        public string ImageUrl { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(100, MinimumLength = 2)]
+        public string Category { get; set; } = string.Empty;
+
+        public List<EventShowtimeRequest> Showtimes { get; set; } = new();
+
+        public List<EventTicketCategoryRequest> TicketCategories { get; set; } = new();
+    }
+
+    // One showtime = one screening: a screen and its IST start/end wall-clock time.
+    public class EventShowtimeRequest
+    {
+        [Required]
+        [StringLength(50, MinimumLength = 1)]
+        public string Screen { get; set; } = string.Empty;
+
+        [Required]
+        public DateTime StartTime { get; set; }
+
+        [Required]
+        public DateTime EndTime { get; set; }
+    }
+
+    // A ticket category shared across every showtime; quantity is derived per screen.
+    public class EventTicketCategoryRequest
+    {
+        [Required]
+        [StringLength(100, MinimumLength = 2)]
+        public string Name { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(50, MinimumLength = 1)]
+        public string SeatType { get; set; } = string.Empty;
+
+        [Range(0, 100000)]
+        public decimal Price { get; set; }
+    }
 }

@@ -4,7 +4,8 @@ import { Observable, catchError, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { PagedResult } from '../models/paged-result.model';
 import {
-  EventDto, CreateEventRequest, UpdateEventRequest, EventSearchRequest,
+  EventDto, CreateEventRequest, CreateEventWithScreeningsRequest,
+  UpdateEventRequest, EventSearchRequest,
 } from '../models/event.model';
 import { extractError, toHttpParams } from './http-error';
 
@@ -45,6 +46,11 @@ export class EventService {
 
   create(req: CreateEventRequest): Observable<EventDto> {
     return this.http.post<EventDto>(this.base, req)
+      .pipe(catchError(e => throwError(() => extractError(e))));
+  }
+
+  createWithScreenings(req: CreateEventWithScreeningsRequest): Observable<EventDto> {
+    return this.http.post<EventDto>(`${this.base}/with-screenings`, req)
       .pipe(catchError(e => throwError(() => extractError(e))));
   }
 

@@ -5,6 +5,7 @@ namespace EMSBLLLibrary.Interfaces
     public interface IEventService
     {
         Task<EventDto> Create(int organizerId, CreateEventRequest request);
+        Task<EventDto> CreateWithScreenings(int organizerId, CreateEventWithScreeningsRequest request);
         Task<EventDto> GetById(int id);
         Task<EventDto?> GetBySlug(string slug);
         Task<List<EventDto>> GetAll();

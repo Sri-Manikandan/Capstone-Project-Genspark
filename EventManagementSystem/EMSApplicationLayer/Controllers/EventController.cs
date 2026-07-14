@@ -109,6 +109,17 @@ namespace EMSApplicationLayer.Controllers
             return CreatedAtAction(nameof(GetById), new { id = ev.Id }, ev);
         }
 
+        // Organizer/Admin — create an event across multiple screens/showtimes with shared
+        // ticket categories, all in one call (starts as Draft).
+        [HttpPost("with-screenings")]
+        [Authorize(Roles = "Organizer,Admin")]
+        public async Task<IActionResult> CreateWithScreenings([FromBody] CreateEventWithScreeningsRequest request)
+        {
+            var organizerId = ClaimsHelper.GetUserId(User);
+            var ev = await _eventService.CreateWithScreenings(organizerId, request);
+            return CreatedAtAction(nameof(GetById), new { id = ev.Id }, ev);
+        }
+
         // Organizer/Admin — edit own event (only Draft or Rejected)
         [HttpPut("{id:int}")]
         [Authorize(Roles = "Organizer,Admin")]

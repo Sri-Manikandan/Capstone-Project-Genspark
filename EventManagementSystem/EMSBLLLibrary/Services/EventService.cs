@@ -18,6 +18,7 @@ namespace EMSBLLLibrary.Services
         private readonly IUserRepository _userRepo;
         private readonly ITicketTypeRepository _ticketTypeRepo;
         private readonly IBookingRepository _bookingRepo;
+        private readonly ISeatRepository _seatRepo;
         private readonly IMapper _mapper;
         private readonly IEmailQueue _emailQueue;
 
@@ -28,7 +29,7 @@ namespace EMSBLLLibrary.Services
 
         public EventService(IEventRepository eventRepo, IVenueRepository venueRepo, IScreeningRepository screeningRepo,
             IUserRepository userRepo, ITicketTypeRepository ticketTypeRepo, IBookingRepository bookingRepo,
-            IMapper mapper, IEmailQueue emailQueue)
+            ISeatRepository seatRepo, IMapper mapper, IEmailQueue emailQueue)
         {
             _eventRepo = eventRepo;
             _venueRepo = venueRepo;
@@ -36,6 +37,7 @@ namespace EMSBLLLibrary.Services
             _userRepo = userRepo;
             _ticketTypeRepo = ticketTypeRepo;
             _bookingRepo = bookingRepo;
+            _seatRepo = seatRepo;
             _mapper = mapper;
             _emailQueue = emailQueue;
         }
@@ -85,6 +87,132 @@ namespace EMSBLLLibrary.Services
                 EndTime = endUtc,
                 Status = ScreeningStatus.Scheduled
             });
+
+            return _mapper.Map<EventDto>(ev);
+        }
+
+        // Create an event that runs across several showtimes. Each showtime is its own screening
+        // (a screen may repeat at different times), and the shared ticket categories are created
+        // against every screening with each screening's quantity taken from that screen's seats.
+        public async Task<EventDto> CreateWithScreenings(int organizerId, CreateEventWithScreeningsRequest request)
+        {
+            InputValidator.ValidateRequiredString("Title", request.Title, 200);
+            InputValidator.ValidateRequiredString("Description", request.Description, 2000);
+            InputValidator.ValidateRequiredString("Category", request.Category, 100);
+            InputValidator.ValidateUrl("ImageUrl", request.ImageUrl);
+
+            if (request.Showtimes == null || request.Showtimes.Count == 0)
+                throw new ValidationException("At least one showtime is required.");
+            if (request.TicketCategories == null || request.TicketCategories.Count == 0)
+                throw new ValidationException("At least one ticket category is required.");
+
+            _ = await _venueRepo.GetById(request.VenueId)
+                ?? throw new NotFoundException($"Venue {request.VenueId} not found.");
+
+            // Categories are shared across screens, so each seat type may back only one of them.
+            foreach (var category in request.TicketCategories)
+            {
+                InputValidator.ValidateRequiredString("Ticket category name", category.Name, 100);
+                if (string.IsNullOrWhiteSpace(category.SeatType))
+                    throw new ValidationException("SeatType is required for every ticket category.");
+                if (category.Price < 0)
+                    throw new ValidationException("Price must be zero or greater.");
+            }
+            var seatTypes = request.TicketCategories.Select(c => c.SeatType.Trim()).ToList();
+            if (seatTypes.Distinct(StringComparer.OrdinalIgnoreCase).Count() != seatTypes.Count)
+                throw new ValidationException("Each seat type can back only one ticket category.");
+
+            // Validate every showtime and convert its IST wall-clock time to UTC for storage.
+            var now = DateTime.UtcNow;
+            var showtimes = new List<(string Screen, DateTime StartUtc, DateTime EndUtc)>();
+            foreach (var showtime in request.Showtimes)
+            {
+                if (string.IsNullOrWhiteSpace(showtime.Screen))
+                    throw new ValidationException("Every showtime must have a screen.");
+
+                var startUtc = TimeHelper.AssumeIstToUtc(showtime.StartTime);
+                var endUtc = TimeHelper.AssumeIstToUtc(showtime.EndTime);
+
+                if (endUtc <= startUtc)
+                    throw new ValidationException($"Showtime on screen '{showtime.Screen.Trim()}' must end after it starts.");
+                if (startUtc < now + MinLeadTime)
+                    throw new ValidationException(LeadTimeMessage);
+
+                showtimes.Add((showtime.Screen.Trim(), startUtc, endUtc));
+            }
+
+            // The same screen cannot run two overlapping showtimes.
+            foreach (var perScreen in showtimes.GroupBy(s => s.Screen))
+            {
+                var ordered = perScreen.OrderBy(s => s.StartUtc).ToList();
+                for (int i = 1; i < ordered.Count; i++)
+                    if (ordered[i].StartUtc < ordered[i - 1].EndUtc)
+                        throw new ValidationException($"Screen '{perScreen.Key}' has overlapping showtimes.");
+            }
+
+            // A shared category must be sellable on every screen, so its seat type has to exist on
+            // each. Resolve the per-screen capacity up front so nothing is created if any is missing.
+            var distinctScreens = showtimes.Select(s => s.Screen).Distinct().ToList();
+            var capacityByScreenAndType = new Dictionary<(string Screen, string SeatType), int>();
+            foreach (var screen in distinctScreens)
+            {
+                foreach (var seatType in seatTypes)
+                {
+                    var count = await _seatRepo.CountByVenueSectionAndType(request.VenueId, screen, seatType);
+                    if (count == 0)
+                        throw new ValidationException($"No seats of type '{seatType}' exist on screen '{screen}'.");
+                    capacityByScreenAndType[(screen, seatType)] = count;
+                }
+            }
+
+            // All valid — create the event (window spans every showtime), the screenings, and the
+            // shared ticket types on each screening.
+            var ev = new Event
+            {
+                OrganizerId = organizerId,
+                VenueId = request.VenueId,
+                Title = request.Title,
+                Description = request.Description,
+                Status = EventStatus.Draft,
+                StartTime = showtimes.Min(s => s.StartUtc),
+                EndTime = showtimes.Max(s => s.EndUtc),
+                ImageUrl = request.ImageUrl,
+                Category = request.Category,
+                Slug = await GenerateUniqueSlug(request.Title),
+                Screen = string.Empty
+            };
+            await _eventRepo.Add(ev);
+
+            foreach (var showtime in showtimes)
+            {
+                var screening = new Screening
+                {
+                    EventId = ev.Id,
+                    Screen = showtime.Screen,
+                    StartTime = showtime.StartUtc,
+                    EndTime = showtime.EndUtc,
+                    Status = ScreeningStatus.Scheduled
+                };
+                await _screeningRepo.Add(screening);
+
+                foreach (var category in request.TicketCategories)
+                {
+                    var seatType = category.SeatType.Trim();
+                    var capacity = capacityByScreenAndType[(showtime.Screen, seatType)];
+                    await _ticketTypeRepo.Add(new TicketType
+                    {
+                        ScreeningId = screening.Id,
+                        Name = category.Name.Trim(),
+                        SeatType = seatType,
+                        Price = category.Price,
+                        TotalQuantity = capacity,
+                        AvailableQuantity = capacity,
+                        SaleStart = now,
+                        SaleEnd = showtime.StartUtc,
+                        IsActive = true
+                    });
+                }
+            }
 
             return _mapper.Map<EventDto>(ev);
         }

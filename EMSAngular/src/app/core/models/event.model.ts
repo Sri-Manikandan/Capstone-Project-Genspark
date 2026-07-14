@@ -35,6 +35,28 @@ export interface CreateEventRequest {
   screen: string;
 }
 
+export interface EventShowtimeRequest {
+  screen: string;
+  startTime: string;
+  endTime: string;
+}
+
+export interface EventTicketCategoryRequest {
+  name: string;
+  seatType: string;
+  price: number;
+}
+
+export interface CreateEventWithScreeningsRequest {
+  venueId: number;
+  title: string;
+  description: string;
+  imageUrl: string;
+  category: string;
+  showtimes: EventShowtimeRequest[];
+  ticketCategories: EventTicketCategoryRequest[];
+}
+
 export interface UpdateEventRequest {
   title: string;
   description: string;

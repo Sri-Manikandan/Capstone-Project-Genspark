@@ -14,7 +14,7 @@
           </select>
           <ems-field-error [control]="form.controls.venueId" label="Venue" />
         </label>
-        <label class="block space-y-1">
+        <label class="block space-y-1" *ngIf="isEdit()">
           <span class="field-label">Screen</span>
           <select formControlName="screen" class="field">
             <option value="">Whole venue (all screens)</option>
@@ -38,7 +38,7 @@
             Plan submissions accordingly — last-minute events can't be published, and this window
             also gives admins time to review and approve your event.</p>
         </div>
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2" *ngIf="isEdit()">
           <label class="block space-y-1">
             <span class="field-label">Start time</span>
             <input formControlName="startTime" type="datetime-local" class="field" />
@@ -64,19 +64,67 @@
           <ems-field-error [control]="form.controls.category" label="Category" />
         </label>
       </div>
-      <!-- Ticket categories — only when creating; saved against the auto-created screening. -->
+
+      <!-- Showtimes — create only. Each row is one screening (a screen may repeat at other times). -->
+      <div *ngIf="!isEdit()" class="card space-y-4 p-6">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h2 class="field-label">Showtimes</h2>
+            <p class="text-sm text-ink-soft">Pick a screen and time for each showing. A screen can run more than once.</p>
+          </div>
+          <button type="button" (click)="addShowtime()" [disabled]="!screens().length"
+                  class="link-action text-sm disabled:opacity-50">+ Add showtime</button>
+        </div>
+
+        <p *ngIf="form.controls.venueId.value && !screens().length" class="text-sm text-amber-600">
+          This venue has no seats yet — add seats to the venue before you can schedule showtimes.
+        </p>
+
+        <div formArrayName="showtimes" class="space-y-3">
+          <div *ngFor="let st of showtimes.controls; let i = index" [formGroupName]="i"
+               class="grid grid-cols-1 gap-3 rounded-2xl border border-line p-4 sm:grid-cols-4 sm:items-start">
+            <label class="block space-y-1">
+              <span class="field-label">Screen</span>
+              <select formControlName="screen" class="field" (change)="onShowtimeScreenChange()">
+                <option value="" disabled>Select screen…</option>
+                <option *ngFor="let s of screens()" [value]="s">{{ s }}</option>
+              </select>
+              <ems-field-error [control]="st.controls.screen" label="Screen" />
+            </label>
+            <label class="block space-y-1">
+              <span class="field-label">Start</span>
+              <input formControlName="startTime" type="datetime-local" class="field" />
+              <ems-field-error [control]="st.controls.startTime" label="Start time" />
+            </label>
+            <label class="block space-y-1">
+              <span class="field-label">End</span>
+              <input formControlName="endTime" type="datetime-local" class="field" />
+              <ems-field-error [control]="st.controls.endTime" label="End time" />
+            </label>
+            <div class="space-y-1 sm:pt-6">
+              <button type="button" (click)="removeShowtime(i)" [disabled]="showtimes.length === 1"
+                      class="link-action text-sm disabled:opacity-50">Remove</button>
+            </div>
+            <p *ngIf="st.errors?.['endBeforeStart'] && st.controls.endTime.value" class="text-xs text-rose-dark sm:col-span-4">
+              End must be after start.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ticket categories — create only; shared across every showtime, quantity is per screen. -->
       <div *ngIf="!isEdit()" class="card space-y-4 p-6" formArrayName="ticketTypes">
         <div class="flex items-center justify-between gap-3">
           <div>
             <h2 class="field-label">Ticket categories</h2>
-            <p class="text-sm text-ink-soft">At least one is required so the event is bookable.</p>
+            <p class="text-sm text-ink-soft">Shared across every showtime. At least one is required so the event is bookable.</p>
           </div>
           <button type="button" (click)="addCategory()" [disabled]="!seatTypes().length"
                   class="link-action text-sm disabled:opacity-50">+ Add category</button>
         </div>
 
         <p *ngIf="form.controls.venueId.value && !seatTypes().length" class="text-sm text-amber-600">
-          This venue has no seats yet — add seats to the venue before you can sell tickets.
+          Pick screens in the showtimes above — the seat types shared across all of them appear here.
         </p>
 
         <div *ngFor="let c of categories.controls; let i = index" [formGroupName]="i"
@@ -107,9 +155,12 @@
             <div class="block space-y-1">
               <span class="field-label">Quantity</span>
               <p class="field bg-paper text-ink-soft">
-                {{ c.controls.seatType.value ? capacityFor(c.controls.seatType.value) + ' seats' : '—' }}
+                {{ c.controls.seatType.value ? totalCapacityFor(c.controls.seatType.value) + ' seats' : '—' }}
               </p>
-              <p class="text-xs text-ink-soft">Set automatically from the seat type's capacity.</p>
+              <p *ngIf="c.controls.seatType.value && selectedScreens().length > 1" class="text-xs text-ink-soft">
+                <ng-container *ngFor="let b of capacityBreakdown(c.controls.seatType.value); let last = last">{{ b.screen }}: {{ b.count }}<span *ngIf="!last"> · </span></ng-container>
+              </p>
+              <p class="text-xs text-ink-soft">Set automatically per screen from the seat type's capacity.</p>
             </div>
           </div>
         </div>
