@@ -14,7 +14,24 @@ const pending = [{
     id: 1, name: 'Asha Rao', email: 'asha@example.com', phone: '999', memberSince: '2025-01-01T00:00:00',
     isActive: true, publishedEventCount: 3, rejectedEventCount: 1, totalEventCount: 5,
   },
-  ticketCategories: [{ name: 'VIP', seatType: 'Premium', price: 500, totalQuantity: 20 }],
+  screens: [
+    {
+      screen: 'Screen 1',
+      showtimes: [
+        { startTime: '2026-07-01T19:00:00', endTime: '2026-07-01T22:00:00' },
+        { startTime: '2026-07-02T19:00:00', endTime: '2026-07-02T22:00:00' },
+      ],
+      ticketCategories: [
+        { name: 'Gold', seatType: 'Premium', price: 500, totalQuantity: 100 },
+        { name: 'Silver', seatType: 'Standard', price: 300, totalQuantity: 200 },
+      ],
+    },
+    {
+      screen: 'Screen 2',
+      showtimes: [{ startTime: '2026-07-01T19:00:00', endTime: '2026-07-01T22:00:00' }],
+      ticketCategories: [{ name: 'Gold', seatType: 'Premium', price: 500, totalQuantity: 80 }],
+    },
+  ],
   signals: { leadTimeOk: true, imageUrlValid: true, descriptionAdequate: true, hasTicketCategories: true, pricingSane: true },
 }];
 
@@ -50,9 +67,16 @@ describe('EventApprovalsComponent', () => {
     expect(text).toContain('5 total');
   });
 
-  it('renders ticket categories and review checks', () => {
+  it('renders each screen with its showtimes and per-screen categories', () => {
     const text = fixture.nativeElement.textContent as string;
-    expect(text).toContain('VIP');
+    // Both screens are shown as distinct groups.
+    expect(text).toContain('Screen 1');
+    expect(text).toContain('Screen 2');
+    // A screen count summarises the multi-screen event.
+    expect(text).toContain('2 screens');
+    // Per-screen capacity is preserved (Screen 2's Gold has 80, not merged with Screen 1's 100).
+    expect(text).toContain('80');
+    expect(text).toContain('Silver');
     expect(text).toContain('Grand Hall');
     expect(text).toContain('Review checks');
   });

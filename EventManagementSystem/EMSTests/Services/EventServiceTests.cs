@@ -745,22 +745,51 @@ namespace EMSTests.Services
         }
 
         [Test]
-        public async Task GetPendingApproval_FlattensTicketCategoriesFromScreenings()
+        public async Task GetPendingApproval_GroupsShowtimesAndCategoriesByScreen()
         {
             var ev = MakeEvent();
+            // Screen 1 runs twice; Screen 2 runs once with its own capacity.
+            var show1a = new DateTime(2026, 7, 20, 13, 0, 0, DateTimeKind.Utc);
+            var show1b = new DateTime(2026, 7, 21, 13, 0, 0, DateTimeKind.Utc);
+            var show2 = new DateTime(2026, 7, 20, 13, 0, 0, DateTimeKind.Utc);
             _eventRepo.Setup(r => r.GetByStatus(EventStatus.PendingApproval)).ReturnsAsync(new List<Event> { ev });
-            _screeningRepo.Setup(r => r.GetByEventId(ev.Id)).ReturnsAsync(new List<Screening> { new Screening { Id = 7, EventId = ev.Id } });
-            _ticketTypeRepo.Setup(r => r.GetByScreeningId(7)).ReturnsAsync(new List<TicketType>
+            _screeningRepo.Setup(r => r.GetByEventId(ev.Id)).ReturnsAsync(new List<Screening>
             {
-                new TicketType { Id = 1, ScreeningId = 7, Name = "VIP", SeatType = "Premium", Price = 500, TotalQuantity = 20 },
-                new TicketType { Id = 2, ScreeningId = 7, Name = "GA", SeatType = "Standard", Price = 200, TotalQuantity = 100 },
+                new Screening { Id = 1, EventId = ev.Id, Screen = "Screen 1", StartTime = show1a, EndTime = show1a.AddHours(2) },
+                new Screening { Id = 2, EventId = ev.Id, Screen = "Screen 1", StartTime = show1b, EndTime = show1b.AddHours(2) },
+                new Screening { Id = 3, EventId = ev.Id, Screen = "Screen 2", StartTime = show2, EndTime = show2.AddHours(2) },
+            });
+            _ticketTypeRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>
+            {
+                new TicketType { Id = 1, ScreeningId = 1, Name = "Gold", SeatType = "Premium", Price = 500, TotalQuantity = 100 },
+                new TicketType { Id = 2, ScreeningId = 1, Name = "Silver", SeatType = "Standard", Price = 300, TotalQuantity = 200 },
+            });
+            _ticketTypeRepo.Setup(r => r.GetByScreeningId(2)).ReturnsAsync(new List<TicketType>
+            {
+                new TicketType { Id = 3, ScreeningId = 2, Name = "Gold", SeatType = "Premium", Price = 500, TotalQuantity = 100 },
+                new TicketType { Id = 4, ScreeningId = 2, Name = "Silver", SeatType = "Standard", Price = 300, TotalQuantity = 200 },
+            });
+            _ticketTypeRepo.Setup(r => r.GetByScreeningId(3)).ReturnsAsync(new List<TicketType>
+            {
+                new TicketType { Id = 5, ScreeningId = 3, Name = "Gold", SeatType = "Premium", Price = 500, TotalQuantity = 80 },
             });
 
-            var result = await _sut.GetPendingApproval();
+            var screens = (await _sut.GetPendingApproval()).Single().Screens;
 
-            var categories = result.Single().TicketCategories;
-            categories.Should().HaveCount(2);
-            categories.Should().ContainSingle(c => c.Name == "VIP" && c.Price == 500 && c.TotalQuantity == 20);
+            screens.Should().HaveCount(2);
+
+            var screen1 = screens.Single(s => s.Screen == "Screen 1");
+            screen1.Showtimes.Select(t => t.StartTime)
+                .Should().Equal(EMSBLLLibrary.Helpers.TimeHelper.UtcToIst(show1a), EMSBLLLibrary.Helpers.TimeHelper.UtcToIst(show1b));
+            screen1.Showtimes.Select(t => t.EndTime)
+                .Should().Equal(EMSBLLLibrary.Helpers.TimeHelper.UtcToIst(show1a.AddHours(2)), EMSBLLLibrary.Helpers.TimeHelper.UtcToIst(show1b.AddHours(2)));
+            // Categories come from the screen, not doubled across its two showtimes.
+            screen1.TicketCategories.Should().HaveCount(2);
+            screen1.TicketCategories.Should().ContainSingle(c => c.Name == "Gold" && c.TotalQuantity == 100);
+
+            var screen2 = screens.Single(s => s.Screen == "Screen 2");
+            screen2.Showtimes.Should().ContainSingle();
+            screen2.TicketCategories.Should().ContainSingle(c => c.Name == "Gold" && c.TotalQuantity == 80);
         }
 
         [Test]

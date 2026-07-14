@@ -99,8 +99,21 @@ namespace EMSModelLibrary.DTOs
         public string City { get; set; } = string.Empty;
 
         public OrganizerSummaryDto Organizer { get; set; } = new();
-        public List<TicketCategorySummaryDto> TicketCategories { get; set; } = new();
+        public List<ScreenReviewDto> Screens { get; set; } = new();
         public ReviewSignalsDto Signals { get; set; } = new();
+    }
+
+    public class ScreenReviewDto
+    {
+        public string Screen { get; set; } = string.Empty;
+        public List<ShowtimeDto> Showtimes { get; set; } = new();
+        public List<TicketCategorySummaryDto> TicketCategories { get; set; } = new();
+    }
+
+    public class ShowtimeDto
+    {
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
     }
 
     public class OrganizerSummaryDto

@@ -86,6 +86,17 @@ export interface TicketCategorySummary {
   totalQuantity: number;
 }
 
+export interface Showtime {
+  startTime: string;
+  endTime: string;
+}
+
+export interface ScreenReview {
+  screen: string;
+  showtimes: Showtime[];
+  ticketCategories: TicketCategorySummary[];
+}
+
 export interface ReviewSignals {
   leadTimeOk: boolean;
   imageUrlValid: boolean;
@@ -110,7 +121,7 @@ export interface PendingEventReview {
   venueName: string;
   city: string;
   organizer: OrganizerSummary;
-  ticketCategories: TicketCategorySummary[];
+  screens: ScreenReview[];
   signals: ReviewSignals;
 }
 

@@ -434,8 +434,9 @@ namespace EMSBLLLibrary.Services
                 }
 
                 dto.Organizer = await BuildOrganizerSummary(ev.OrganizerId);
-                dto.TicketCategories = await BuildTicketCategories(ev.Id);
-                dto.Signals = BuildReviewSignals(ev, dto.TicketCategories);
+                dto.Screens = await BuildScreens(ev.Id);
+                var allCategories = dto.Screens.SelectMany(s => s.TicketCategories).ToList();
+                dto.Signals = BuildReviewSignals(ev, allCategories);
 
                 result.Add(dto);
             }
@@ -461,23 +462,39 @@ namespace EMSBLLLibrary.Services
             };
         }
 
-        private async Task<List<TicketCategorySummaryDto>> BuildTicketCategories(int eventId)
+        // Groups an event's screenings by screen: each screen carries its showtimes and its
+        // own ticket categories. Per-screen capacity is consistent across a screen's showtimes,
+        // so categories are taken from the screen's representative (first) screening.
+        private async Task<List<ScreenReviewDto>> BuildScreens(int eventId)
         {
-            var categories = new List<TicketCategorySummaryDto>();
             var screenings = await _screeningRepo.GetByEventId(eventId);
-            foreach (var screening in screenings)
+            var screens = new List<ScreenReviewDto>();
+
+            foreach (var group in screenings.GroupBy(s => s.Screen))
             {
-                var ticketTypes = await _ticketTypeRepo.GetByScreeningId(screening.Id);
-                foreach (var t in ticketTypes)
-                    categories.Add(new TicketCategorySummaryDto
+                var ordered = group.OrderBy(s => s.StartTime).ToList();
+                var representative = ordered.First();
+                var ticketTypes = await _ticketTypeRepo.GetByScreeningId(representative.Id);
+
+                screens.Add(new ScreenReviewDto
+                {
+                    Screen = group.Key,
+                    Showtimes = ordered.Select(s => new ShowtimeDto
+                    {
+                        StartTime = TimeHelper.UtcToIst(s.StartTime),
+                        EndTime = TimeHelper.UtcToIst(s.EndTime),
+                    }).ToList(),
+                    TicketCategories = ticketTypes.Select(t => new TicketCategorySummaryDto
                     {
                         Name = t.Name,
                         SeatType = t.SeatType,
                         Price = t.Price,
                         TotalQuantity = t.TotalQuantity,
-                    });
+                    }).ToList(),
+                });
             }
-            return categories;
+
+            return screens;
         }
 
         // Format-only checks (no network calls) so the admin queue stays fast and deterministic.

@@ -26,6 +26,12 @@ export class EventApprovalsComponent implements OnInit {
 
   ngOnInit(): void { this.load(); }
 
+  protected screenSummary(ev: PendingEventReview): string {
+    const screens = ev.screens.length;
+    const showtimes = ev.screens.reduce((total, s) => total + s.showtimes.length, 0);
+    return `${screens} screen${screens === 1 ? '' : 's'} · ${showtimes} showtime${showtimes === 1 ? '' : 's'}`;
+  }
+
   protected setReason(id: number, value: string): void {
     this.reasons.update(r => ({ ...r, [id]: value }));
   }

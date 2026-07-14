@@ -12,12 +12,9 @@
           <div class="min-w-0 flex-1">
             <p class="font-display text-lg font-semibold text-ink">{{ ev.title }}</p>
             <p class="font-mono text-xs text-muted">{{ ev.category }} · submitted {{ ev.createdAt | istDate }}</p>
-            <p class="mt-1 text-sm text-ink-soft">
-              {{ ev.startTime | istDate }} → {{ ev.endTime | istDate }}
-            </p>
+            <p class="mt-1 text-sm text-ink-soft">{{ screenSummary(ev) }}</p>
             <p class="text-sm text-ink-soft">
               {{ ev.venueName }}<span *ngIf="ev.city">, {{ ev.city }}</span>
-              <span *ngIf="ev.screen"> · {{ ev.screen }}</span>
             </p>
           </div>
         </div>
@@ -50,31 +47,42 @@
           </div>
         </div>
 
-        <!-- Ticket categories -->
+        <!-- Screens: showtimes and per-screen ticket categories -->
         <div class="rounded-xl border border-line p-4">
-          <p class="field-label mb-2">Ticket categories</p>
-          <div *ngIf="ev.ticketCategories.length; else noTickets" class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="text-left text-xs text-muted">
-                  <th class="py-1 pr-4 font-medium">Name</th>
-                  <th class="py-1 pr-4 font-medium">Seat type</th>
-                  <th class="py-1 pr-4 font-medium">Price (₹)</th>
-                  <th class="py-1 font-medium">Capacity</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let t of ev.ticketCategories" class="border-t border-line text-ink-soft">
-                  <td class="py-1 pr-4">{{ t.name }}</td>
-                  <td class="py-1 pr-4">{{ t.seatType }}</td>
-                  <td class="py-1 pr-4">{{ t.price }}</td>
-                  <td class="py-1">{{ t.totalQuantity }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <p class="field-label mb-2">Screens &amp; showtimes</p>
+          <div *ngIf="ev.screens.length; else noScreens" class="space-y-3">
+            <div *ngFor="let s of ev.screens" class="rounded-lg bg-surface-muted p-3">
+              <p class="font-semibold text-ink">{{ s.screen }}</p>
+              <ul class="mt-1 space-y-0.5 text-sm text-ink-soft">
+                <li *ngFor="let t of s.showtimes">{{ t.startTime | istDate }} → {{ t.endTime | istDate }}</li>
+              </ul>
+              <div *ngIf="s.ticketCategories.length; else noScreenTickets" class="mt-2 overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="text-left text-xs text-muted">
+                      <th class="py-1 pr-4 font-medium">Name</th>
+                      <th class="py-1 pr-4 font-medium">Seat type</th>
+                      <th class="py-1 pr-4 font-medium">Price (₹)</th>
+                      <th class="py-1 font-medium">Capacity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let c of s.ticketCategories" class="border-t border-line text-ink-soft">
+                      <td class="py-1 pr-4">{{ c.name }}</td>
+                      <td class="py-1 pr-4">{{ c.seatType }}</td>
+                      <td class="py-1 pr-4">{{ c.price }}</td>
+                      <td class="py-1">{{ c.totalQuantity }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <ng-template #noScreenTickets>
+                <p class="mt-2 text-sm text-rose">No ticket categories for this screen.</p>
+              </ng-template>
+            </div>
           </div>
-          <ng-template #noTickets>
-            <p class="text-sm text-rose">No ticket categories — this event isn't bookable yet.</p>
+          <ng-template #noScreens>
+            <p class="text-sm text-rose">No screens configured — this event isn't bookable yet.</p>
           </ng-template>
         </div>
 
