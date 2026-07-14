@@ -21,6 +21,14 @@ namespace EMSDALLibrary.Repositories
                 .CountAsync(s => s.VenueId == venueId && s.SeatType == seatType);
         }
 
+        // Seats store their screen as Section, so a ticket type tied to one screen counts only
+        // that screen's seats of the type — not every screen's in the venue.
+        public async Task<int> CountByVenueSectionAndType(int venueId, string section, string seatType)
+        {
+            return await _context.Seats
+                .CountAsync(s => s.VenueId == venueId && s.Section == section && s.SeatType == seatType);
+        }
+
         // Availability is per screening: a seat booked/reserved in one screening stays
         // free in another screening on the same physical screen.
         public async Task<List<SeatAvailability>> GetAvailableByScreeningId(int screeningId)

@@ -62,7 +62,7 @@ namespace EMSTests.Services
         public async Task Create_ValidRequest_ReturnsDto()
         {
             SetupScreeningAndEvent();
-            _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(100);
+            _seatRepo.Setup(r => r.CountByVenueSectionAndType(1, "Screen 1", "VIP")).ReturnsAsync(100);
             _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>());
             _ttRepo.Setup(r => r.Add(It.IsAny<TicketType>())).ReturnsAsync((TicketType t) => t);
 
@@ -75,7 +75,7 @@ namespace EMSTests.Services
         public async Task Create_SetsQuantityToSeatTypeCapacity()
         {
             SetupScreeningAndEvent();
-            _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(100);
+            _seatRepo.Setup(r => r.CountByVenueSectionAndType(1, "Screen 1", "VIP")).ReturnsAsync(100);
             _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>());
             _ttRepo.Setup(r => r.Add(It.IsAny<TicketType>())).ReturnsAsync((TicketType t) => t);
 
@@ -147,11 +147,44 @@ namespace EMSTests.Services
         public async Task Create_NoSeatsOfType_ThrowsValidationException()
         {
             SetupScreeningAndEvent();
-            _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(0);
+            _seatRepo.Setup(r => r.CountByVenueSectionAndType(1, "Screen 1", "VIP")).ReturnsAsync(0);
             _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>());
 
             await _sut.Invoking(s => s.Create(10, ValidCreateRequest()))
                 .Should().ThrowAsync<ValidationException>().WithMessage("*No seats*");
+        }
+
+        [Test]
+        public async Task Create_ScopesQuantityToTheScreeningsScreen_NotTheWholeVenue()
+        {
+            SetupScreeningAndEvent(); // screening.Screen == "Screen 1"
+            // Screen 1 has 40 VIP seats; the venue has 100 VIP seats across all screens.
+            _seatRepo.Setup(r => r.CountByVenueSectionAndType(1, "Screen 1", "VIP")).ReturnsAsync(40);
+            _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(100);
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>());
+            _ttRepo.Setup(r => r.Add(It.IsAny<TicketType>())).ReturnsAsync((TicketType t) => t);
+
+            var result = await _sut.Create(10, ValidCreateRequest());
+
+            result.TotalQuantity.Should().Be(40);
+            _seatRepo.Verify(r => r.CountByVenueAndType(It.IsAny<int>(), It.IsAny<string>()), Times.Never);
+        }
+
+        [Test]
+        public async Task Create_WholeVenueScreening_CountsSeatsAcrossEveryScreen()
+        {
+            // A screening with no specific screen represents a whole-venue event.
+            var screening = MakeScreening();
+            screening.Screen = "";
+            _screeningRepo.Setup(r => r.GetById(1)).ReturnsAsync(screening);
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent(10));
+            _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(100);
+            _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType>());
+            _ttRepo.Setup(r => r.Add(It.IsAny<TicketType>())).ReturnsAsync((TicketType t) => t);
+
+            var result = await _sut.Create(10, ValidCreateRequest());
+
+            result.TotalQuantity.Should().Be(100);
         }
 
         // ── GetById / GetByScreeningId / GetActiveByScreeningId ───────────────────
@@ -208,7 +241,7 @@ namespace EMSTests.Services
             var tt = new TicketType { Id = 1, ScreeningId = 1, SeatType = "VIP", TotalQuantity = 50, AvailableQuantity = 50 };
             _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
             SetupScreeningAndEvent();
-            _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(100);
+            _seatRepo.Setup(r => r.CountByVenueSectionAndType(1, "Screen 1", "VIP")).ReturnsAsync(100);
             _ttRepo.Setup(r => r.Update(It.IsAny<TicketType>())).ReturnsAsync((TicketType t) => t);
 
             var request = ValidUpdateRequest();
@@ -225,7 +258,7 @@ namespace EMSTests.Services
             var tt = new TicketType { Id = 1, ScreeningId = 1, SeatType = "VIP", TotalQuantity = 50, AvailableQuantity = 40 };
             _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
             SetupScreeningAndEvent();
-            _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(100);
+            _seatRepo.Setup(r => r.CountByVenueSectionAndType(1, "Screen 1", "VIP")).ReturnsAsync(100);
             _ttRepo.Setup(r => r.Update(It.IsAny<TicketType>())).ReturnsAsync((TicketType t) => t);
 
             var result = await _sut.Update(1, 10, ValidUpdateRequest("VIP"));
@@ -241,7 +274,7 @@ namespace EMSTests.Services
             _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
             SetupScreeningAndEvent();
             _ttRepo.Setup(r => r.GetByScreeningId(1)).ReturnsAsync(new List<TicketType> { tt });
-            _seatRepo.Setup(r => r.CountByVenueAndType(1, "Balcony")).ReturnsAsync(30);
+            _seatRepo.Setup(r => r.CountByVenueSectionAndType(1, "Screen 1", "Balcony")).ReturnsAsync(30);
             _ttRepo.Setup(r => r.Update(It.IsAny<TicketType>())).ReturnsAsync((TicketType t) => t);
 
             var result = await _sut.Update(1, 10, ValidUpdateRequest("Balcony"));
@@ -311,7 +344,7 @@ namespace EMSTests.Services
             var tt = new TicketType { Id = 1, ScreeningId = 1, SeatType = "VIP", TotalQuantity = 50, AvailableQuantity = 50 };
             _ttRepo.Setup(r => r.GetById(1)).ReturnsAsync(tt);
             SetupScreeningAndEvent();
-            _seatRepo.Setup(r => r.CountByVenueAndType(1, "VIP")).ReturnsAsync(0);
+            _seatRepo.Setup(r => r.CountByVenueSectionAndType(1, "Screen 1", "VIP")).ReturnsAsync(0);
 
             await _sut.Invoking(s => s.Update(1, 10, ValidUpdateRequest()))
                 .Should().ThrowAsync<ValidationException>().WithMessage("*No seats*");

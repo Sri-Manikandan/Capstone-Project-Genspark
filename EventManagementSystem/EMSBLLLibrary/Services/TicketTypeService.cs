@@ -43,8 +43,8 @@ namespace EMSBLLLibrary.Services
             var siblings = await _ticketTypeRepo.GetByScreeningId(request.ScreeningId);
             EnsureSeatTypeIsUnique(request.SeatType, siblings);
 
-            // Quantity is not user input: it maps to the venue's seats of this type.
-            var capacity = await SeatTypeCapacity(ev.VenueId, request.SeatType);
+            // Quantity is not user input: it maps to the seats of this type on the screening's screen.
+            var capacity = await SeatTypeCapacity(ev.VenueId, screening.Screen, request.SeatType);
 
             var ticketType = new TicketType
             {
@@ -110,9 +110,9 @@ namespace EMSBLLLibrary.Services
                 EnsureSeatTypeIsUnique(request.SeatType, others);
             }
 
-            // Quantity always tracks the venue's seats of this type (recomputed in case
+            // Quantity always tracks the screen's seats of this type (recomputed in case
             // it drifted); availability keeps whatever has already been sold.
-            var capacity = await SeatTypeCapacity(ev.VenueId, request.SeatType);
+            var capacity = await SeatTypeCapacity(ev.VenueId, screening.Screen, request.SeatType);
 
             tt.Name = request.Name;
             tt.SeatType = request.SeatType;
@@ -181,12 +181,18 @@ namespace EMSBLLLibrary.Services
                     $"A ticket type for seat type '{seatType}' already exists for this screening.");
         }
 
-        // A ticket type's quantity is the number of venue seats of that type.
-        private async Task<int> SeatTypeCapacity(int venueId, string seatType)
+        // A ticket type's quantity is the number of seats of that type on the screening's screen.
+        // A screening with no specific screen (whole-venue event) counts every screen's seats.
+        private async Task<int> SeatTypeCapacity(int venueId, string screen, string seatType)
         {
-            var seatCount = await _seatRepo.CountByVenueAndType(venueId, seatType);
+            var scopedToScreen = !string.IsNullOrWhiteSpace(screen);
+            var seatCount = scopedToScreen
+                ? await _seatRepo.CountByVenueSectionAndType(venueId, screen, seatType)
+                : await _seatRepo.CountByVenueAndType(venueId, seatType);
             if (seatCount == 0)
-                throw new ValidationException($"No seats of type '{seatType}' exist in this venue.");
+                throw new ValidationException(scopedToScreen
+                    ? $"No seats of type '{seatType}' exist on screen '{screen}'."
+                    : $"No seats of type '{seatType}' exist in this venue.");
             return seatCount;
         }
     }
