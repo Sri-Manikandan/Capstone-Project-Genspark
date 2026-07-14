@@ -23,13 +23,13 @@ namespace EMSDALLibrary.Repositories
 
         // Availability is per screening: a seat booked/reserved in one screening stays
         // free in another screening on the same physical screen.
-        public async Task<List<Seat>> GetAvailableByScreeningId(int screeningId)
+        public async Task<List<SeatAvailability>> GetAvailableByScreeningId(int screeningId)
         {
             var screening = await _context.Screenings.FindAsync(screeningId);
-            if (screening == null) return new List<Seat>();
+            if (screening == null) return new List<SeatAvailability>();
 
             var eventEntity = await _context.Events.FindAsync(screening.EventId);
-            if (eventEntity == null) return new List<Seat>();
+            if (eventEntity == null) return new List<SeatAvailability>();
 
             var now = DateTime.UtcNow;
             var bookedSeatIds = await _context.BookingItems
@@ -48,12 +48,25 @@ namespace EMSDALLibrary.Repositories
 
             var unavailableSeatIds = bookedSeatIds.Union(reservedSeatIds).ToHashSet();
 
-            // A screen is a label with its own independent availability; every screening
-            // exposes the full venue seat grid minus the seats taken for that screening.
-            return await _context.Seats
-                .Where(s => s.VenueId == eventEntity.VenueId
-                            && !unavailableSeatIds.Contains(s.Id))
+            // Return the whole venue seat grid for this screen, each seat flagged with its
+            // availability for THIS screening. Ordering is explicit (Section→Row→SeatNumber)
+            // so the layout never reshuffles as seats get booked — an unordered query lets the
+            // database return rows in a different order once the result set changes. Taken seats
+            // stay in the grid (drawn as "taken") rather than disappearing.
+            var seats = await _context.Seats
+                .Where(s => s.VenueId == eventEntity.VenueId)
+                .OrderBy(s => s.Section)
+                .ThenBy(s => s.Row)
+                .ThenBy(s => s.SeatNumber)
                 .ToListAsync();
+
+            return seats
+                .Select(s => new SeatAvailability
+                {
+                    Seat = s,
+                    IsAvailable = !unavailableSeatIds.Contains(s.Id)
+                })
+                .ToList();
         }
 
         public async Task<bool> ScreenHasActiveSeatUsage(int venueId, string section)

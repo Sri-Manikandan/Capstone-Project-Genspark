@@ -72,13 +72,19 @@ namespace EMSTests.Services
         }
 
         [Test]
-        public async Task GetAvailableByScreeningId_ReturnsMappedList()
+        public async Task GetAvailableByScreeningId_MapsSeatAndAvailabilityFlag()
         {
-            _seatRepo.Setup(r => r.GetAvailableByScreeningId(1)).ReturnsAsync(new List<Seat> { new Seat { Id = 2 } });
+            _seatRepo.Setup(r => r.GetAvailableByScreeningId(1)).ReturnsAsync(new List<SeatAvailability>
+            {
+                new() { Seat = new Seat { Id = 2, Section = "A", Row = "A", SeatNumber = 1 }, IsAvailable = true },
+                new() { Seat = new Seat { Id = 3, Section = "A", Row = "A", SeatNumber = 2 }, IsAvailable = false },
+            });
 
             var result = await _sut.GetAvailableByScreeningId(1);
 
-            result.Should().HaveCount(1);
+            result.Should().HaveCount(2);
+            result.Single(s => s.Id == 2).IsAvailable.Should().BeTrue();
+            result.Single(s => s.Id == 3).IsAvailable.Should().BeFalse();
         }
 
         [Test]

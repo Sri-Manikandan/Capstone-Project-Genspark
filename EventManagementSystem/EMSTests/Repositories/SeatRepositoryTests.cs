@@ -21,7 +21,7 @@ namespace EMSTests.Repositories
         }
 
         [Test]
-        public async Task GetAvailableByScreeningId_ReturnsWholeVenueGrid()
+        public async Task GetAvailableByScreeningId_ReturnsWholeVenueGrid_AllAvailableWhenNothingBooked()
         {
             using var ctx = CreateContext();
             ctx.Venues.Add(new Venue { Id = 1, Name = "V" });
@@ -35,11 +35,11 @@ namespace EMSTests.Repositories
             var repo = new SeatRepository(ctx);
             var result = await repo.GetAvailableByScreeningId(1);
 
-            result.Should().HaveCount(2);
+            result.Should().HaveCount(2).And.OnlyContain(s => s.IsAvailable);
         }
 
         [Test]
-        public async Task GetAvailableByScreeningId_ExcludesSeatsBookedForThatScreeningOnly()
+        public async Task GetAvailableByScreeningId_KeepsBookedSeatButFlagsItUnavailableForThatScreeningOnly()
         {
             using var ctx = CreateContext();
             ctx.Venues.Add(new Venue { Id = 1, Name = "V" });
@@ -56,9 +56,36 @@ namespace EMSTests.Repositories
 
             var repo = new SeatRepository(ctx);
 
-            // Seat 1 is booked in screening 1 → unavailable there, but still free in screening 2.
-            (await repo.GetAvailableByScreeningId(1)).Should().ContainSingle().Which.Id.Should().Be(2);
-            (await repo.GetAvailableByScreeningId(2)).Should().HaveCount(2);
+            // Seat 1 is booked in screening 1: still returned there (so it renders as taken,
+            // not vanishing) but flagged unavailable — while staying free in screening 2.
+            var screening1 = await repo.GetAvailableByScreeningId(1);
+            screening1.Should().HaveCount(2);
+            screening1.Single(s => s.Seat.Id == 1).IsAvailable.Should().BeFalse();
+            screening1.Single(s => s.Seat.Id == 2).IsAvailable.Should().BeTrue();
+
+            (await repo.GetAvailableByScreeningId(2)).Should().HaveCount(2).And.OnlyContain(s => s.IsAvailable);
+        }
+
+        [Test]
+        public async Task GetAvailableByScreeningId_ReturnsSeatsOrderedBySectionRowNumber()
+        {
+            using var ctx = CreateContext();
+            ctx.Venues.Add(new Venue { Id = 1, Name = "V" });
+            ctx.Events.Add(new Event { Id = 1, VenueId = 1 });
+            ctx.Screenings.Add(new Screening { Id = 1, EventId = 1, Screen = "Screen 1", Status = "Scheduled" });
+            // Inserted deliberately out of order; the result must still be Section→Row→SeatNumber
+            // so the seat layout never reshuffles between fetches.
+            ctx.Seats.AddRange(
+                new Seat { Id = 1, VenueId = 1, Section = "B", Row = "A", SeatNumber = 2, SeatType = "Normal" },
+                new Seat { Id = 2, VenueId = 1, Section = "A", Row = "B", SeatNumber = 1, SeatType = "Normal" },
+                new Seat { Id = 3, VenueId = 1, Section = "A", Row = "A", SeatNumber = 2, SeatType = "Normal" },
+                new Seat { Id = 4, VenueId = 1, Section = "A", Row = "A", SeatNumber = 1, SeatType = "Normal" });
+            await ctx.SaveChangesAsync();
+
+            var repo = new SeatRepository(ctx);
+            var result = await repo.GetAvailableByScreeningId(1);
+
+            result.Select(s => s.Seat.Id).Should().ContainInOrder(4, 3, 2, 1);
         }
 
         [Test]

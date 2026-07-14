@@ -93,7 +93,16 @@ namespace EMSBLLLibrary.Services
         public async Task<List<SeatDto>> GetAvailableByScreeningId(int screeningId)
         {
             var seats = await _seatRepo.GetAvailableByScreeningId(screeningId);
-            return _mapper.Map<List<SeatDto>>(seats);
+            return seats.Select(s => new SeatDto
+            {
+                Id = s.Seat.Id,
+                VenueId = s.Seat.VenueId,
+                Section = s.Seat.Section,
+                Row = s.Seat.Row,
+                SeatNumber = s.Seat.SeatNumber,
+                SeatType = s.Seat.SeatType,
+                IsAvailable = s.IsAvailable
+            }).ToList();
         }
 
         public async Task Delete(int id)

@@ -63,7 +63,9 @@ export class SeatMapComponent implements OnInit, OnDestroy {
     this.seatService.getAvailableByScreening(this.screeningId).subscribe({
       next: seats => {
         this.allSeats.set(seats);
-        this.availableIds.set(new Set(seats.map(s => s.id)));
+        // The grid includes taken seats so the layout stays stable; only the ones the API
+        // flags available start selectable. Taken seats render greyed via seatState().
+        this.availableIds.set(new Set(seats.filter(s => s.isAvailable).map(s => s.id)));
         this.loaded.set(true);
       },
       error: (msg: string) => {
@@ -105,12 +107,18 @@ export class SeatMapComponent implements OnInit, OnDestroy {
       if (!rows.has(s.row)) rows.set(s.row, []);
       rows.get(s.row)!.push(s);
     }
-    return [...bySection.entries()].map(([section, rows]) => ({
-      section,
-      rows: [...rows.entries()].map(([row, rowSeats]) => ({
-        row,
-        seats: rowSeats.sort((a, b) => a.seatNumber - b.seatNumber),
-      })),
-    }));
+    // Sort sections, rows, and seats explicitly. The API is ordered too, but grouping by
+    // Map insertion order would otherwise let any change in arrival order reshuffle the layout.
+    return [...bySection.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([section, rows]) => ({
+        section,
+        rows: [...rows.entries()]
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([row, rowSeats]) => ({
+            row,
+            seats: rowSeats.sort((a, b) => a.seatNumber - b.seatNumber),
+          })),
+      }));
   }
 }

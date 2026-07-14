@@ -7,8 +7,8 @@ import { SeatHubService } from '../../../core/services/seat-hub.service';
 import { SeatDto } from '../../../core/models/seat.model';
 
 const seats: SeatDto[] = [
-  { id: 1, venueId: 1, section: 'A', row: '1', seatNumber: 1, seatType: 'VIP' },
-  { id: 2, venueId: 1, section: 'A', row: '1', seatNumber: 2, seatType: 'VIP' },
+  { id: 1, venueId: 1, section: 'A', row: '1', seatNumber: 1, seatType: 'VIP', isAvailable: true },
+  { id: 2, venueId: 1, section: 'A', row: '1', seatNumber: 2, seatType: 'VIP', isAvailable: true },
 ];
 
 describe('SeatMapComponent', () => {
@@ -52,5 +52,43 @@ describe('SeatMapComponent', () => {
     hub.lastUpdate.set({ seatId: 1, status: 'booked' });
     fixture.detectChanges();
     expect((component as any)['seatState'](seats[0])).toBe('taken');
+  });
+});
+
+describe('SeatMapComponent — already-booked seats', () => {
+  const grid: SeatDto[] = [
+    { id: 1, venueId: 1, section: 'A', row: '1', seatNumber: 1, seatType: 'VIP', isAvailable: false },
+    { id: 2, venueId: 1, section: 'A', row: '1', seatNumber: 2, seatType: 'VIP', isAvailable: true },
+  ];
+
+  let fixture: ComponentFixture<SeatMapComponent>;
+  let component: SeatMapComponent;
+
+  beforeEach(() => {
+    const hub = {
+      lastUpdate: signal(null),
+      joinScreening: vi.fn().mockResolvedValue(undefined),
+      leaveScreening: vi.fn().mockResolvedValue(undefined),
+    };
+    TestBed.configureTestingModule({
+      imports: [SeatMapComponent],
+      providers: [
+        { provide: SeatService, useValue: { getAvailableByScreening: () => of(grid) } },
+        { provide: SeatHubService, useValue: hub },
+      ],
+    });
+    fixture = TestBed.createComponent(SeatMapComponent);
+    component = fixture.componentInstance;
+    fixture.componentRef.setInput('screeningId', 10);
+    fixture.componentRef.setInput('venueId', 1);
+    fixture.detectChanges();
+  });
+
+  it('renders a seat the API flags unavailable as taken, not hidden', () => {
+    // Seat 1 stays in the grid (so the layout does not collapse) but is not selectable.
+    expect((component as any)['seatState'](grid[0])).toBe('taken');
+    expect((component as any)['seatState'](grid[1])).toBe('available');
+    const sections = (component as any)['sections']();
+    expect(sections[0].rows[0].seats).toHaveLength(2);
   });
 });

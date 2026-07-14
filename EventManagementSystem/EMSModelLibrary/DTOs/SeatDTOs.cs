@@ -10,6 +10,10 @@ namespace EMSModelLibrary.DTOs
         public string Row { get; set; } = string.Empty;
         public int SeatNumber { get; set; }
         public string SeatType { get; set; } = string.Empty;
+
+        // Whether the seat is free for the requested screening. Only the screening seat-grid
+        // endpoint sets this meaningfully; venue/admin listings leave it at its default.
+        public bool IsAvailable { get; set; } = true;
     }
 
     public class CreateSeatRequest

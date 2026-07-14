@@ -5,6 +5,8 @@ export interface SeatDto {
   row: string;
   seatNumber: number;
   seatType: string;
+  // Set by the screening seat-grid endpoint; absent on venue/admin listings.
+  isAvailable?: boolean;
 }
 
 export interface CreateSeatRequest {
