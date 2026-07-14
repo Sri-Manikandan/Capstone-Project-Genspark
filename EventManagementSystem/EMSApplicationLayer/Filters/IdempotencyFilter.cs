@@ -24,6 +24,12 @@ namespace EMSApplicationLayer.Filters
         private const string HeaderName = "Idempotency-Key";
         private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(24);
 
+        // Match ASP.NET Core's own response serialization (camelCase) so a replayed body is
+        // byte-for-byte what the client would have received first time round. Default
+        // JsonSerializer options are PascalCase, which would make fields like clientSecret
+        // come back undefined in the browser on a replay.
+        private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+
         // Serializes concurrent requests that share a key so a near-simultaneous
         // double-submit can't both execute before either result is cached.
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new();
@@ -62,7 +68,7 @@ namespace EMSApplicationLayer.Filters
                     _cache.Set(cacheKey, new IdempotencyEntry
                     {
                         StatusCode = objectResult.StatusCode!.Value,
-                        Body = JsonSerializer.Serialize(objectResult.Value)
+                        Body = JsonSerializer.Serialize(objectResult.Value, SerializerOptions)
                     }, CacheDuration);
                 }
             }
