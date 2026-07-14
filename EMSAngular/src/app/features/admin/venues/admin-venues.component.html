@@ -10,7 +10,7 @@
       <li *ngFor="let v of pagedVenues()" class="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <span class="text-sm text-ink-soft"><span class="font-display text-base font-semibold text-ink">{{ v.name }}</span> — {{ v.city }} <span class="font-mono text-xs text-muted">(cap {{ v.totalCapacity }})</span></span>
         <span class="flex gap-3">
-          <a [routerLink]="['/admin/venues', v.id, 'seats']" class="link-action">Seats</a>
+          <a [routerLink]="['/admin/venues', v.id, 'seats']" class="link-action">Screens &amp; Seats</a>
           <button (click)="edit(v)" class="link-action">Edit</button>
           <button (click)="remove(v.id)" class="link-danger">Delete</button>
         </span>
