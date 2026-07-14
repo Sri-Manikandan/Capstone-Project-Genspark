@@ -12,12 +12,14 @@ namespace EMSBLLLibrary.Services
     {
         private readonly IVenueRepository _venueRepo;
         private readonly IEventRepository _eventRepo;
+        private readonly ISeatRepository _seatRepo;
         private readonly IMapper _mapper;
 
-        public VenueService(IVenueRepository venueRepo, IEventRepository eventRepo, IMapper mapper)
+        public VenueService(IVenueRepository venueRepo, IEventRepository eventRepo, ISeatRepository seatRepo, IMapper mapper)
         {
             _venueRepo = venueRepo;
             _eventRepo = eventRepo;
+            _seatRepo = seatRepo;
             _mapper = mapper;
         }
 
@@ -62,6 +64,13 @@ namespace EMSBLLLibrary.Services
             InputValidator.ValidateRequiredString("Address", request.Address, 500);
             InputValidator.ValidateRequiredString("City", request.City, 100);
             InputValidator.ValidatePositiveInt("TotalCapacity", request.TotalCapacity);
+
+            // Seats are validated against capacity when a screen is laid out; without this the
+            // same limit could be broken from the other side by shrinking capacity afterwards.
+            var seatCount = (await _seatRepo.GetByVenueId(id)).Count;
+            if (request.TotalCapacity < seatCount)
+                throw new ValidationException(
+                    $"This venue already has {seatCount} seats across its screens. Capacity cannot be lower than that.");
 
             venue.Name = request.Name;
             venue.Address = request.Address;

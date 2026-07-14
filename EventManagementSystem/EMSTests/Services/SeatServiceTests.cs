@@ -15,6 +15,7 @@ namespace EMSTests.Services
     public class SeatServiceTests
     {
         private Mock<ISeatRepository> _seatRepo;
+        private Mock<IVenueRepository> _venueRepo;
         private IMapper _mapper;
         private SeatService _sut;
 
@@ -22,8 +23,16 @@ namespace EMSTests.Services
         public void SetUp()
         {
             _seatRepo = new Mock<ISeatRepository>();
+            _venueRepo = new Mock<IVenueRepository>();
             _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
-            _sut = new SeatService(_seatRepo.Object, _mapper);
+
+            // Seat writes are checked against the venue's capacity, so give tests a roomy
+            // venue with no existing seats by default; capacity cases override these.
+            _venueRepo.Setup(r => r.GetById(It.IsAny<int>()))
+                .ReturnsAsync(new Venue { Id = 1, Name = "V", Address = "A", City = "C", TotalCapacity = 10000 });
+            _seatRepo.Setup(r => r.GetByVenueId(It.IsAny<int>())).ReturnsAsync(new List<Seat>());
+
+            _sut = new SeatService(_seatRepo.Object, _venueRepo.Object, _mapper);
         }
 
         [Test]
@@ -220,6 +229,105 @@ namespace EMSTests.Services
             result.Should().HaveCount(1);
             _seatRepo.Verify(r => r.ReplaceScreenSeats(1, "Screen 1",
                 It.Is<List<Seat>>(l => l.Count == 1 && l[0].Section == "Screen 1" && l[0].SeatType == "Normal")), Times.Once);
+        }
+
+        [Test]
+        public async Task SetScreenSeats_Throws_WhenOtherScreensPlusThisOneExceedVenueCapacity()
+        {
+            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(
+                new Venue { Id = 1, Name = "V", Address = "A", City = "C", TotalCapacity = 10 });
+            _seatRepo.Setup(r => r.ScreenHasActiveSeatUsage(1, "Screen 2")).ReturnsAsync(false);
+            // Screen 1 already holds 8 of the venue's 10 seats.
+            _seatRepo.Setup(r => r.GetByVenueId(1)).ReturnsAsync(
+                Enumerable.Range(1, 8).Select(n => new Seat { VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = n, SeatType = "Normal" }).ToList());
+
+            var req = new SetScreenSeatsRequest
+            {
+                VenueId = 1, Screen = "Screen 2",
+                Seats = Enumerable.Range(1, 3).Select(n => new ScreenSeatDto { Row = "A", SeatNumber = n, SeatType = "Normal" }).ToList()
+            };
+
+            var act = async () => await _sut.SetScreenSeats(req);
+
+            await act.Should().ThrowAsync<ValidationException>().WithMessage("*capacity is 10*11*");
+            _seatRepo.Verify(r => r.ReplaceScreenSeats(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<List<Seat>>()), Times.Never);
+        }
+
+        [Test]
+        public async Task SetScreenSeats_Succeeds_WhenReplacingOwnSeatsUpToCapacity()
+        {
+            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(
+                new Venue { Id = 1, Name = "V", Address = "A", City = "C", TotalCapacity = 10 });
+            _seatRepo.Setup(r => r.ScreenHasActiveSeatUsage(1, "Screen 1")).ReturnsAsync(false);
+            _seatRepo.Setup(r => r.ReplaceScreenSeats(1, "Screen 1", It.IsAny<List<Seat>>())).Returns(Task.CompletedTask);
+            // The screen's own 10 seats are being replaced, so they must not be counted twice.
+            _seatRepo.Setup(r => r.GetByVenueId(1)).ReturnsAsync(
+                Enumerable.Range(1, 10).Select(n => new Seat { VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = n, SeatType = "Normal" }).ToList());
+
+            var req = new SetScreenSeatsRequest
+            {
+                VenueId = 1, Screen = "Screen 1",
+                Seats = Enumerable.Range(1, 10).Select(n => new ScreenSeatDto { Row = "A", SeatNumber = n, SeatType = "Normal" }).ToList()
+            };
+
+            var result = await _sut.SetScreenSeats(req);
+
+            result.Should().HaveCount(10);
+        }
+
+        [Test]
+        public async Task SetScreenSeats_Throws_WhenSeatTypeDiffersOnlyByCaseFromAnotherScreen()
+        {
+            _seatRepo.Setup(r => r.ScreenHasActiveSeatUsage(1, "Screen 2")).ReturnsAsync(false);
+            _seatRepo.Setup(r => r.GetByVenueId(1)).ReturnsAsync(new List<Seat>
+            {
+                new() { VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 1, SeatType = "VIP" }
+            });
+
+            var req = new SetScreenSeatsRequest
+            {
+                VenueId = 1, Screen = "Screen 2",
+                Seats = new() { new ScreenSeatDto { Row = "A", SeatNumber = 1, SeatType = "vip" } }
+            };
+
+            var act = async () => await _sut.SetScreenSeats(req);
+
+            await act.Should().ThrowAsync<ValidationException>().WithMessage("*already uses seat type 'VIP'*");
+            _seatRepo.Verify(r => r.ReplaceScreenSeats(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<List<Seat>>()), Times.Never);
+        }
+
+        [Test]
+        public async Task SetScreenSeats_TrimsSeatType()
+        {
+            _seatRepo.Setup(r => r.ScreenHasActiveSeatUsage(1, "Screen 1")).ReturnsAsync(false);
+            _seatRepo.Setup(r => r.ReplaceScreenSeats(1, "Screen 1", It.IsAny<List<Seat>>())).Returns(Task.CompletedTask);
+
+            var req = new SetScreenSeatsRequest
+            {
+                VenueId = 1, Screen = "Screen 1",
+                Seats = new() { new ScreenSeatDto { Row = "A", SeatNumber = 1, SeatType = "  Premium  " } }
+            };
+
+            await _sut.SetScreenSeats(req);
+
+            _seatRepo.Verify(r => r.ReplaceScreenSeats(1, "Screen 1",
+                It.Is<List<Seat>>(l => l[0].SeatType == "Premium")), Times.Once);
+        }
+
+        [Test]
+        public async Task SetScreenSeats_Throws_WhenSeatTypeTooLong()
+        {
+            _seatRepo.Setup(r => r.ScreenHasActiveSeatUsage(1, "Screen 1")).ReturnsAsync(false);
+
+            var req = new SetScreenSeatsRequest
+            {
+                VenueId = 1, Screen = "Screen 1",
+                Seats = new() { new ScreenSeatDto { Row = "A", SeatNumber = 1, SeatType = new string('A', 51) } }
+            };
+
+            var act = async () => await _sut.SetScreenSeats(req);
+
+            await act.Should().ThrowAsync<ValidationException>().WithMessage("*not exceed 50 characters*");
         }
 
         [Test]

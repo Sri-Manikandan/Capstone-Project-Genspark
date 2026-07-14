@@ -16,6 +16,7 @@ namespace EMSTests.Services
     {
         private Mock<IVenueRepository> _venueRepo;
         private Mock<IEventRepository> _eventRepo;
+        private Mock<ISeatRepository> _seatRepo;
         private IMapper _mapper;
         private VenueService _sut;
 
@@ -24,8 +25,14 @@ namespace EMSTests.Services
         {
             _venueRepo = new Mock<IVenueRepository>();
             _eventRepo = new Mock<IEventRepository>();
+            _seatRepo = new Mock<ISeatRepository>();
             _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
-            _sut = new VenueService(_venueRepo.Object, _eventRepo.Object, _mapper);
+
+            // Capacity cannot be set below the venue's existing seat count; default to no seats
+            // so the general cases are unaffected.
+            _seatRepo.Setup(r => r.GetByVenueId(It.IsAny<int>())).ReturnsAsync(new List<Seat>());
+
+            _sut = new VenueService(_venueRepo.Object, _eventRepo.Object, _seatRepo.Object, _mapper);
         }
 
         [Test]
@@ -86,6 +93,25 @@ namespace EMSTests.Services
             });
 
             result.Name.Should().Be("New");
+        }
+
+        [Test]
+        public async Task Update_Throws_WhenCapacityIsBelowExistingSeatCount()
+        {
+            _venueRepo.Setup(r => r.GetById(1)).ReturnsAsync(new Venue
+            {
+                Id = 1, Name = "Hall A", Address = "123 St", City = "Chennai", TotalCapacity = 500, LayoutConfig = "{}"
+            });
+            _seatRepo.Setup(r => r.GetByVenueId(1)).ReturnsAsync(
+                Enumerable.Range(1, 90).Select(n => new Seat { VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = n, SeatType = "Normal" }).ToList());
+
+            var act = async () => await _sut.Update(1, new UpdateVenueRequest
+            {
+                Name = "Hall A", Address = "123 St", City = "Chennai", TotalCapacity = 50, LayoutConfig = "{}"
+            });
+
+            await act.Should().ThrowAsync<ValidationException>().WithMessage("*already has 90 seats*");
+            _venueRepo.Verify(r => r.Update(It.IsAny<Venue>()), Times.Never);
         }
 
         [Test]

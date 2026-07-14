@@ -23,11 +23,11 @@
         <div class="card flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-end">
           <label class="block space-y-1">
             <span class="field-label">Rows</span>
-            <input type="number" [(ngModel)]="rows" min="1" class="field w-full sm:w-24" />
+            <input type="number" [(ngModel)]="rows" min="1" max="100" class="field w-full sm:w-24" />
           </label>
           <label class="block space-y-1">
             <span class="field-label">Seats / row</span>
-            <input type="number" [(ngModel)]="perRow" min="1" class="field w-full sm:w-24" />
+            <input type="number" [(ngModel)]="perRow" min="1" max="100" class="field w-full sm:w-24" />
           </label>
           <button type="button" (click)="generate()" class="btn-ghost w-full sm:w-auto">Generate grid</button>
         </div>
@@ -42,7 +42,7 @@
                     [class.text-white]="t === paint()"
                     [class.border-line]="t !== paint()"
                     (click)="paint.set(t)">{{ t }}</button>
-            <input [(ngModel)]="newType" aria-label="New seat type name" placeholder="+ type" class="field w-28" />
+            <input [(ngModel)]="newType" aria-label="New seat type name" placeholder="+ type" maxlength="50" class="field w-28" />
             <button type="button" (click)="addType()" class="btn-ghost">Add type</button>
           </div>
 
@@ -71,6 +71,14 @@
           <div class="mt-4 flex gap-3">
             <button type="button" (click)="save()" class="btn-primary">Save screen</button>
             <span class="self-center text-sm text-muted">{{ seatCount() }} seats</span>
+            @if (venueCapacity(); as capacity) {
+              <span
+                class="self-center text-xs"
+                [class.text-muted]="seatsInOtherScreens() + seatCount() <= capacity"
+                [class.text-rose]="seatsInOtherScreens() + seatCount() > capacity">
+                {{ seatsInOtherScreens() + seatCount() }} of {{ capacity }} venue capacity used
+              </span>
+            }
             <button type="button" (click)="deleteScreen()" class="link-danger self-center">Delete screen</button>
           </div>
         </div>
