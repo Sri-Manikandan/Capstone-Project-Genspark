@@ -56,6 +56,33 @@
     font-feature-settings: "ss01";
   }
 
+  /* Cross-fade surfaces when the theme flips instead of snapping. */
+  body,
+  .card,
+  .data-table,
+  header,
+  footer {
+    transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
+  }
+
+  /* Gentle fade-in for routed page content (the sibling Angular renders
+     after <router-outlet>), re-triggered on every navigation. */
+  @keyframes ems-fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  router-outlet + * {
+    display: block;
+    animation: ems-fade-in-up 260ms ease-out both;
+  }
+
   h1,
   h2,
   h3,
@@ -102,7 +129,8 @@
   /* Buttons — refined pills, one bold accent. */
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold
-           transition disabled:cursor-not-allowed disabled:opacity-50;
+           transition duration-200 hover:-translate-y-px active:translate-y-0
+           disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0;
   }
   .btn-primary {
     @apply btn bg-plum text-white hover:bg-plum-dark;
