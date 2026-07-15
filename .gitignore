@@ -25,3 +25,7 @@ appsettings.Development.json
 .DS_Store
 Thumbs.db
 .superpowers/
+
+# Locally uploaded event images (runtime data, not source)
+EventManagementSystem/EMSApplicationLayer/wwwroot/uploads/*
+!EventManagementSystem/EMSApplicationLayer/wwwroot/uploads/.gitkeep

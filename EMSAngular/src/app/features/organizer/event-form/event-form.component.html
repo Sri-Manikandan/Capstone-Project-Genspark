@@ -35,11 +35,15 @@
           Screens and showtimes are managed on the
           <a [routerLink]="['/organizer/events', eventId(), 'screenings']" class="link-action">Screenings</a> page.
         </p>
-        <label class="block space-y-1">
-          <span class="field-label">Image URL</span>
-          <input formControlName="imageUrl" placeholder="Image URL" class="field" />
-          <ems-field-error [control]="form.controls.imageUrl" label="Image URL" />
-        </label>
+        <div class="block space-y-1">
+          <span class="field-label">Event image</span>
+          <input type="file" accept="image/jpeg,image/png,image/webp"
+                 (change)="onImageSelected($event)" [disabled]="uploading()" class="field" />
+          <p *ngIf="uploading()" class="text-sm text-ink-soft">Uploading…</p>
+          <img *ngIf="imagePreview()" [src]="imagePreview()" alt="Event image preview"
+               class="mt-2 max-h-40 rounded-2xl border border-line object-cover" />
+          <ems-field-error [control]="form.controls.imageUrl" label="Event image" />
+        </div>
         <label class="block space-y-1">
           <span class="field-label">Category</span>
           <select formControlName="category" class="field">

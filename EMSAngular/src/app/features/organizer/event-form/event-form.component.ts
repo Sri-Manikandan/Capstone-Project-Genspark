@@ -6,6 +6,7 @@ import { EventService } from '../../../core/services/event.service';
 import { VenueService } from '../../../core/services/venue.service';
 import { SeatService } from '../../../core/services/seat.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { UploadService } from '../../../core/services/upload.service';
 import { VenueDto } from '../../../core/models/venue.model';
 import { CreateEventWithScreeningsRequest } from '../../../core/models/event.model';
 import { SeatDto } from '../../../core/models/seat.model';
@@ -28,6 +29,7 @@ export class EventFormComponent implements OnInit {
   private venueService = inject(VenueService);
   private seatService = inject(SeatService);
   private toast = inject(ToastService);
+  private uploadService = inject(UploadService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
@@ -43,6 +45,8 @@ export class EventFormComponent implements OnInit {
   private venueSeats = signal<SeatDto[]>([]);
   protected eventId = signal<number | null>(null);
   protected isEdit = computed(() => this.eventId() !== null);
+  protected uploading = signal(false);
+  protected imagePreview = signal<string | null>(null);
 
   form = this.fb.nonNullable.group({
     venueId: [0, [selectRequired]],
@@ -78,6 +82,7 @@ export class EventFormComponent implements OnInit {
             venueId: ev.venueId, title: ev.title, description: ev.description,
             imageUrl: ev.imageUrl, category: ev.category,
           });
+          this.imagePreview.set(ev.imageUrl);
         },
         error: (m: string) => this.toast.error(m),
       });
@@ -106,6 +111,37 @@ export class EventFormComponent implements OnInit {
 
   protected onShowtimeScreenChange(): void {
     this.refreshScreenDerivedInfo();
+  }
+
+  // Validate client-side (fast feedback), upload, then store the API's absolute URL in the
+  // existing imageUrl control so the rest of the create/update flow is unchanged.
+  protected onImageSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      this.toast.error('Image must be a JPEG, PNG, or WebP file.');
+      input.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      this.toast.error('Image must be 5 MB or smaller.');
+      input.value = '';
+      return;
+    }
+
+    this.uploading.set(true);
+    this.uploadService.uploadImage(file).subscribe({
+      next: res => {
+        this.form.controls.imageUrl.setValue(res.url);
+        this.imagePreview.set(res.url);
+        this.uploading.set(false);
+      },
+      error: (m: string) => { this.uploading.set(false); this.toast.error(m); },
+    });
+    input.value = '';
   }
 
   // A shared ticket category must be sellable on every chosen screen, so the offered seat types

@@ -40,6 +40,10 @@ spec:
               value: "true"
             - name: Email__AppBaseUrl
               value: "https://__SWA_HOSTNAME__"
+            - name: Storage__Provider
+              value: "AzureBlob"
+            - name: Storage__ContainerName
+              value: "event-images"
           envFrom:
             - secretRef:
                 name: ems-secrets # synced from Key Vault by the CSI driver

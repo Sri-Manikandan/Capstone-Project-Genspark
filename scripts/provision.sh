@@ -88,12 +88,14 @@ PG_FQDN=$(echo "$OUT"          | jq -r .postgresFqdn.value)
 PG_NAME=$(echo "$OUT"          | jq -r .postgresName.value)
 WI_CLIENT_ID=$(echo "$OUT"     | jq -r .workloadIdentityClientId.value)
 SWA_NAME=$(echo "$OUT"         | jq -r .swaName.value)
+STORAGE_NAME=$(echo "$OUT"     | jq -r .storageAccountName.value)
 TENANT_ID=$(az account show --query tenantId -o tsv)
 
 echo "    ACR:      $ACR_LOGIN_SERVER"
 echo "    AKS:      $AKS_NAME  (node RG: $NODE_RG)"
 echo "    KeyVault: $KV_NAME"
 echo "    Postgres: $PG_FQDN"
+echo "    Storage:  $STORAGE_NAME"
 
 # ── 3. Cluster credentials ────────────────────────────────────────────────────────────
 echo "==> Fetching kubeconfig"
@@ -228,6 +230,14 @@ az keyvault secret set --vault-name "$KV_NAME" --name db-connection-string \
 az keyvault secret set --vault-name "$KV_NAME" --name jwt-key \
   --value "$(openssl rand -base64 48)" -o none
 
+# Storage account key → connection string in Key Vault. Same key-in-vault model as Postgres:
+# the pods cannot be granted a Blob RBAC role (no roleAssignments/write on this subscription).
+STORAGE_KEY=$(az storage account keys list -g "$RG" -n "$STORAGE_NAME" \
+  --query "[0].value" -o tsv)
+az keyvault secret set --vault-name "$KV_NAME" --name storage-connection-string \
+  --value "DefaultEndpointsProtocol=https;AccountName=$STORAGE_NAME;AccountKey=$STORAGE_KEY;EndpointSuffix=core.windows.net" \
+  -o none
+
 # Secrets are read from the developer's local machine rather than hardcoded, because this
 # script IS committed to git and these are live credentials.
 
@@ -274,8 +284,10 @@ az keyvault secret set --vault-name "$KV_NAME" --name stripe-secret-key \
 
 # The webhook signing secret is deliberately NOT reused from user-secrets. It is issued
 # PER ENDPOINT, so the local one (from `stripe listen`) will fail signature verification
-# against the AKS URL. This placeholder just lets the CSI driver mount all five secrets on
+# against the AKS URL. This placeholder just lets the CSI driver mount all six secrets on
 # the first deploy — the pod will not start if any one of them is missing from Key Vault.
+# This is also why this script must be RE-RUN, before deploying, whenever a new secret
+# object is added to k8s/secretproviderclass.yaml: a missing one crash-loops the whole pod.
 az keyvault secret set --vault-name "$KV_NAME" --name stripe-webhook-secret \
   --value "whsec_placeholder" -o none
 
@@ -296,6 +308,10 @@ echo "       az keyvault secret set --vault-name $KV_NAME \\"
 echo "         --name stripe-webhook-secret --value 'whsec_...'"
 echo ""
 echo "  3. Deploy:   git checkout -B prod && git push -u origin prod"
+echo ""
+echo "  NOTE: if k8s/secretproviderclass.yaml added/changed a Key Vault secret since this"
+echo "  environment was last provisioned, re-run this script BEFORE step 3 — the CSI"
+echo "  driver crash-loops ems-api/ems-worker if any listed secret is missing from Key Vault."
 echo ""
 echo "  API:      https://$INGRESS_FQDN"
 echo "  Frontend: https://$SWA_HOSTNAME"
