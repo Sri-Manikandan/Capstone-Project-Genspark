@@ -3,6 +3,52 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --ink: 245 243 250;
+    --ink-soft: 183 177 196;
+    --muted: 138 131 152;
+    --paper: 14 11 20;
+    --surface: 23 19 31;
+    --line: 42 36 53;
+    --plum: 139 92 246;
+    --plum-dark: 124 58 237;
+    --plum-tint: 33 26 56;
+    --teal: 45 212 191;
+    --teal-dark: 20 184 166;
+    --teal-tint: 16 36 31;
+    --gold: 245 158 11;
+    --gold-tint: 42 32 14;
+    --rose: 251 113 133;
+    --rose-dark: 244 63 94;
+    --rose-tint: 44 22 32;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 30px -18px rgba(0, 0, 0, 0.7);
+    --shadow-lift: 0 22px 55px -22px rgba(0, 0, 0, 0.8);
+    --table-fade: 0, 0, 0;
+  }
+
+  [data-theme="light"] {
+    --ink: 26 22 37;
+    --ink-soft: 74 68 90;
+    --muted: 122 114 138;
+    --paper: 250 249 252;
+    --surface: 255 255 255;
+    --line: 226 223 233;
+    --plum: 124 58 237;
+    --plum-dark: 109 40 217;
+    --plum-tint: 237 233 250;
+    --teal: 13 148 136;
+    --teal-dark: 15 118 110;
+    --teal-tint: 224 246 243;
+    --gold: 217 119 6;
+    --gold-tint: 251 240 219;
+    --rose: 225 29 72;
+    --rose-dark: 190 18 60;
+    --rose-tint: 253 232 236;
+    --shadow-card: 0 1px 2px rgba(17, 12, 34, 0.06), 0 12px 30px -18px rgba(17, 12, 34, 0.22);
+    --shadow-lift: 0 22px 55px -22px rgba(17, 12, 34, 0.28);
+    --table-fade: 17, 12, 34;
+  }
+
   html,
   body {
     @apply bg-paper text-ink antialiased;
@@ -132,10 +178,10 @@
   .table-scroll-wrap {
     @apply overflow-x-auto;
     background:
-      linear-gradient(to right, theme(colors.surface) 30%, rgba(23, 19, 31, 0)) left center,
-      linear-gradient(to left, theme(colors.surface) 30%, rgba(23, 19, 31, 0)) right center,
-      radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0)) left center,
-      radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0)) right center;
+      linear-gradient(to right, theme(colors.surface) 30%, rgb(var(--surface) / 0)) left center,
+      linear-gradient(to left, theme(colors.surface) 30%, rgb(var(--surface) / 0)) right center,
+      radial-gradient(farthest-side at 0 50%, rgba(var(--table-fade), 0.5), rgba(var(--table-fade), 0)) left center,
+      radial-gradient(farthest-side at 100% 50%, rgba(var(--table-fade), 0.5), rgba(var(--table-fade), 0)) right center;
     background-repeat: no-repeat;
     background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
     background-attachment: local, local, scroll, scroll;
