@@ -9,6 +9,7 @@ using EMSApplicationLayer.Helpers;
 using EMSApplicationLayer.Hubs;
 using EMSApplicationLayer.Middleware;
 using EMSApplicationLayer.Notifications;
+using EMSApplicationLayer.Storage;
 using EMSBLLLibrary.Emails;
 using EMSBLLLibrary.Interfaces;
 using EMSBLLLibrary.Mappings;
@@ -90,6 +91,15 @@ builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IOrganizerRequestRepository, OrganizerRequestRepository>();
 builder.Services.AddScoped<IChangeLogRepository, ChangeLogRepository>();
 builder.Services.AddScoped<IEmailOutboxRepository, EmailOutboxRepository>();
+
+// ── Image storage ───────────────────────────────────────────────────────────────
+// AzureBlob in production (Storage:Provider=AzureBlob, connection string from Key Vault);
+// the local filesystem everywhere else so `dotnet run` needs no Azure. LocalImageStorage
+// needs the request to build an absolute URL, hence IHttpContextAccessor (already registered).
+if (string.Equals(builder.Configuration["Storage:Provider"], "AzureBlob", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddScoped<IImageStorage, EMSBLLLibrary.Services.AzureBlobImageStorage>();
+else
+    builder.Services.AddScoped<IImageStorage, LocalImageStorage>();
 
 // ── Services ──────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -306,6 +316,10 @@ var forwardedHeadersOptions = new ForwardedHeadersOptions
 forwardedHeadersOptions.KnownNetworks.Clear();
 forwardedHeadersOptions.KnownProxies.Clear();
 app.UseForwardedHeaders(forwardedHeadersOptions);
+
+// Serves uploaded images from wwwroot/uploads in dev (LocalImageStorage). Harmless in prod,
+// where images live in Blob storage and are served by Azure, not the pod.
+app.UseStaticFiles();
 
 app.UseSerilogRequestLogging();
 
