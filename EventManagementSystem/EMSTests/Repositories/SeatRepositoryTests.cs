@@ -21,6 +21,28 @@ namespace EMSTests.Repositories
         }
 
         [Test]
+        public async Task GetAvailableByScreeningId_ReturnsOnlyTheScreensSeats_NotOtherScreensInSameVenue()
+        {
+            using var ctx = CreateContext();
+            ctx.Venues.Add(new Venue { Id = 1, Name = "V" });
+            ctx.Events.Add(new Event { Id = 1, VenueId = 1 });
+            ctx.Screenings.AddRange(
+                new Screening { Id = 1, EventId = 1, Screen = "Screen 1", Status = "Scheduled" },
+                new Screening { Id = 2, EventId = 1, Screen = "Screen 2", Status = "Scheduled" });
+            // Seats store their screen as Section. The venue has seats on two screens.
+            ctx.Seats.AddRange(
+                new Seat { Id = 1, VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 1, SeatType = "Normal" },
+                new Seat { Id = 2, VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 2, SeatType = "Normal" },
+                new Seat { Id = 3, VenueId = 1, Section = "Screen 2", Row = "A", SeatNumber = 1, SeatType = "Normal" });
+            await ctx.SaveChangesAsync();
+
+            var repo = new SeatRepository(ctx);
+            var result = await repo.GetAvailableByScreeningId(1);
+
+            result.Should().HaveCount(2).And.OnlyContain(s => s.Seat.Section == "Screen 1");
+        }
+
+        [Test]
         public async Task GetAvailableByScreeningId_ReturnsWholeVenueGrid_AllAvailableWhenNothingBooked()
         {
             using var ctx = CreateContext();
@@ -28,8 +50,8 @@ namespace EMSTests.Repositories
             ctx.Events.Add(new Event { Id = 1, VenueId = 1 });
             ctx.Screenings.Add(new Screening { Id = 1, EventId = 1, Screen = "Screen 1", Status = "Scheduled" });
             ctx.Seats.AddRange(
-                new Seat { Id = 1, VenueId = 1, Section = "A", Row = "A", SeatNumber = 1, SeatType = "Normal" },
-                new Seat { Id = 2, VenueId = 1, Section = "A", Row = "A", SeatNumber = 2, SeatType = "Normal" });
+                new Seat { Id = 1, VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 1, SeatType = "Normal" },
+                new Seat { Id = 2, VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 2, SeatType = "Normal" });
             await ctx.SaveChangesAsync();
 
             var repo = new SeatRepository(ctx);
@@ -46,10 +68,10 @@ namespace EMSTests.Repositories
             ctx.Events.Add(new Event { Id = 1, VenueId = 1 });
             ctx.Screenings.AddRange(
                 new Screening { Id = 1, EventId = 1, Screen = "Screen 1", Status = "Scheduled" },
-                new Screening { Id = 2, EventId = 1, Screen = "Screen 2", Status = "Scheduled" });
+                new Screening { Id = 2, EventId = 1, Screen = "Screen 1", Status = "Scheduled" });
             ctx.Seats.AddRange(
-                new Seat { Id = 1, VenueId = 1, Section = "A", Row = "A", SeatNumber = 1, SeatType = "Normal" },
-                new Seat { Id = 2, VenueId = 1, Section = "A", Row = "A", SeatNumber = 2, SeatType = "Normal" });
+                new Seat { Id = 1, VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 1, SeatType = "Normal" },
+                new Seat { Id = 2, VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 2, SeatType = "Normal" });
             ctx.Bookings.Add(new Booking { Id = 3, ScreeningId = 1, BookingStatus = "Confirmed" });
             ctx.BookingItems.Add(new BookingItem { Id = 9, BookingId = 3, SeatId = 1 });
             await ctx.SaveChangesAsync();
@@ -76,10 +98,10 @@ namespace EMSTests.Repositories
             // Inserted deliberately out of order; the result must still be Section→Row→SeatNumber
             // so the seat layout never reshuffles between fetches.
             ctx.Seats.AddRange(
-                new Seat { Id = 1, VenueId = 1, Section = "B", Row = "A", SeatNumber = 2, SeatType = "Normal" },
-                new Seat { Id = 2, VenueId = 1, Section = "A", Row = "B", SeatNumber = 1, SeatType = "Normal" },
-                new Seat { Id = 3, VenueId = 1, Section = "A", Row = "A", SeatNumber = 2, SeatType = "Normal" },
-                new Seat { Id = 4, VenueId = 1, Section = "A", Row = "A", SeatNumber = 1, SeatType = "Normal" });
+                new Seat { Id = 1, VenueId = 1, Section = "Screen 1", Row = "B", SeatNumber = 2, SeatType = "Normal" },
+                new Seat { Id = 2, VenueId = 1, Section = "Screen 1", Row = "B", SeatNumber = 1, SeatType = "Normal" },
+                new Seat { Id = 3, VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 2, SeatType = "Normal" },
+                new Seat { Id = 4, VenueId = 1, Section = "Screen 1", Row = "A", SeatNumber = 1, SeatType = "Normal" });
             await ctx.SaveChangesAsync();
 
             var repo = new SeatRepository(ctx);

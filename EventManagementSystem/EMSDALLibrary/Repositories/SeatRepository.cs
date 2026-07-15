@@ -62,7 +62,7 @@ namespace EMSDALLibrary.Repositories
             // database return rows in a different order once the result set changes. Taken seats
             // stay in the grid (drawn as "taken") rather than disappearing.
             var seats = await _context.Seats
-                .Where(s => s.VenueId == eventEntity.VenueId)
+                .Where(s => s.VenueId == eventEntity.VenueId && s.Section == screening.Screen)
                 .OrderBy(s => s.Section)
                 .ThenBy(s => s.Row)
                 .ThenBy(s => s.SeatNumber)
