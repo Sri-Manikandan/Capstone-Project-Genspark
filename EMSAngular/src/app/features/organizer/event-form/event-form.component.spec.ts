@@ -6,6 +6,7 @@ import { EventService } from '../../../core/services/event.service';
 import { VenueService } from '../../../core/services/venue.service';
 import { SeatService } from '../../../core/services/seat.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { UploadService } from '../../../core/services/upload.service';
 
 describe('EventFormComponent (create mode)', () => {
   let fixture: ComponentFixture<EventFormComponent>;
@@ -13,6 +14,7 @@ describe('EventFormComponent (create mode)', () => {
   let eventService: { createWithScreenings: ReturnType<typeof vi.fn> };
   let seatService: { getByVenue: ReturnType<typeof vi.fn> };
   let toast: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
+  let uploadService: { uploadImage: ReturnType<typeof vi.fn> };
 
   // Screen A: VIP + Normal. Screen B: Premium + Normal. The only type common to both is Normal.
   const seats = [
@@ -39,6 +41,7 @@ describe('EventFormComponent (create mode)', () => {
     eventService = { createWithScreenings: vi.fn().mockReturnValue(of({ id: 9 })) };
     seatService = { getByVenue: vi.fn().mockReturnValue(of(seats)) };
     toast = { success: vi.fn(), error: vi.fn() };
+    uploadService = { uploadImage: vi.fn().mockReturnValue(of({ url: 'http://localhost:5222/uploads/x.png' })) };
 
     await TestBed.configureTestingModule({
       imports: [EventFormComponent],
@@ -49,6 +52,7 @@ describe('EventFormComponent (create mode)', () => {
         { provide: VenueService, useValue: { list: () => of([{ id: 1, name: 'Hall', address: '', city: 'X', totalCapacity: 10, layoutConfig: '', createdAt: '' }]) } },
         { provide: SeatService, useValue: seatService },
         { provide: ToastService, useValue: toast },
+        { provide: UploadService, useValue: uploadService },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(EventFormComponent);
@@ -131,5 +135,31 @@ describe('EventFormComponent (create mode)', () => {
     component.submit();
 
     expect(eventService.createWithScreenings).not.toHaveBeenCalled();
+  });
+
+  function selectFile(file: File): void {
+    const input = { files: [file], value: 'c:/fakepath' } as unknown as HTMLInputElement;
+    component['onImageSelected']({ target: input } as unknown as Event);
+  }
+
+  it('uploads a chosen image and stores the returned url in imageUrl', () => {
+    selectFile(new File(['bytes'], 'poster.png', { type: 'image/png' }));
+    expect(uploadService.uploadImage).toHaveBeenCalled();
+    expect(component.form.controls.imageUrl.value).toBe('http://localhost:5222/uploads/x.png');
+    expect(component['imagePreview']()).toBe('http://localhost:5222/uploads/x.png');
+    expect(component['uploading']()).toBe(false);
+  });
+
+  it('rejects a non-image file without uploading', () => {
+    selectFile(new File(['bytes'], 'notes.pdf', { type: 'application/pdf' }));
+    expect(uploadService.uploadImage).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('JPEG, PNG, or WebP'));
+  });
+
+  it('rejects a file larger than 5 MB without uploading', () => {
+    const big = new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'big.png', { type: 'image/png' });
+    selectFile(big);
+    expect(uploadService.uploadImage).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('5 MB'));
   });
 });
