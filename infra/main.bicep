@@ -39,6 +39,9 @@ var acrName = '${prefix}acr${suffix}' // ACR names must be alphanumeric only
 var kvName = '${prefix}-kv-${kvSuffix}' // Key Vault names max 24 chars
 var aksName = '${prefix}-aks'
 
+// Storage account names: 3–24 chars, lowercase letters and digits only, globally unique.
+var storageName = '${prefix}stor${shortSuffix}'
+
 // ── Workload identity: the pods' Azure identity for reading Key Vault ─────────────────
 // A user-assigned managed identity plus a federated credential is NOT an Entra app
 // registration, so Contributor can create both. This is why workload identity still works
@@ -104,6 +107,14 @@ module swa 'modules/swa.bicep' = {
   }
 }
 
+module storage 'modules/storage.bicep' = {
+  name: 'storage'
+  params: {
+    name: storageName
+    location: location
+  }
+}
+
 output acrLoginServer string = acr.outputs.loginServer
 output acrName string = acr.outputs.name
 output aksName string = aks.outputs.name
@@ -114,3 +125,4 @@ output postgresName string = postgres.outputs.name
 output workloadIdentityClientId string = workloadIdentity.properties.clientId
 output swaName string = swa.outputs.name
 output resourceGroupName string = resourceGroup().name
+output storageAccountName string = storage.outputs.name

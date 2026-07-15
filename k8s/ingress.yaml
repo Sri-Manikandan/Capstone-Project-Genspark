@@ -8,6 +8,8 @@ metadata:
     # SignalR holds long-lived connections; nginx's 60s default would drop the seat hub.
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # Event image uploads pass through the API; nginx's 1m default would 413 them.
+    nginx.ingress.kubernetes.io/proxy-body-size: "6m"
 spec:
   ingressClassName: nginx
   tls:
