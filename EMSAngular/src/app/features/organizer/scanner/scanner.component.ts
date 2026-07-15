@@ -39,19 +39,54 @@ export class ScannerComponent implements OnDestroy {
   protected async startScan(): Promise<void> {
     if (this.scanning()) return;
     this.error.set('');
-    this.scanner = new Html5Qrcode(QR_READER_ELEMENT_ID);
+
+    // Camera access needs a secure context; over plain http (e.g. a LAN IP on a laptop)
+    // navigator.mediaDevices is undefined, so fail early with an actionable message.
+    if (!navigator.mediaDevices?.getUserMedia) {
+      this.error.set('Camera needs a secure (HTTPS) connection. Open the site over HTTPS or use manual entry below.');
+      return;
+    }
+
+    // Reveal the reader first: html5-qrcode sizes the video from the container, and a
+    // display:none (zero-width) element breaks the camera preview.
+    this.scanning.set(true);
+    const scanner = new Html5Qrcode(QR_READER_ELEMENT_ID);
+    this.scanner = scanner;
     try {
-      await this.scanner.start(
-        { facingMode: 'environment' },
+      const cameraId = await this.pickCamera();
+      await scanner.start(
+        cameraId,
         { fps: 10, qrbox: { width: 250, height: 250 } },
         decodedText => this.onScanned(decodedText),
         () => {},
       );
-      this.scanning.set(true);
-    } catch {
-      this.error.set('Could not access camera. Check permissions or use manual entry below.');
+    } catch (err) {
       this.scanner = null;
+      this.scanning.set(false);
+      this.error.set(this.cameraErrorMessage(err));
     }
+  }
+
+  // Laptops typically expose only a front-facing webcam, so prefer a rear/back camera
+  // when the device has one but fall back to whatever is available instead of forcing
+  // facingMode 'environment' (which leaves laptops with no usable camera).
+  private async pickCamera(): Promise<string> {
+    const cameras = await Html5Qrcode.getCameras();
+    if (cameras.length === 0) throw new Error('NO_CAMERA');
+    const rear = cameras.find(c => /\b(back|rear|environment)\b/i.test(c.label));
+    return (rear ?? cameras[0]).id;
+  }
+
+  private cameraErrorMessage(err: unknown): string {
+    const name = (err as { name?: string })?.name ?? '';
+    const message = (err as { message?: string })?.message ?? '';
+    if (name === 'NotAllowedError' || name === 'SecurityError')
+      return 'Camera permission was blocked. Allow camera access in your browser, then try again — or use manual entry below.';
+    if (name === 'NotFoundError' || message === 'NO_CAMERA')
+      return 'No camera was found on this device. Use manual entry below.';
+    if (name === 'NotReadableError')
+      return 'The camera is in use by another app. Close it and try again, or use manual entry below.';
+    return 'Could not access camera. Check permissions or use manual entry below.';
   }
 
   protected async stopScan(): Promise<void> {
