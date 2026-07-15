@@ -14,6 +14,13 @@
           class="absolute inset-x-0 top-full flex flex-col gap-1 border-b border-line bg-paper p-4 shadow-card
                  sm:static sm:flex sm:flex-row sm:items-center sm:gap-1 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none"
           [class.hidden]="!menuOpen()">
+          <button type="button" (click)="theme.toggle(); menuOpen.set(false)"
+                  class="nav-link flex items-center gap-2 text-lg leading-none sm:mr-1"
+                  [attr.aria-label]="theme.theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+                  [attr.aria-pressed]="theme.theme() === 'light'">
+            <span aria-hidden="true">{{ theme.theme() === 'dark' ? '☀️' : '🌙' }}</span>
+            <span class="sm:hidden">{{ theme.theme() === 'dark' ? 'Light mode' : 'Dark mode' }}</span>
+          </button>
           <a routerLink="/events" routerLinkActive="text-plum" (click)="menuOpen.set(false)" class="nav-link">Events</a>
 
           <ng-container *ngIf="auth.isAuthenticated(); else guestLinks">
