@@ -63,12 +63,19 @@ DEPLOYER_OID=$(az account get-access-token --query accessToken -o tsv \
   | python3 -c "import sys,base64,json; t=sys.stdin.read().strip(); t+='='*(-len(t)%4); print(json.loads(base64.urlsafe_b64decode(t))['oid'])")
 echo "==> Deploying as principal $DEPLOYER_OID"
 
+# A fresh random Key Vault suffix on every run. The Bicep default is deterministic
+# (uniqueString of the RG), which reuses the same vault name — and soft-delete then blocks
+# re-creating a torn-down environment for 7 days. 8 hex chars keeps the name under the 24-char
+# Key Vault limit ("ems-kv-" + 8 = 15).
+KV_SUFFIX="$(openssl rand -hex 4)"
+echo "==> Key Vault suffix for this run: $KV_SUFFIX"
+
 echo "==> Deploying Bicep (this takes ~10 minutes, mostly AKS)"
 az deployment group create \
   --resource-group "$RG" \
   --name main \
   --template-file infra/main.bicep \
-  --parameters postgresAdminPassword="$PG_PASS" deployerObjectId="$DEPLOYER_OID" \
+  --parameters postgresAdminPassword="$PG_PASS" deployerObjectId="$DEPLOYER_OID" kvSuffix="$KV_SUFFIX" \
   -o none
 
 OUT="$(az deployment group show -g "$RG" -n main --query properties.outputs -o json)"

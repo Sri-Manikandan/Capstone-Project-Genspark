@@ -23,12 +23,20 @@ param postgresAdminPassword string
 // with RBAC disabled, Contributor confers no data-plane access to secrets.
 param deployerObjectId string
 
-// Keeps globally-unique names (ACR, Key Vault) collision-free.
+// Suffix for the Key Vault name. uniqueString(resourceGroup().id) is DETERMINISTIC, so it
+// would hand the vault the same name on every re-run — and Key Vault's 7-day soft-delete then
+// blocks re-creating a torn-down environment ("vault name already exists in soft-deleted
+// state"). provision.sh passes a fresh random value here on each run so re-provisioning always
+// lands a new vault. The default reproduces the old deterministic name for a direct `az
+// deployment` that does not supply one.
+param kvSuffix string = take(uniqueString(resourceGroup().id), 8)
+
+// Keeps globally-unique names (ACR, SWA) collision-free.
 var suffix = uniqueString(resourceGroup().id)
 var shortSuffix = take(suffix, 8)
 
 var acrName = '${prefix}acr${suffix}' // ACR names must be alphanumeric only
-var kvName = '${prefix}-kv-${shortSuffix}' // Key Vault names max 24 chars
+var kvName = '${prefix}-kv-${kvSuffix}' // Key Vault names max 24 chars
 var aksName = '${prefix}-aks'
 
 // ── Workload identity: the pods' Azure identity for reading Key Vault ─────────────────
