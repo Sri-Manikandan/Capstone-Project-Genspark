@@ -52,6 +52,8 @@ namespace EMSModelLibrary.DTOs
         public string Screen { get; set; } = string.Empty;
     }
 
+    // Edit is metadata-only: screens and showtimes live on the event's screenings, and the
+    // event window is derived from them — so it carries neither Screen nor Start/End times.
     public class UpdateEventRequest
     {
         [Required]
@@ -63,20 +65,12 @@ namespace EMSModelLibrary.DTOs
         public string Description { get; set; } = string.Empty;
 
         [Required]
-        public DateTime StartTime { get; set; }
-
-        [Required]
-        public DateTime EndTime { get; set; }
-
-        [Required]
         [Url]
         public string ImageUrl { get; set; } = string.Empty;
 
         [Required]
         [StringLength(100, MinimumLength = 2)]
         public string Category { get; set; } = string.Empty;
-
-        public string Screen { get; set; } = string.Empty;
     }
 
     // Rich payload for the admin approval queue: the event plus everything an admin needs

@@ -14,13 +14,6 @@
           </select>
           <ems-field-error [control]="form.controls.venueId" label="Venue" />
         </label>
-        <label class="block space-y-1" *ngIf="isEdit()">
-          <span class="field-label">Screen</span>
-          <select formControlName="screen" class="field">
-            <option value="">Whole venue (all screens)</option>
-            <option *ngFor="let s of screens()" [value]="s">{{ s }}</option>
-          </select>
-        </label>
         <label class="block space-y-1">
           <span class="field-label">Title</span>
           <input formControlName="title" placeholder="Title" class="field" />
@@ -31,25 +24,17 @@
           <textarea formControlName="description" placeholder="Description" rows="4" class="field"></textarea>
           <ems-field-error [control]="form.controls.description" label="Description" />
         </label>
-        <div class="flex items-start gap-2 rounded-2xl border border-plum/20 bg-plum/5 p-3 text-sm text-ink-soft">
+        <div *ngIf="!isEdit()" class="flex items-start gap-2 rounded-2xl border border-plum/20 bg-plum/5 p-3 text-sm text-ink-soft">
           <span aria-hidden="true">📅</span>
           <p><span class="font-semibold text-ink">Heads up:</span> events must be scheduled
             <span class="font-semibold text-ink">at least 2 days (48 hours) in advance</span>.
             Plan submissions accordingly — last-minute events can't be published, and this window
             also gives admins time to review and approve your event.</p>
         </div>
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2" *ngIf="isEdit()">
-          <label class="block space-y-1">
-            <span class="field-label">Start time</span>
-            <input formControlName="startTime" type="datetime-local" class="field" />
-            <ems-field-error [control]="form.controls.startTime" label="Start time" />
-          </label>
-          <label class="block space-y-1">
-            <span class="field-label">End time</span>
-            <input formControlName="endTime" type="datetime-local" class="field" />
-            <ems-field-error [control]="form.controls.endTime" label="End time" />
-          </label>
-        </div>
+        <p *ngIf="isEdit()" class="text-sm text-ink-soft">
+          Screens and showtimes are managed on the
+          <a [routerLink]="['/organizer/events', eventId(), 'screenings']" class="link-action">Screenings</a> page.
+        </p>
         <label class="block space-y-1">
           <span class="field-label">Image URL</span>
           <input formControlName="imageUrl" placeholder="Image URL" class="field" />

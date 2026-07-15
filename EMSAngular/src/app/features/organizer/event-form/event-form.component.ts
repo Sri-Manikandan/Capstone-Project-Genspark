@@ -50,14 +50,11 @@ export class EventFormComponent implements OnInit {
     description: ['', [Validators.required, notBlank, Validators.minLength(1), Validators.maxLength(2000)]],
     imageUrl: ['', [Validators.required, httpUrl]],
     category: ['', [Validators.required]],
-    // Edit-only single-screen fields; a created event carries its screens/times on `showtimes`.
-    screen: [''],
-    startTime: ['', [Validators.required, minLeadTime(48)]],
-    endTime: ['', Validators.required],
     // Create-only: one screening per showtime row, plus ticket categories shared across them.
+    // Editing an event is metadata-only — screens and showtimes live on its screenings.
     showtimes: this.fb.array<ReturnType<EventFormComponent['showtimeGroup']>>([]),
     ticketTypes: this.fb.array<ReturnType<EventFormComponent['categoryGroup']>>([]),
-  }, { validators: endAfterStart('startTime', 'endTime') });
+  });
 
   protected get showtimes(): FormArray<ReturnType<EventFormComponent['showtimeGroup']>> {
     return this.form.controls.showtimes;
@@ -79,19 +76,12 @@ export class EventFormComponent implements OnInit {
             this.categoryOptions.update(list => [ev.category, ...list]);
           this.form.patchValue({
             venueId: ev.venueId, title: ev.title, description: ev.description,
-            startTime: ev.startTime.slice(0, 16), endTime: ev.endTime.slice(0, 16),
-            imageUrl: ev.imageUrl, category: ev.category, screen: ev.screen,
+            imageUrl: ev.imageUrl, category: ev.category,
           });
-          this.onVenueChange(ev.venueId);
         },
         error: (m: string) => this.toast.error(m),
       });
     } else {
-      // Create mode uses per-showtime times, so the single event-level time fields don't apply.
-      this.form.controls.startTime.clearValidators();
-      this.form.controls.endTime.clearValidators();
-      this.form.controls.startTime.updateValueAndValidity();
-      this.form.controls.endTime.updateValueAndValidity();
       this.addShowtime();
       this.addCategory();
     }
@@ -204,8 +194,7 @@ export class EventFormComponent implements OnInit {
 
     if (id !== null) {
       this.eventService.update(id, {
-        title: v.title, description: v.description, startTime: v.startTime,
-        endTime: v.endTime, imageUrl: v.imageUrl, category: v.category, screen: v.screen,
+        title: v.title, description: v.description, imageUrl: v.imageUrl, category: v.category,
       }).subscribe({
         next: () => { this.toast.success('Event updated.'); this.router.navigate(['/organizer/events']); },
         error: (m: string) => this.toast.error(m),

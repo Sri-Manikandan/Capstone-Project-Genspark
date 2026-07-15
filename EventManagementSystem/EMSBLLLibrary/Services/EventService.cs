@@ -295,38 +295,15 @@ namespace EMSBLLLibrary.Services
             InputValidator.ValidateRequiredString("Category", request.Category, 100);
             InputValidator.ValidateUrl("ImageUrl", request.ImageUrl);
 
-            var startUtc = TimeHelper.AssumeIstToUtc(request.StartTime);
-            var endUtc = TimeHelper.AssumeIstToUtc(request.EndTime);
-
-            if (startUtc < DateTime.UtcNow + MinLeadTime)
-                throw new ValidationException(LeadTimeMessage);
-
-            if (endUtc <= startUtc)
-                throw new ValidationException("EndTime must be after StartTime.");
-
+            // Metadata only. Screens and showtimes are edited through the event's screenings,
+            // and the event window is derived from those — so it is never set here.
             ev.Title = request.Title;
             ev.Description = request.Description;
-            ev.StartTime = startUtc;
-            ev.EndTime = endUtc;
             ev.ImageUrl = request.ImageUrl;
             ev.Category = request.Category;
-            ev.Screen = request.Screen ?? string.Empty;
             ev.UpdatedAt = DateTime.UtcNow;
 
             await _eventRepo.Update(ev);
-
-            // Keep the auto-created default screening in step with the event window. When the
-            // organizer has added multiple screenings they manage those windows themselves, so
-            // we only sync the single-screening case to avoid clobbering deliberate schedules.
-            var screenings = await _screeningRepo.GetByEventId(id);
-            if (screenings.Count == 1)
-            {
-                var screening = screenings[0];
-                screening.StartTime = startUtc;
-                screening.EndTime = endUtc;
-                screening.Screen = ev.Screen;
-                await _screeningRepo.Update(screening);
-            }
 
             return _mapper.Map<EventDto>(ev);
         }

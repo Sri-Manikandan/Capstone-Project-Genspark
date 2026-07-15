@@ -57,14 +57,13 @@ export interface CreateEventWithScreeningsRequest {
   ticketCategories: EventTicketCategoryRequest[];
 }
 
+// Edit is metadata-only. Screens and showtimes are managed through the event's screenings,
+// and the event window is derived from them — so neither is sent here.
 export interface UpdateEventRequest {
   title: string;
   description: string;
-  startTime: string;
-  endTime: string;
   imageUrl: string;
   category: string;
-  screen: string;
 }
 
 export interface OrganizerSummary {

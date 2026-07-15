@@ -144,7 +144,7 @@ namespace EMSTests.Services
         private UpdateEventRequest ValidUpdateRequest() => new UpdateEventRequest
         {
             Title = "Updated", Description = ValidDescription, Category = ValidCategory,
-            ImageUrl = ValidImageUrl, StartTime = Start, EndTime = End
+            ImageUrl = ValidImageUrl
         };
 
         // ── Create ───────────────────────────────────────────────────────────────
@@ -409,35 +409,22 @@ namespace EMSTests.Services
         }
 
         [Test]
-        public async Task Update_SingleScreening_SyncsScreeningWindow()
+        public async Task Update_IsMetadataOnly_LeavesWindowAndScreeningsUntouched()
         {
+            // Edit only carries metadata; the event window and screens are owned by the
+            // screenings, so update must not overwrite the window or touch any screening.
             var ev = MakeEvent(status: EventStatus.Draft);
+            var originalStart = ev.StartTime;
+            var originalEnd = ev.EndTime;
+            ev.Screen = "Screen 3";
             _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(ev);
             _eventRepo.Setup(r => r.Update(It.IsAny<Event>())).ReturnsAsync((Event e) => e);
-            var screening = new Screening { Id = 5, EventId = 1, StartTime = DateTime.UtcNow.AddYears(-1), EndTime = DateTime.UtcNow.AddYears(-1) };
-            _screeningRepo.Setup(r => r.GetByEventId(1)).ReturnsAsync(new List<Screening> { screening });
-            _screeningRepo.Setup(r => r.Update(It.IsAny<Screening>())).ReturnsAsync((Screening s) => s);
 
             await _sut.Update(1, 10, ValidUpdateRequest());
 
-            screening.StartTime.Should().Be(ev.StartTime);
-            screening.EndTime.Should().Be(ev.EndTime);
-            _screeningRepo.Verify(r => r.Update(It.IsAny<Screening>()), Times.Once);
-        }
-
-        [Test]
-        public async Task Update_MultipleScreenings_DoesNotSync()
-        {
-            var ev = MakeEvent(status: EventStatus.Draft);
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(ev);
-            _eventRepo.Setup(r => r.Update(It.IsAny<Event>())).ReturnsAsync((Event e) => e);
-            _screeningRepo.Setup(r => r.GetByEventId(1)).ReturnsAsync(new List<Screening>
-            {
-                new Screening { Id = 5, EventId = 1 }, new Screening { Id = 6, EventId = 1 }
-            });
-
-            await _sut.Update(1, 10, ValidUpdateRequest());
-
+            ev.StartTime.Should().Be(originalStart);
+            ev.EndTime.Should().Be(originalEnd);
+            ev.Screen.Should().Be("Screen 3");
             _screeningRepo.Verify(r => r.Update(It.IsAny<Screening>()), Times.Never);
         }
 
@@ -478,19 +465,6 @@ namespace EMSTests.Services
         }
 
         [Test]
-        public async Task Update_EndBeforeStart_ThrowsValidationException()
-        {
-            var ev = MakeEvent(status: EventStatus.Draft);
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(ev);
-            var req = ValidUpdateRequest();
-            req.StartTime = End;
-            req.EndTime = Start; // before StartTime
-
-            await _sut.Invoking(s => s.Update(1, 10, req))
-                .Should().ThrowAsync<ValidationException>().WithMessage("*EndTime*");
-        }
-
-        [Test]
         public async Task Update_EmptyTitle_ThrowsValidationException()
         {
             var ev = MakeEvent(status: EventStatus.Draft);
@@ -499,34 +473,6 @@ namespace EMSTests.Services
             req.Title = "";
 
             await _sut.Invoking(s => s.Update(1, 10, req)).Should().ThrowAsync<ValidationException>().WithMessage("*Title*");
-        }
-
-        [Test]
-        public async Task Update_StartTimeWithin48Hours_ThrowsValidationException()
-        {
-            var ev = MakeEvent(status: EventStatus.Draft);
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(ev);
-            var req = ValidUpdateRequest();
-            req.StartTime = DateTime.UtcNow.AddHours(24);
-            req.EndTime = DateTime.UtcNow.AddHours(26);
-
-            await _sut.Invoking(s => s.Update(1, 10, req))
-                .Should().ThrowAsync<ValidationException>().WithMessage("*48 hours*");
-        }
-
-        [Test]
-        public async Task Update_StartTimeAtLeast48Hours_Succeeds()
-        {
-            var ev = MakeEvent(status: EventStatus.Draft);
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(ev);
-            _eventRepo.Setup(r => r.Update(It.IsAny<Event>())).ReturnsAsync((Event e) => e);
-            var req = ValidUpdateRequest();
-            req.StartTime = DateTime.UtcNow.AddHours(49);
-            req.EndTime = DateTime.UtcNow.AddHours(52);
-
-            var result = await _sut.Update(1, 10, req);
-
-            result.Title.Should().Be("Updated");
         }
 
         // ── Delete ───────────────────────────────────────────────────────────────

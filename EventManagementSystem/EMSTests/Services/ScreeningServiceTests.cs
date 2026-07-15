@@ -30,6 +30,9 @@ namespace EMSTests.Services
             _eventRepo = new Mock<IEventRepository>();
             _seatRepo = new Mock<ISeatRepository>();
             _seatRepo.Setup(r => r.GetByVenueId(1)).ReturnsAsync(new List<Seat> { new Seat { Id = 1, VenueId = 1, Section = "A", SeatType = "Silver" } });
+            // Create/Update/Delete recompute the event window from its screenings; default to none.
+            _screeningRepo.Setup(r => r.GetByEventId(It.IsAny<int>())).ReturnsAsync(new List<Screening>());
+            _eventRepo.Setup(r => r.Update(It.IsAny<Event>())).ReturnsAsync((Event e) => e);
             _mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).CreateMapper();
             _sut = new ScreeningService(_screeningRepo.Object, _eventRepo.Object, _seatRepo.Object, _mapper);
         }
@@ -112,14 +115,66 @@ namespace EMSTests.Services
         }
 
         [Test]
-        public async Task Create_OutsideEventWindow_ThrowsValidationException()
+        public async Task Create_OutsideOriginalEventWindow_IsAllowed_AndWidensWindow()
         {
-            // Event window is now..now+30d; a screening starting in 40 days falls outside it.
-            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(OrganizerEvent());
-            var outside = DateTime.UtcNow.AddDays(40);
+            // The event window is derived from its screenings, so a screening outside the old
+            // window is fine — it just extends the window rather than being rejected.
+            var ev = OrganizerEvent();
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(ev);
+            _screeningRepo.Setup(r => r.Add(It.IsAny<Screening>())).ReturnsAsync((Screening s) => s);
+            var outsideStart = DateTime.UtcNow.AddDays(40);
+            var outsideEnd = outsideStart.AddHours(2);
+            _screeningRepo.Setup(r => r.GetByEventId(1)).ReturnsAsync(new List<Screening>
+            {
+                new Screening { Id = 7, EventId = 1, StartTime = outsideStart, EndTime = outsideEnd }
+            });
 
-            await _sut.Invoking(s => s.Create(10, new CreateScreeningRequest { EventId = 1, Screen = "Screen 1", StartTime = outside, EndTime = outside.AddHours(2) }))
-                .Should().ThrowAsync<ValidationException>().WithMessage("*within the event*");
+            await _sut.Create(10, new CreateScreeningRequest { EventId = 1, Screen = "Screen 1", StartTime = outsideStart, EndTime = outsideEnd });
+
+            ev.StartTime.Should().Be(outsideStart);
+            ev.EndTime.Should().Be(outsideEnd);
+            _eventRepo.Verify(r => r.Update(It.Is<Event>(e => e.Id == 1)), Times.Once);
+        }
+
+        [Test]
+        public async Task Create_RecomputesEventWindowAsScreeningSpan()
+        {
+            var ev = OrganizerEvent();
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(ev);
+            _screeningRepo.Setup(r => r.Add(It.IsAny<Screening>())).ReturnsAsync((Screening s) => s);
+            var earliest = DateTime.UtcNow.AddDays(2);
+            var latest = DateTime.UtcNow.AddDays(9);
+            _screeningRepo.Setup(r => r.GetByEventId(1)).ReturnsAsync(new List<Screening>
+            {
+                new Screening { Id = 1, EventId = 1, StartTime = earliest, EndTime = earliest.AddHours(2) },
+                new Screening { Id = 2, EventId = 1, StartTime = latest.AddHours(-2), EndTime = latest },
+            });
+
+            await _sut.Create(10, ValidCreate());
+
+            ev.StartTime.Should().Be(earliest);
+            ev.EndTime.Should().Be(latest);
+        }
+
+        [Test]
+        public async Task Delete_RecomputesEventWindowFromRemainingScreenings()
+        {
+            _screeningRepo.Setup(r => r.GetById(1)).ReturnsAsync(new Screening { Id = 1, EventId = 1 });
+            var ev = OrganizerEvent();
+            _eventRepo.Setup(r => r.GetById(1)).ReturnsAsync(ev);
+            _screeningRepo.Setup(r => r.HasActivity(1)).ReturnsAsync(false);
+            _screeningRepo.Setup(r => r.Delete(1)).Returns(Task.CompletedTask);
+            var remainingStart = DateTime.UtcNow.AddDays(5);
+            var remainingEnd = remainingStart.AddHours(3);
+            _screeningRepo.Setup(r => r.GetByEventId(1)).ReturnsAsync(new List<Screening>
+            {
+                new Screening { Id = 2, EventId = 1, StartTime = remainingStart, EndTime = remainingEnd }
+            });
+
+            await _sut.Delete(1, 10);
+
+            ev.StartTime.Should().Be(remainingStart);
+            ev.EndTime.Should().Be(remainingEnd);
         }
 
         [Test]

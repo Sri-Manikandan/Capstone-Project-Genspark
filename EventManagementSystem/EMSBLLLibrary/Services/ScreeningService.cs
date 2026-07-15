@@ -60,6 +60,7 @@ namespace EMSBLLLibrary.Services
                 Status = ScreeningStatus.Scheduled
             };
             await _screeningRepo.Add(screening);
+            await RecomputeEventWindow(ev);
             return _mapper.Map<ScreeningDto>(screening);
         }
 
@@ -83,6 +84,7 @@ namespace EMSBLLLibrary.Services
             screening.StartTime = startUtc;
             screening.EndTime = endUtc;
             await _screeningRepo.Update(screening);
+            await RecomputeEventWindow(ev);
             return _mapper.Map<ScreeningDto>(screening);
         }
 
@@ -101,6 +103,21 @@ namespace EMSBLLLibrary.Services
                 throw new ValidationException("Cannot delete a screening that already has bookings.");
 
             await _screeningRepo.Delete(id);
+            await RecomputeEventWindow(ev);
+        }
+
+        // The event window is the envelope of its screenings, so it moves whenever a screening
+        // is added, retimed, or removed. With no screenings left there is nothing to derive from,
+        // so the last known window is kept.
+        private async Task RecomputeEventWindow(Event ev)
+        {
+            var screenings = await _screeningRepo.GetByEventId(ev.Id);
+            if (screenings.Count == 0) return;
+
+            ev.StartTime = screenings.Min(s => s.StartTime);
+            ev.EndTime = screenings.Max(s => s.EndTime);
+            ev.UpdatedAt = DateTime.UtcNow;
+            await _eventRepo.Update(ev);
         }
 
         // The screen is a label for the show (e.g. "Screen 1"); the venue must have seats.
@@ -122,9 +139,8 @@ namespace EMSBLLLibrary.Services
             if (startUtc <= DateTime.UtcNow)
                 throw new ValidationException("Screening start time must be in the future.");
 
-            if (startUtc < ev.StartTime || endUtc > ev.EndTime)
-                throw new ValidationException("Screening must fall within the event's start and end times.");
-
+            // The event window is derived from its screenings (see RecomputeEventWindow), so a
+            // screening defines the window rather than being bounded by it — no envelope check here.
             return (startUtc, endUtc);
         }
     }
