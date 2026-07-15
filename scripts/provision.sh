@@ -284,8 +284,10 @@ az keyvault secret set --vault-name "$KV_NAME" --name stripe-secret-key \
 
 # The webhook signing secret is deliberately NOT reused from user-secrets. It is issued
 # PER ENDPOINT, so the local one (from `stripe listen`) will fail signature verification
-# against the AKS URL. This placeholder just lets the CSI driver mount all five secrets on
+# against the AKS URL. This placeholder just lets the CSI driver mount all six secrets on
 # the first deploy — the pod will not start if any one of them is missing from Key Vault.
+# This is also why this script must be RE-RUN, before deploying, whenever a new secret
+# object is added to k8s/secretproviderclass.yaml: a missing one crash-loops the whole pod.
 az keyvault secret set --vault-name "$KV_NAME" --name stripe-webhook-secret \
   --value "whsec_placeholder" -o none
 
@@ -306,6 +308,10 @@ echo "       az keyvault secret set --vault-name $KV_NAME \\"
 echo "         --name stripe-webhook-secret --value 'whsec_...'"
 echo ""
 echo "  3. Deploy:   git checkout -B prod && git push -u origin prod"
+echo ""
+echo "  NOTE: if k8s/secretproviderclass.yaml added/changed a Key Vault secret since this"
+echo "  environment was last provisioned, re-run this script BEFORE step 3 — the CSI"
+echo "  driver crash-loops ems-api/ems-worker if any listed secret is missing from Key Vault."
 echo ""
 echo "  API:      https://$INGRESS_FQDN"
 echo "  Frontend: https://$SWA_HOSTNAME"
