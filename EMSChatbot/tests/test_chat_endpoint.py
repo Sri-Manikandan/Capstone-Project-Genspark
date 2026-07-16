@@ -90,3 +90,20 @@ def test_healthz_returns_ok(client):
         r = tc.get(path)
         assert r.status_code == 200
         assert r.json() == {"status": "ok"}
+
+
+def test_chunk_text_handles_both_content_shapes():
+    from types import SimpleNamespace
+    from app.main import _chunk_text
+
+    # Plain string (no tools bound)
+    assert _chunk_text(SimpleNamespace(content="Hello")) == "Hello"
+    # List of content blocks (tools bound — the production shape)
+    blocks = [
+        {"type": "text", "text": "Hel", "index": 0},
+        {"type": "text", "text": "lo", "index": 0},
+        {"type": "tool_use", "id": "t1", "index": 1},
+    ]
+    assert _chunk_text(SimpleNamespace(content=blocks)) == "Hello"
+    # Empty list chunks (message boundaries) yield nothing
+    assert _chunk_text(SimpleNamespace(content=[])) == ""

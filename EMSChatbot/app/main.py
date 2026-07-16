@@ -44,6 +44,26 @@ def _sse(obj: dict) -> str:
     return f"data: {json.dumps(obj)}\n\n"
 
 
+def _chunk_text(chunk) -> str:
+    """Extract streamed text from a model chunk.
+
+    Without tools bound, langchain-anthropic streams plain-string content; with
+    tools bound (as in our agent) it streams a LIST of content blocks like
+    [{"type": "text", "text": "...", "index": 0}]. Handle both — the string-only
+    path silently dropped every token in production.
+    """
+    content = getattr(chunk, "content", "")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(
+            block.get("text", "")
+            for block in content
+            if isinstance(block, dict) and block.get("type") == "text"
+        )
+    return ""
+
+
 @app.post("/ai/chat")
 async def chat(req: ChatRequest, authorization: str | None = Header(default=None)):
     if not authorization or not authorization.startswith("Bearer "):
@@ -72,9 +92,8 @@ async def chat(req: ChatRequest, authorization: str | None = Header(default=None
             ):
                 kind = event["event"]
                 if kind == "on_chat_model_stream":
-                    chunk = event["data"]["chunk"]
-                    text = getattr(chunk, "content", "") or ""
-                    if isinstance(text, str) and text:
+                    text = _chunk_text(event["data"]["chunk"])
+                    if text:
                         yield _sse({"type": "token", "text": text})
                 elif kind == "on_tool_start":
                     yield _sse({"type": "tool", "name": event.get("name", "")})
