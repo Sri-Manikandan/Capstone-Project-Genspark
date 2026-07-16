@@ -2,11 +2,12 @@ import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { NavbarComponent } from './shared/components/navbar/navbar.component';
 import { ToastComponent } from './shared/components/toast/toast.component';
+import { ChatWidget } from './features/chatbot/chat-widget/chat-widget';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, NavbarComponent, ToastComponent],
+  imports: [RouterOutlet, NavbarComponent, ToastComponent, ChatWidget],
   template: `
     <ems-navbar />
     <ems-toast />
@@ -22,6 +23,7 @@ import { ToastComponent } from './shared/components/toast/toast.component';
         <p class="eyebrow">Doors open · Lights down · Live</p>
       </div>
     </footer>
+    <ems-chat-widget />
   `,
 })
 export class App {}
