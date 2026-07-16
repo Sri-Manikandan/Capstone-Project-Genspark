@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
 import { ChatbotService, ChatEvent } from './chatbot.service';
 import { AuthService } from './auth.service';
 
@@ -9,7 +10,10 @@ describe('ChatbotService', () => {
     TestBed.configureTestingModule({
       providers: [
         ChatbotService,
-        { provide: AuthService, useValue: { accessToken: () => 'jwt-xyz' } },
+        {
+          provide: AuthService,
+          useValue: { accessToken: () => 'jwt-xyz', isAccessTokenExpired: () => false },
+        },
       ],
     });
     service = TestBed.inject(ChatbotService);
@@ -29,5 +33,34 @@ describe('ChatbotService', () => {
     });
     expect(seen[0]).toEqual({ type: 'token', text: 'Hi' });
     expect(seen.at(-1)).toEqual({ type: 'done' });
+  });
+
+  it('refreshes an expired access token before streaming', async () => {
+    const refreshShared = vi.fn(() => of({} as any));
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        ChatbotService,
+        {
+          provide: AuthService,
+          useValue: {
+            accessToken: () => 'jwt-xyz',
+            isAccessTokenExpired: () => true,
+            refreshShared,
+          },
+        },
+      ],
+    });
+    service = TestBed.inject(ChatbotService);
+
+    const body = 'data: {"type":"done"}\n\n';
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(body, { headers: { 'Content-Type': 'text/event-stream' } }),
+    );
+    await new Promise<void>((resolve) => {
+      service.stream('hello', 'c1').subscribe({ complete: resolve });
+    });
+    expect(refreshShared).toHaveBeenCalled();
+    expect(fetchSpy).toHaveBeenCalled();
   });
 });

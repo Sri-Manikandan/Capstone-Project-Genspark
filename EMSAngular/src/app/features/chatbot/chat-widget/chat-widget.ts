@@ -16,6 +16,7 @@ export class ChatWidget {
 
   protected readonly open = signal(false);
   protected readonly busy = signal(false);
+  protected readonly toolActivity = signal<string | null>(null);
   messages: ChatMessage[] = [];
   draft = '';
   private conversationId = crypto.randomUUID();
@@ -32,16 +33,31 @@ export class ChatWidget {
     const assistant: ChatMessage = { role: 'assistant', text: '' };
     this.messages.push(assistant);
     this.busy.set(true);
+    this.toolActivity.set(null);
+    let failureReported = false;
     this.chatbot.stream(text, this.conversationId).subscribe({
       next: (e) => {
-        if (e.type === 'token') assistant.text += e.text ?? '';
-        else if (e.type === 'error') assistant.text += (e.text ?? '');
+        if (e.type === 'token') {
+          this.toolActivity.set(null);
+          assistant.text += e.text ?? '';
+        } else if (e.type === 'tool') {
+          this.toolActivity.set(`Using ${e.name}…`);
+        } else if (e.type === 'error') {
+          assistant.text += (e.text ?? '');
+          failureReported = true;
+        } else if (e.type === 'done') {
+          this.toolActivity.set(null);
+        }
       },
       error: () => {
-        assistant.text += ' (connection error)';
+        this.toolActivity.set(null);
+        if (!failureReported) assistant.text += ' (connection error)';
         this.busy.set(false);
       },
-      complete: () => this.busy.set(false),
+      complete: () => {
+        this.toolActivity.set(null);
+        this.busy.set(false);
+      },
     });
   }
 }

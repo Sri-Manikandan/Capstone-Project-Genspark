@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, firstValueFrom } from 'rxjs';
 import { AuthService } from './auth.service';
 
 export interface ChatEvent {
@@ -17,6 +17,14 @@ export class ChatbotService {
       const controller = new AbortController();
       (async () => {
         try {
+          if (this.auth.isAccessTokenExpired()) {
+            try {
+              await firstValueFrom(this.auth.refreshShared());
+            } catch (err) {
+              subscriber.error(err);
+              return;
+            }
+          }
           const resp = await fetch('/ai/chat', {
             method: 'POST',
             headers: {

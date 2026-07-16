@@ -1,17 +1,34 @@
 <button class="ems-chat-fab" (click)="toggle()" aria-label="Support chat">💬</button>
 
 @if (open()) {
-  <div class="ems-chat-panel">
+  <div class="ems-chat-panel border border-line bg-surface text-ink">
     <div class="ems-chat-messages">
       @for (m of messages; track $index) {
-        <div [class.user]="m.role === 'user'" [class.assistant]="m.role === 'assistant'">
+        <div
+          class="rounded-[.6rem] px-[.6rem] py-[.4rem]"
+          [class.user]="m.role === 'user'"
+          [class.assistant]="m.role === 'assistant'"
+          [class.bg-plum]="m.role === 'user'"
+          [class.text-white]="m.role === 'user'"
+          [class.bg-plum-tint]="m.role === 'assistant'"
+          [class.text-ink]="m.role === 'assistant'"
+        >
           {{ m.text }}
         </div>
       }
+      @if (busy() && toolActivity()) {
+        <div class="ems-chat-tool-activity text-muted">{{ toolActivity() }}</div>
+      }
     </div>
-    <form class="ems-chat-input" (ngSubmit)="send()">
-      <input [(ngModel)]="draft" name="draft" placeholder="Ask about your bookings…" [disabled]="busy()" />
-      <button type="submit" [disabled]="busy()">Send</button>
+    <form class="ems-chat-input border-t border-line" (ngSubmit)="send()">
+      <input
+        class="border border-line bg-paper text-ink"
+        [(ngModel)]="draft"
+        name="draft"
+        placeholder="Ask about your bookings…"
+        [disabled]="busy()"
+      />
+      <button type="submit" class="bg-plum text-white" [disabled]="busy()">Send</button>
     </form>
   </div>
 }
