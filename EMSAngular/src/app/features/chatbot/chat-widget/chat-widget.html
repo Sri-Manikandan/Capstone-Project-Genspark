@@ -1,0 +1,17 @@
+<button class="ems-chat-fab" (click)="toggle()" aria-label="Support chat">💬</button>
+
+@if (open()) {
+  <div class="ems-chat-panel">
+    <div class="ems-chat-messages">
+      @for (m of messages; track $index) {
+        <div [class.user]="m.role === 'user'" [class.assistant]="m.role === 'assistant'">
+          {{ m.text }}
+        </div>
+      }
+    </div>
+    <form class="ems-chat-input" (ngSubmit)="send()">
+      <input [(ngModel)]="draft" name="draft" placeholder="Ask about your bookings…" [disabled]="busy()" />
+      <button type="submit" [disabled]="busy()">Send</button>
+    </form>
+  </div>
+}
