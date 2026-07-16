@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ems-chatbot
+  namespace: ems
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0 # single tight node: no room for an extra pod (same as ems-api)
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: ems-chatbot
+  template:
+    metadata:
+      labels:
+        app: ems-chatbot
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: ems-sa
+      imagePullSecrets:
+        - name: acr-pull # ACR admin credentials; see api-deployment.yaml for why
+      containers:
+        - name: chatbot
+          image: __ACR__/ems-chatbot:__IMAGE_TAG__
+          ports:
+            - containerPort: 8080
+          env:
+            # Presidio's Anthropic-compatible gateway. The URL is not a secret;
+            # the token comes from chatbot-secrets (Key Vault via CSI).
+            - name: ANTHROPIC_BASE_URL
+              value: "https://proxy.llm-gateway.ready.presidio.com"
+            # In-cluster call to the API service (same namespace, port 80).
+            - name: EMS_API_BASE_URL
+              value: "http://ems-api"
+            # Must match the API's Jwt config so its HS256 tokens validate here.
+            # The signing key itself comes from chatbot-secrets (Key Vault jwt-key).
+            - name: JWT_ISSUER
+              value: "EMSApi"
+            - name: JWT_AUDIENCE
+              value: "EMSClient"
+            # The SPA origin — SWA and this ingress are different origins in prod.
+            - name: CORS_ALLOWED_ORIGINS
+              value: "https://__SWA_HOSTNAME__"
+          envFrom:
+            - secretRef:
+                name: chatbot-secrets # synced from Key Vault by the CSI driver
+          volumeMounts:
+            - name: secrets-store
+              mountPath: /mnt/secrets-store
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        # Mounting the volume triggers the CSI driver to fetch from Key Vault and
+        # populate the chatbot-secrets Secret referenced by envFrom above.
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: ems-keyvault

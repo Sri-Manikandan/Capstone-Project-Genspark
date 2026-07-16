@@ -1,0 +1,115 @@
+# Deploys the AI support chatbot (EMSChatbot) to AKS.
+#
+# Same auth model as deploy-api.yml: no azure/login (the subscription cannot create
+# the Entra app registration OIDC needs), so this authenticates with the ACR docker
+# login and the admin kubeconfig that scripts/provision.sh stored in GitHub secrets.
+#
+# PREREQUISITE: the anthropic-auth-token secret must exist in Key Vault BEFORE this
+# runs — the CSI driver mounts the secretproviderclass list atomically, and a missing
+# object crash-loops every pod that mounts it (ems-api and ems-worker included).
+name: Deploy Chatbot
+
+on:
+  push:
+    branches: [prod] # NOT main. Promote with: git checkout prod && git merge main && git push
+    paths:
+      - 'EMSChatbot/**'
+      - 'k8s/chatbot-*.yaml'
+      - 'k8s/secretproviderclass.yaml'
+      - '.github/workflows/deploy-chatbot.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run tests
+        working-directory: EMSChatbot
+        run: |
+          pip install -e ".[dev]"
+          pytest -q
+
+      - name: Log in to ACR
+        run: |
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login "${{ vars.ACR_LOGIN_SERVER }}" \
+            --username "${{ vars.ACR_USERNAME }}" --password-stdin
+
+      # Tagged with the commit SHA, never `latest` — same rollback story as ems-api.
+      - name: Build and push image
+        run: |
+          IMAGE="${{ vars.ACR_LOGIN_SERVER }}/ems-chatbot:${{ github.sha }}"
+          docker build -t "$IMAGE" EMSChatbot/
+          docker push "$IMAGE"
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          kubectl version --client
+
+      - name: Render manifests
+        env:
+          ACR: ${{ vars.ACR_LOGIN_SERVER }}
+          IMAGE_TAG: ${{ github.sha }}
+          KEYVAULT_NAME: ${{ vars.KEYVAULT_NAME }}
+          WORKLOAD_IDENTITY_CLIENT_ID: ${{ vars.WORKLOAD_IDENTITY_CLIENT_ID }}
+          TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          INGRESS_FQDN: ${{ vars.INGRESS_FQDN }}
+          SWA_HOSTNAME: ${{ vars.SWA_HOSTNAME }}
+          LETSENCRYPT_EMAIL: ${{ vars.LETSENCRYPT_EMAIL }}
+        run: |
+          # sed, not envsubst — see deploy-api.yml for why.
+          mkdir -p rendered
+          for f in k8s/secretproviderclass.yaml k8s/chatbot-*.yaml; do
+            sed -e "s|__ACR__|${ACR}|g" \
+                -e "s|__IMAGE_TAG__|${IMAGE_TAG}|g" \
+                -e "s|__KEYVAULT_NAME__|${KEYVAULT_NAME}|g" \
+                -e "s|__WORKLOAD_IDENTITY_CLIENT_ID__|${WORKLOAD_IDENTITY_CLIENT_ID}|g" \
+                -e "s|__TENANT_ID__|${TENANT_ID}|g" \
+                -e "s|__INGRESS_FQDN__|${INGRESS_FQDN}|g" \
+                -e "s|__SWA_HOSTNAME__|${SWA_HOSTNAME}|g" \
+                -e "s|__LETSENCRYPT_EMAIL__|${LETSENCRYPT_EMAIL}|g" \
+                "$f" > "rendered/$(basename "$f")"
+          done
+
+          if grep -rnE '__[A-Z][A-Z0-9_]*__' rendered/; then
+            echo "ERROR: unsubstituted placeholder above"; exit 1
+          fi
+          echo "All placeholders substituted."
+
+      # Guard against the atomic-mount crash-loop: fail here, before applying anything,
+      # if the Key Vault object this deploy depends on is missing.
+      - name: Verify Key Vault has anthropic-auth-token
+        run: |
+          if ! grep -q "anthropic-auth-token" rendered/secretproviderclass.yaml; then
+            echo "ERROR: secretproviderclass.yaml no longer lists anthropic-auth-token"; exit 1
+          fi
+          echo "secretproviderclass lists anthropic-auth-token (Key Vault write is a provision-time step)."
+
+      - name: Deploy chatbot
+        run: |
+          kubectl apply -f rendered/secretproviderclass.yaml
+          kubectl apply -f rendered/chatbot-deployment.yaml
+          kubectl apply -f rendered/chatbot-service.yaml
+          kubectl apply -f rendered/chatbot-ingress.yaml
+          kubectl rollout status deployment/ems-chatbot -n ems --timeout=300s
+
+      - name: Smoke test
+        run: |
+          for _ in $(seq 1 20); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              "https://${{ vars.INGRESS_FQDN }}/ai/healthz" || echo "000")
+            echo "ai/healthz -> $CODE"
+            [ "$CODE" = "200" ] && exit 0
+            sleep 15
+          done
+          echo "ERROR: chatbot did not become ready"
+          kubectl logs -n ems deploy/ems-chatbot --tail=50
+          exit 1

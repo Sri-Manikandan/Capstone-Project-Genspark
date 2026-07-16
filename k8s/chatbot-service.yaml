@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ems-chatbot
+  namespace: ems
+spec:
+  type: ClusterIP # fronted by the ingress /ai path; no public IP of its own
+  selector:
+    app: ems-chatbot
+  ports:
+    - port: 80
+      targetPort: 8080
