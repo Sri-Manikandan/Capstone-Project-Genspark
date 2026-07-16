@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, firstValueFrom } from 'rxjs';
 import { AuthService } from './auth.service';
+import { environment } from '../../../environments/environment';
 
 export interface ChatEvent {
   type: 'token' | 'tool' | 'error' | 'done';
@@ -25,7 +26,9 @@ export class ChatbotService {
               return;
             }
           }
-          const resp = await fetch('/ai/chat', {
+          // Dev: apiBaseUrl is '' -> same-origin '/ai/chat' via the ng proxy.
+          // Prod: apiBaseUrl is the AKS ingress URL (SWA cannot proxy to AKS).
+          const resp = await fetch(`${environment.apiBaseUrl}/ai/chat`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
