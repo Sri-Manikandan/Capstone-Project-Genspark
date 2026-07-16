@@ -82,3 +82,11 @@ def test_stream_emits_tokens_and_done(client):
     assert types[-1] == "done"
     text = "".join(p["text"] for p in payloads if p["type"] == "token")
     assert "Hi there" in text
+
+
+def test_healthz_returns_ok(client):
+    tc, _ = client
+    for path in ("/healthz", "/ai/healthz"):
+        r = tc.get(path)
+        assert r.status_code == 200
+        assert r.json() == {"status": "ok"}

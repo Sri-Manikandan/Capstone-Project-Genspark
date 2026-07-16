@@ -1,6 +1,8 @@
 from __future__ import annotations
 import json
+import os
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -14,6 +16,28 @@ from app.schemas import ChatRequest
 
 app = FastAPI(title="EMS Chatbot")
 _memory = MemorySaver()
+
+# In production the SPA (Static Web Apps) and this service (AKS ingress) are on
+# different origins, so the browser needs CORS. Read from the environment directly
+# (not Settings) so importing this module never requires the full config; when the
+# variable is unset (dev, tests — same-origin via the Angular proxy) no CORS
+# middleware is added at all.
+_cors_origins = [o.strip() for o in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()]
+if _cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_methods=["POST"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
+
+
+@app.get("/healthz")
+@app.get("/ai/healthz")
+async def healthz():
+    # /healthz for pod probes; /ai/healthz is reachable through the ingress /ai
+    # path for external smoke tests.
+    return {"status": "ok"}
 
 
 def _sse(obj: dict) -> str:
