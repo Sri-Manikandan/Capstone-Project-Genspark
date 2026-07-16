@@ -32,3 +32,18 @@ async def test_cancel_tool_relays_api_error_as_text():
     tools = build_tools(ems)
     out = await _tool(tools, "cancel_pending_booking").ainvoke({"booking_id": "b1"})
     assert "not pending" in out.lower()
+
+
+async def test_search_tool_passes_filters_to_client():
+    ems = AsyncMock()
+    ems.search_events.return_value = []
+    tools = build_tools(ems)
+    await _tool(tools, "search_events").ainvoke({
+        "city": "Chennai",
+        "start_from": "2026-07-18T00:00",
+        "start_to": "2026-07-19T23:59",
+    })
+    ems.search_events.assert_awaited_once_with(
+        query="", city="Chennai", category="",
+        start_from="2026-07-18T00:00", start_to="2026-07-19T23:59",
+    )

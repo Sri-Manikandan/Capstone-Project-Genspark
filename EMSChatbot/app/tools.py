@@ -9,9 +9,33 @@ def _dump(value) -> str:
 
 
 def build_tools(ems: EmsClient) -> list[BaseTool]:
-    async def search_events(query: str) -> str:
-        """Search events by keyword. Returns matching events as JSON."""
-        return _dump(await ems.search_events(query))
+    async def search_events(
+        query: str = "",
+        city: str = "",
+        category: str = "",
+        start_from: str = "",
+        start_to: str = "",
+    ) -> str:
+        """Search events. All arguments are optional filters — combine them.
+
+        query: free-text keyword matched against titles (leave empty when the
+            user asked by date/city/category rather than by name).
+        city: e.g. "Chennai", "Coimbatore".
+        category: e.g. "Movies", "Concerts", "Comedy".
+        start_from / start_to: IST wall-clock datetimes, format
+            "YYYY-MM-DDTHH:MM" (e.g. "2026-07-18T00:00"). Use these for any
+            date-based question ("this weekend", "next month") — compute the
+            range from today's date given in the system prompt.
+        """
+        return _dump(
+            await ems.search_events(
+                query=query,
+                city=city,
+                category=category,
+                start_from=start_from,
+                start_to=start_to,
+            )
+        )
 
     async def get_event_details(event_id: str) -> str:
         """Get full details for one event by its id."""

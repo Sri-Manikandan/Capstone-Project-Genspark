@@ -46,10 +46,26 @@ class EmsClient:
             return resp.json()
         return {}
 
-    async def search_events(self, query: str):
-        return await self._request(
-            "GET", _ROUTES["search_events"], params={"query": query}
-        )
+    async def search_events(
+        self,
+        query: str = "",
+        city: str = "",
+        category: str = "",
+        start_from: str = "",
+        start_to: str = "",
+    ):
+        # Param names match EventSearchRequest (bound case-insensitively from the
+        # query string). StartFrom/StartTo are IST wall-clock strings — the EMS
+        # API converts inbound IST to UTC itself (TimeHelper.AssumeIstToUtc).
+        params = {
+            "query": query,
+            "city": city,
+            "category": category,
+            "startFrom": start_from,
+            "startTo": start_to,
+        }
+        params = {k: v for k, v in params.items() if v}
+        return await self._request("GET", _ROUTES["search_events"], params=params)
 
     async def get_event(self, event_id: str):
         return await self._request("GET", _ROUTES["get_event"].format(event_id=event_id))
