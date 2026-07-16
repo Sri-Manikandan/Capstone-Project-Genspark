@@ -1,34 +1,63 @@
-<button class="ems-chat-fab" (click)="toggle()" aria-label="Support chat">💬</button>
+<button class="ems-chat-fab bg-plum text-white" (click)="toggle()" [attr.aria-label]="open() ? 'Close support chat' : 'Open support chat'">
+  <!-- Ticket icon — the box-office motif, not a generic speech bubble. -->
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+    <path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1.5a2.5 2.5 0 0 0 0 5V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1.5a2.5 2.5 0 0 0 0-5V8Z" />
+    <path d="M14 6v12" stroke-dasharray="2.5 2.5" />
+  </svg>
+</button>
 
 @if (open()) {
-  <div class="ems-chat-panel border border-line bg-surface text-ink">
-    <div class="ems-chat-messages">
-      @for (m of messages; track $index) {
-        <div
-          class="rounded-[.6rem] px-[.6rem] py-[.4rem]"
-          [class.user]="m.role === 'user'"
-          [class.assistant]="m.role === 'assistant'"
-          [class.bg-plum]="m.role === 'user'"
-          [class.text-white]="m.role === 'user'"
-          [class.bg-plum-tint]="m.role === 'assistant'"
-          [class.text-ink]="m.role === 'assistant'"
-        >
-          {{ m.text }}
+  <section class="ems-chat-panel bg-surface text-ink" role="dialog" aria-label="Support chat">
+    <!-- Ticket stub header: the one bold element. -->
+    <header class="ems-chat-header">
+      <div>
+        <p class="eyebrow">Box office · Always open</p>
+        <h2 class="font-display text-lg font-semibold tracking-tight">Ticket desk</h2>
+      </div>
+      <button class="ems-chat-close text-muted" (click)="toggle()" aria-label="Close chat">✕</button>
+    </header>
+    <div class="ems-chat-perforation" aria-hidden="true"></div>
+
+    <div class="ems-chat-thread" #thread>
+      @if (messages.length === 0) {
+        <div class="ems-chat-empty">
+          <p class="text-sm text-ink-soft">
+            Ask about events, your bookings, or cancelling a seat.
+          </p>
+          <div class="ems-chat-chips">
+            @for (s of suggestions; track s) {
+              <button class="ems-chat-chip border-line text-ink-soft" (click)="ask(s)">{{ s }}</button>
+            }
+          </div>
         </div>
       }
+      @for (m of messages; track $index) {
+        @if (m.role === 'user') {
+          <div class="ems-chat-msg user bg-plum text-white">{{ m.text }}</div>
+        } @else {
+          <div
+            class="ems-chat-msg assistant bg-plum-tint text-ink"
+            [class.streaming]="busy() && $index === messages.length - 1"
+            [innerHTML]="renderMarkdown(m.text)"
+          ></div>
+        }
+      }
       @if (busy() && toolActivity()) {
-        <div class="ems-chat-tool-activity text-muted">{{ toolActivity() }}</div>
+        <p class="ems-chat-status font-mono text-muted">{{ toolActivity() }}</p>
       }
     </div>
-    <form class="ems-chat-input border-t border-line" (ngSubmit)="send()">
+
+    <form class="ems-chat-dock border-t border-line" (ngSubmit)="send()">
       <input
+        #chatInput
         class="border border-line bg-paper text-ink"
         [(ngModel)]="draft"
         name="draft"
-        placeholder="Ask about your bookings…"
+        placeholder="Ask the ticket desk…"
+        autocomplete="off"
         [disabled]="busy()"
       />
-      <button type="submit" class="bg-plum text-white" [disabled]="busy()">Send</button>
+      <button type="submit" class="bg-plum text-white" [disabled]="busy() || !draft.trim()">Send</button>
     </form>
-  </div>
+  </section>
 }

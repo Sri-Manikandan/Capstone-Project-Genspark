@@ -24,3 +24,34 @@ describe('ChatWidget', () => {
     expect(assistant?.text).toBe('Hello');
   });
 });
+
+describe('ChatWidget markdown', () => {
+  function widget() {
+    TestBed.configureTestingModule({
+      imports: [ChatWidget],
+      providers: [{ provide: ChatbotService, useValue: { stream: () => of() } }],
+    });
+    return TestBed.createComponent(ChatWidget).componentInstance;
+  }
+
+  it('renders bold, bullets, and line breaks', () => {
+    const html = widget().renderMarkdown('**Leo** show\n- Seat A1\n- Seat A2');
+    expect(html).toContain('<strong>Leo</strong>');
+    expect(html).toContain('<span class="li">Seat A1</span>');
+    expect(html).toContain('<br>');
+  });
+
+  it('escapes HTML so model output cannot inject markup', () => {
+    const html = widget().renderMarkdown('<img src=x onerror=alert(1)> & **bold**');
+    expect(html).not.toContain('<img');
+    expect(html).toContain('&lt;img');
+    expect(html).toContain('&amp;');
+    expect(html).toContain('<strong>bold</strong>');
+  });
+
+  it('sends a suggestion chip as a message', () => {
+    const cmp = widget();
+    cmp.ask('Show my bookings');
+    expect(cmp.messages[0]).toEqual({ role: 'user', text: 'Show my bookings' });
+  });
+});

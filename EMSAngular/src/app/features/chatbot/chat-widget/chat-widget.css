@@ -1,12 +1,261 @@
-/* NOTE: colors are applied via Tailwind theme classes on the template
-   elements (text-ink, border-line, bg-surface, bg-plum, bg-plum-tint) so
-   this panel follows the app's light/dark theme tokens defined in
-   src/styles.css. This file only owns layout/geometry. */
-.ems-chat-fab { position: fixed; right: 1.5rem; bottom: 1.5rem; width: 3.5rem; height: 3.5rem; border-radius: 50%; font-size: 1.5rem; border: none; cursor: pointer; z-index: 1000; background: rgb(var(--plum, 139 92 246)); color: #fff; }
-.ems-chat-panel { position: fixed; right: 1.5rem; bottom: 5.5rem; width: 22rem; max-height: 60vh; display: flex; flex-direction: column; border-radius: .75rem; overflow: hidden; z-index: 1000; box-shadow: var(--shadow-lift); }
-.ems-chat-messages { flex: 1; overflow-y: auto; padding: .75rem; display: flex; flex-direction: column; gap: .5rem; }
-.ems-chat-messages .user { align-self: flex-end; }
-.ems-chat-messages .assistant { align-self: flex-start; white-space: pre-wrap; }
-.ems-chat-tool-activity { align-self: flex-start; font-size: .8rem; font-style: italic; padding: 0 .2rem; }
-.ems-chat-input { display: flex; gap: .5rem; padding: .5rem; }
-.ems-chat-input input { flex: 1; padding: .4rem; border-radius: .4rem; }
+/* Colors come from the app's theme tokens via Tailwind classes in the template
+   (bg-surface, text-ink, bg-plum, …) so the widget follows light/dark mode.
+   This file owns geometry, the ticket signature, and motion. */
+
+/* ── Floating action button ─────────────────────────────────────────────── */
+.ems-chat-fab {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow-lift);
+  transition: transform 150ms ease;
+}
+.ems-chat-fab svg {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+.ems-chat-fab:hover {
+  transform: translateY(-2px);
+}
+.ems-chat-fab:focus-visible {
+  outline: 2px solid rgb(var(--plum));
+  outline-offset: 3px;
+}
+
+/* ── Panel ───────────────────────────────────────────────────────────────── */
+.ems-chat-panel {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 5.5rem;
+  width: 24rem;
+  max-width: calc(100vw - 3rem);
+  height: min(34rem, 70vh);
+  display: flex;
+  flex-direction: column;
+  border-radius: 1rem;
+  overflow: hidden; /* also clips the perforation notches to half-circles */
+  z-index: 1000;
+  box-shadow: var(--shadow-lift);
+  border: 1px solid rgb(var(--line));
+  animation: ems-chat-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes ems-chat-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Ticket-stub header + perforation (the signature) ───────────────────── */
+.ems-chat-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0.9rem 1rem 0.7rem;
+}
+.ems-chat-header .eyebrow {
+  margin-bottom: 0.15rem;
+}
+.ems-chat-close {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0.35rem;
+  border-radius: 0.4rem;
+}
+.ems-chat-close:hover {
+  color: rgb(var(--ink));
+}
+
+/* A tear line: dashed rule with a punched half-notch at each edge, like the
+   stub of an "Admit one" ticket. Notches are paper-colored circles clipped by
+   the panel's overflow so only the inner half shows. */
+.ems-chat-perforation {
+  position: relative;
+  margin: 0 0.9rem;
+  border-top: 1px dashed rgb(var(--line));
+}
+.ems-chat-perforation::before,
+.ems-chat-perforation::after {
+  content: '';
+  position: absolute;
+  top: -0.5rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: rgb(var(--paper));
+  border: 1px solid rgb(var(--line));
+}
+.ems-chat-perforation::before {
+  left: -1.45rem;
+}
+.ems-chat-perforation::after {
+  right: -1.45rem;
+}
+
+/* ── Thread ──────────────────────────────────────────────────────────────── */
+.ems-chat-thread {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  scrollbar-width: thin;
+}
+
+.ems-chat-msg {
+  max-width: 86%;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.ems-chat-msg.user {
+  align-self: flex-end;
+  border-bottom-right-radius: 0.25rem;
+}
+.ems-chat-msg.assistant {
+  align-self: flex-start;
+  border-bottom-left-radius: 0.25rem;
+}
+.ems-chat-msg.assistant code {
+  font-size: 0.8em;
+  padding: 0.05rem 0.3rem;
+  border-radius: 0.3rem;
+  background: rgb(var(--paper));
+}
+/* Rendered bullet items from the markdown mini-renderer. */
+.ems-chat-msg.assistant .li {
+  display: block;
+  padding-left: 0.9rem;
+  position: relative;
+}
+.ems-chat-msg.assistant .li::before {
+  content: '·';
+  position: absolute;
+  left: 0.15rem;
+  font-weight: 700;
+}
+/* Streaming caret on the in-flight reply. */
+.ems-chat-msg.assistant.streaming::after {
+  content: '';
+  display: inline-block;
+  width: 0.45em;
+  height: 1em;
+  margin-left: 0.15em;
+  vertical-align: text-bottom;
+  background: currentColor;
+  opacity: 0.6;
+  animation: ems-chat-caret 1s steps(2, start) infinite;
+}
+@keyframes ems-chat-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+.ems-chat-status {
+  align-self: flex-start;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding-left: 0.2rem;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.ems-chat-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.5rem 0.25rem;
+}
+.ems-chat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.ems-chat-chip {
+  border: 1px dashed rgb(var(--line));
+  background: none;
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+.ems-chat-chip:hover {
+  border-color: rgb(var(--plum));
+  color: rgb(var(--ink));
+}
+
+/* ── Input dock ──────────────────────────────────────────────────────────── */
+.ems-chat-dock {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.6rem;
+}
+.ems-chat-dock input {
+  flex: 1;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  min-width: 0;
+}
+.ems-chat-dock input:focus-visible {
+  outline: 2px solid rgb(var(--plum));
+  outline-offset: 1px;
+}
+.ems-chat-dock button {
+  border: none;
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ems-chat-dock button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── Small screens: bottom sheet ─────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .ems-chat-panel {
+    right: 0.75rem;
+    left: 0.75rem;
+    width: auto;
+    max-width: none;
+    bottom: 5.25rem;
+    height: min(30rem, 65vh);
+  }
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .ems-chat-panel {
+    animation: none;
+  }
+  .ems-chat-msg.assistant.streaming::after {
+    animation: none;
+  }
+  .ems-chat-fab {
+    transition: none;
+  }
+}
