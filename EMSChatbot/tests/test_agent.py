@@ -6,8 +6,10 @@ from app.agent import build_agent, SYSTEM_PROMPT
 from app.tools import build_tools
 
 
-def test_system_prompt_mentions_refund_confirmation():
-    assert "confirm" in SYSTEM_PROMPT.lower()
+def test_system_prompt_scopes_to_ems_support():
+    prompt = SYSTEM_PROMPT.lower()
+    assert "booking" in prompt
+    assert "decline unrelated" in prompt
 
 
 async def test_agent_runs_and_returns_message(fake_llm):

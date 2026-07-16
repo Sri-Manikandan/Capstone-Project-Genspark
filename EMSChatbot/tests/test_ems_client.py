@@ -13,7 +13,7 @@ async def client():
 
 @respx.mock
 async def test_get_my_bookings_sends_bearer_and_returns_json(client):
-    route = respx.get(f"{BASE}/api/v1/bookings/me").mock(
+    route = respx.get(f"{BASE}/api/v1/Booking/my").mock(
         return_value=httpx.Response(200, json=[{"id": "b1"}])
     )
     result = await client.get_my_bookings()
@@ -22,13 +22,13 @@ async def test_get_my_bookings_sends_bearer_and_returns_json(client):
 
 @respx.mock
 async def test_401_raises_auth_error(client):
-    respx.get(f"{BASE}/api/v1/bookings/me").mock(return_value=httpx.Response(401))
+    respx.get(f"{BASE}/api/v1/Booking/my").mock(return_value=httpx.Response(401))
     with pytest.raises(EmsAuthError):
         await client.get_my_bookings()
 
 @respx.mock
 async def test_400_raises_api_error_with_message(client):
-    respx.post(f"{BASE}/api/v1/bookings/b1/cancel").mock(
+    respx.post(f"{BASE}/api/v1/Booking/b1/cancel").mock(
         return_value=httpx.Response(400, json={"message": "Booking is not pending"})
     )
     with pytest.raises(EmsApiError) as exc:

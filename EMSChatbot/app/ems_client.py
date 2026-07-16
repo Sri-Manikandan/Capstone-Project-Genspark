@@ -13,15 +13,14 @@ class EmsApiError(Exception):
         self.message = message
 
 
-# Central route table — confirm against real EMS controllers before use.
+# Central route table — matches the real EMS controllers: route template
+# `api/v{version}/[controller]` with SINGULAR controller names (Event, Booking).
 _ROUTES = {
-    "search_events": "/api/v1/events",
-    "get_event": "/api/v1/events/{event_id}",
-    "my_bookings": "/api/v1/bookings/me",
-    "get_booking": "/api/v1/bookings/{booking_id}",
-    "resend_ticket": "/api/v1/bookings/{booking_id}/resend-ticket",
-    "cancel_pending": "/api/v1/bookings/{booking_id}/cancel",
-    "request_refund": "/api/v1/bookings/{booking_id}/refund",
+    "search_events": "/api/v1/Event",
+    "get_event": "/api/v1/Event/{event_id}",
+    "my_bookings": "/api/v1/Booking/my",
+    "get_booking": "/api/v1/Booking/{booking_id}",
+    "cancel_pending": "/api/v1/Booking/{booking_id}/cancel",
 }
 
 
@@ -48,7 +47,9 @@ class EmsClient:
         return {}
 
     async def search_events(self, query: str):
-        return await self._request("GET", _ROUTES["search_events"], params={"q": query})
+        return await self._request(
+            "GET", _ROUTES["search_events"], params={"query": query}
+        )
 
     async def get_event(self, event_id: str):
         return await self._request("GET", _ROUTES["get_event"].format(event_id=event_id))
@@ -59,14 +60,8 @@ class EmsClient:
     async def get_booking(self, booking_id: str):
         return await self._request("GET", _ROUTES["get_booking"].format(booking_id=booking_id))
 
-    async def resend_ticket_email(self, booking_id: str):
-        return await self._request("POST", _ROUTES["resend_ticket"].format(booking_id=booking_id))
-
     async def cancel_pending_booking(self, booking_id: str):
         return await self._request("POST", _ROUTES["cancel_pending"].format(booking_id=booking_id))
-
-    async def request_refund(self, booking_id: str):
-        return await self._request("POST", _ROUTES["request_refund"].format(booking_id=booking_id))
 
 
 def _extract_message(resp: httpx.Response) -> str:

@@ -10,7 +10,7 @@ def build_llm(settings):
         api_key="gateway-bearer-auth",
         default_headers={"Authorization": f"Bearer {settings.anthropic_auth_token}"},
         streaming=True,
-        max_tokens=1024,
+        max_tokens=4096,
     )
 
 # FALLBACK (if the gateway rejects the above because both x-api-key and

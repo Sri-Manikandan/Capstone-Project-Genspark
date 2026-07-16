@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 from langgraph.checkpoint.memory import MemorySaver
 
 from app.config import get_settings
+from app.auth import validate_token
 from app.llm import build_llm
 from app.tools import build_tools
 from app.agent import build_agent
@@ -27,13 +28,21 @@ async def chat(req: ChatRequest, authorization: str | None = Header(default=None
     if not jwt:
         raise HTTPException(status_code=401, detail="Missing bearer token")
     settings = get_settings()
+    # Validate the token locally BEFORE touching the LLM gateway so a missing or
+    # invalid token is rejected with 401 without incurring model cost.
+    claims = validate_token(jwt, settings)
+    user_id = claims["sub"]
 
     async def stream():
         ems = EmsClient(base_url=settings.ems_api_base_url, jwt=jwt)
         try:
             llm = build_llm(settings)
             agent = build_agent(llm, build_tools(ems), _memory)
-            config = {"configurable": {"thread_id": req.conversation_id}}
+            # NOTE: namespace the thread by authenticated user so one caller can't
+            # load another session's history. In-memory MemorySaver grows unbounded
+            # here — accepted limitation for this in-memory iteration (no eviction).
+            thread_id = f"{user_id}:{req.conversation_id}"
+            config = {"configurable": {"thread_id": thread_id}}
             async for event in agent.astream_events(
                 {"messages": [("user", req.message)]}, config=config, version="v2"
             ):

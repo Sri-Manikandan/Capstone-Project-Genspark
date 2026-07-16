@@ -13,8 +13,7 @@ def test_build_tools_exposes_expected_names():
     names = {t.name for t in build_tools(ems)}
     assert names == {
         "search_events", "get_event_details", "get_my_bookings",
-        "get_booking_details", "resend_ticket_email",
-        "cancel_pending_booking", "request_refund",
+        "get_booking_details", "cancel_pending_booking",
     }
 
 
