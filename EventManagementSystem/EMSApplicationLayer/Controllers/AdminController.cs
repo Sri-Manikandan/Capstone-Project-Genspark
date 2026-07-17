@@ -15,11 +15,13 @@ namespace EMSApplicationLayer.Controllers
     {
         private readonly IUserService _userService;
         private readonly IEventService _eventService;
+        private readonly IServiceProvider _services;
 
-        public AdminController(IUserService userService, IEventService eventService)
+        public AdminController(IUserService userService, IEventService eventService, IServiceProvider services)
         {
             _userService = userService;
             _eventService = eventService;
+            _services = services;
         }
 
         // ── Organizer upgrade requests ────────────────────────────────────────────
@@ -92,6 +94,22 @@ namespace EMSApplicationLayer.Controllers
         {
             await _userService.Deactivate(id, ClaimsHelper.GetUserId(User));
             return NoContent();
+        }
+
+        // ── Demo data ─────────────────────────────────────────────────────────────
+
+        // POST /api/admin/seed/reset  { "confirm": true }
+        // Wipes all seed tables and reseeds fresh demo data. Confirm-gated so it can't fire
+        // by accident. Used to refresh an already-populated database (startup seeding no-ops
+        // when data exists).
+        [HttpPost("seed/reset")]
+        public async Task<IActionResult> ResetSeedData([FromBody] SeedResetRequest request)
+        {
+            if (request is null || !request.Confirm)
+                return BadRequest(new { message = "Set \"confirm\": true to reset all demo data." });
+
+            var counts = await DataSeeder.ResetAsync(_services);
+            return Ok(new { message = "Demo data reset.", counts });
         }
     }
 }

@@ -33,4 +33,10 @@
     <ProjectReference Include="..\EMSDALLibrary\EMSDALLibrary.csproj" />
   </ItemGroup>
 
+  <!-- Seed event images streamed through IImageStorage on seed/reset. Must be published
+       so ContentRootPath/SeedAssets exists at runtime in dev and in the container. -->
+  <ItemGroup>
+    <Content Include="SeedAssets\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

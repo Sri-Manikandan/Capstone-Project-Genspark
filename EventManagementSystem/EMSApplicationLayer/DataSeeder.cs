@@ -1,4 +1,5 @@
 using EMSBLLLibrary.Helpers;
+using EMSBLLLibrary.Interfaces;
 using EMSDALLibrary.Contexts;
 using EMSModelLibrary.Models;
 using Microsoft.EntityFrameworkCore;
@@ -7,297 +8,297 @@ namespace EMSApplicationLayer;
 
 public static class DataSeeder
 {
+    // Runs on startup: seeds only when the database is empty, so a normal boot never
+    // touches existing data.
     public static async Task SeedAsync(IServiceProvider services)
     {
         await using var scope = services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<EventContext>();
-
         if (await db.Users.AnyAsync()) return;
+        await PopulateAsync(scope.ServiceProvider);
+    }
 
+    // Wipes every seed table and reseeds from scratch. Triggered on demand by the Admin
+    // reset endpoint — used to refresh demo data in an already-populated database. Returns
+    // row counts of the freshly seeded data.
+    public static async Task<Dictionary<string, int>> ResetAsync(IServiceProvider services)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<EventContext>();
+
+        // TRUNCATE ... CASCADE clears rows and resets identity in one shot, in any order.
+        var types = new[]
+        {
+            typeof(SeatReservation), typeof(Payment), typeof(BookingItem), typeof(Booking),
+            typeof(TicketType), typeof(Screening), typeof(Seat), typeof(Event), typeof(Venue),
+            typeof(OrganizerRequest), typeof(RefreshToken), typeof(User)
+        };
+        // Table names come from EF model metadata, never user input, so raw SQL is safe here.
+        var tables = types.Select(t => $"\"{db.Model.FindEntityType(t)!.GetTableName()}\"");
+        var truncateSql = "TRUNCATE " + string.Join(",", tables) + " RESTART IDENTITY CASCADE;";
+        await db.Database.ExecuteSqlRawAsync(truncateSql);
+
+        await PopulateAsync(scope.ServiceProvider);
+
+        return new Dictionary<string, int>
+        {
+            ["users"] = await db.Users.CountAsync(),
+            ["venues"] = await db.Venues.CountAsync(),
+            ["events"] = await db.Events.CountAsync(),
+            ["screenings"] = await db.Screenings.CountAsync(),
+            ["ticketTypes"] = await db.TicketTypes.CountAsync(),
+            ["bookings"] = await db.Bookings.CountAsync(),
+            ["payments"] = await db.Payments.CountAsync(),
+        };
+    }
+
+    private static async Task PopulateAsync(IServiceProvider sp)
+    {
+        var db = sp.GetRequiredService<EventContext>();
+        var storage = sp.GetRequiredService<IImageStorage>();
+        var env = sp.GetRequiredService<IWebHostEnvironment>();
+        var now = DateTime.UtcNow;
         var hash = BCrypt.Net.BCrypt.HashPassword("Test@1234");
-        var now  = DateTime.UtcNow;
+
+        // ── 0. Event images ───────────────────────────────────────────────────
+        // Committed under SeedAssets/events; streamed through IImageStorage so seeded events
+        // reference exactly what a real upload would produce (wwwroot/uploads in dev, the
+        // Azure Blob container in prod). Uploaded once, reused across same-theme events.
+        var seedDir = Path.Combine(env.ContentRootPath, "SeedAssets", "events");
+        var imageKeys = new[]
+        {
+            "concert-1", "concert-2", "concert-3", "concert-4", "concert-5", "concert-6",
+            "comedy-1", "comedy-2", "comedy-3", "movie-1", "movie-2", "movie-3",
+            "theatre-1", "theatre-2", "sports-1", "sports-2", "workshop-1", "workshop-2",
+            "conference-1", "conference-2", "exhibition-1", "exhibition-2", "festival-1", "festival-2"
+        };
+        var img = new Dictionary<string, string>();
+        foreach (var key in imageKeys)
+        {
+            await using var fs = File.OpenRead(Path.Combine(seedDir, key + ".jpg"));
+            img[key] = await storage.SaveAsync(fs, "image/jpeg");
+        }
 
         // ── 1. Users ──────────────────────────────────────────────────────────
-        var admin = new User { Name = "System Admin",  Email = "admin@ems.com",    Phone = "9000000001", PasswordHash = hash, Role = "Admin",     IsActive = true };
-        var alice = new User { Name = "Alice Johnson", Email = "alice@ems.com",    Phone = "9000000002", PasswordHash = hash, Role = "Organizer", IsActive = true };
-        var bob   = new User { Name = "Bob Smith",     Email = "bob@ems.com",      Phone = "9000000003", PasswordHash = hash, Role = "Organizer", IsActive = true };
-        var carol = new User { Name = "Carol White",   Email = "carol@ems.com",    Phone = "9000000004", PasswordHash = hash, Role = "Organizer", IsActive = true };
-        var david = new User { Name = "David Brown",   Email = "david@ems.com",    Phone = "9000000005", PasswordHash = hash, Role = "User",      IsActive = true };
-        var emma  = new User { Name = "Emma Wilson",   Email = "emma@ems.com",     Phone = "9000000006", PasswordHash = hash, Role = "User",      IsActive = true };
-        var frank = new User { Name = "Frank Miller",  Email = "frank@ems.com",    Phone = "9000000007", PasswordHash = hash, Role = "User",      IsActive = true };
-        var grace = new User { Name = "Grace Lee",     Email = "grace@ems.com",    Phone = "9000000008", PasswordHash = hash, Role = "User",      IsActive = true };
-        var henry = new User { Name = "Henry Chen",    Email = "henry@ems.com",    Phone = "9000000009", PasswordHash = hash, Role = "User",      IsActive = true };
-        var ivan  = new User { Name = "Ivan Petrov",   Email = "ivan@ems.com",     Phone = "9000000010", PasswordHash = hash, Role = "User",      IsActive = false };
+        var admin = new User { Name = "System Admin",  Email = "admin@ems.com", Phone = "9000000001", PasswordHash = hash, Role = "Admin",     IsActive = true };
+        var alice = new User { Name = "Alice Johnson", Email = "alice@ems.com", Phone = "9000000002", PasswordHash = hash, Role = "Organizer", IsActive = true };
+        var bob   = new User { Name = "Bob Smith",     Email = "bob@ems.com",   Phone = "9000000003", PasswordHash = hash, Role = "Organizer", IsActive = true };
+        var carol = new User { Name = "Carol White",   Email = "carol@ems.com", Phone = "9000000004", PasswordHash = hash, Role = "Organizer", IsActive = true };
+        var david = new User { Name = "David Brown",   Email = "david@ems.com", Phone = "9000000005", PasswordHash = hash, Role = "User",      IsActive = true };
+        var emma  = new User { Name = "Emma Wilson",   Email = "emma@ems.com",  Phone = "9000000006", PasswordHash = hash, Role = "User",      IsActive = true };
+        var frank = new User { Name = "Frank Miller",  Email = "frank@ems.com", Phone = "9000000007", PasswordHash = hash, Role = "User",      IsActive = true };
+        var grace = new User { Name = "Grace Lee",     Email = "grace@ems.com", Phone = "9000000008", PasswordHash = hash, Role = "User",      IsActive = true };
+        var henry = new User { Name = "Henry Chen",    Email = "henry@ems.com", Phone = "9000000009", PasswordHash = hash, Role = "User",      IsActive = true };
+        var ivan  = new User { Name = "Ivan Petrov",   Email = "ivan@ems.com",  Phone = "9000000010", PasswordHash = hash, Role = "User",      IsActive = false };
 
         db.Users.AddRange(admin, alice, bob, carol, david, emma, frank, grace, henry, ivan);
         await db.SaveChangesAsync();
 
         // ── 2. OrganizerRequests ──────────────────────────────────────────────
         db.OrganizerRequests.AddRange(
-            new OrganizerRequest { UserId = alice.Id, Status = "Approved", Reason = "Verified professional event organizer.",         RequestedAt = now.AddDays(-30), ReviewedAt = now.AddDays(-29), ReviewedByAdminId = admin.Id },
-            new OrganizerRequest { UserId = bob.Id,   Status = "Approved", Reason = "Experienced in large-scale events.",             RequestedAt = now.AddDays(-25), ReviewedAt = now.AddDays(-24), ReviewedByAdminId = admin.Id },
-            new OrganizerRequest { UserId = carol.Id, Status = "Approved", Reason = "Strong portfolio of past events.",               RequestedAt = now.AddDays(-20), ReviewedAt = now.AddDays(-19), ReviewedByAdminId = admin.Id },
+            new OrganizerRequest { UserId = alice.Id, Status = "Approved", Reason = "Verified professional event organizer.", RequestedAt = now.AddDays(-30), ReviewedAt = now.AddDays(-29), ReviewedByAdminId = admin.Id },
+            new OrganizerRequest { UserId = bob.Id,   Status = "Approved", Reason = "Experienced in large-scale events.",     RequestedAt = now.AddDays(-25), ReviewedAt = now.AddDays(-24), ReviewedByAdminId = admin.Id },
+            new OrganizerRequest { UserId = carol.Id, Status = "Approved", Reason = "Strong portfolio of past events.",       RequestedAt = now.AddDays(-20), ReviewedAt = now.AddDays(-19), ReviewedByAdminId = admin.Id },
             new OrganizerRequest { UserId = david.Id, Status = "Pending",  RequestedAt = now.AddDays(-3) },
-            new OrganizerRequest { UserId = emma.Id,  Status = "Rejected", Reason = "Portfolio did not meet requirements.",           RequestedAt = now.AddDays(-10), ReviewedAt = now.AddDays(-8),  ReviewedByAdminId = admin.Id },
+            new OrganizerRequest { UserId = emma.Id,  Status = "Rejected", Reason = "Portfolio did not meet requirements.",   RequestedAt = now.AddDays(-10), ReviewedAt = now.AddDays(-8), ReviewedByAdminId = admin.Id },
             new OrganizerRequest { UserId = henry.Id, Status = "Pending",  RequestedAt = now.AddDays(-1) }
         );
         await db.SaveChangesAsync();
 
-        // Real, themed images (each verified reachable). Reused within a category.
-        const string imgConcert1 = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&q=80";
-        const string imgConcert2 = "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&q=80";
-        const string imgConcert3 = "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=800&q=80";
-        const string imgConcert4 = "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800&q=80";
-        const string imgConcert5 = "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&q=80";
-        const string imgConcert6 = "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=800&q=80";
-        const string imgComedy1  = "https://images.unsplash.com/photo-1527224538127-2104bb71c51b?w=800&q=80";
-        const string imgComedy2  = "https://images.unsplash.com/photo-1585699324551-f6c309eedeca?w=800&q=80";
-        const string imgComedy3  = "https://images.unsplash.com/photo-1610890716171-6b1bb98ffd09?w=800&q=80";
-        const string imgMovie1   = "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800&q=80";
-        const string imgMovie2   = "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&q=80";
-        const string imgMovie3   = "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&q=80";
+        // ── 3. Venues + seats ─────────────────────────────────────────────────
+        // A layout section is (name, seat type, rows, seats-per-row). The same array drives
+        // both the stored LayoutConfig JSON and the generated Seat rows, so they can't drift.
+        (string, string, int, int)[] bigLayout   = { ("A", "Silver", 4, 10), ("B", "Gold", 3, 10), ("C", "Premium", 2, 10) }; // 90
+        (string, string, int, int)[] midLayout   = { ("A", "Silver", 3, 10), ("B", "Gold", 2, 10), ("C", "Premium", 1, 10) }; // 60
+        (string, string, int, int)[] smallLayout = { ("A", "Silver", 2, 10), ("B", "Gold", 1, 10), ("C", "Premium", 1, 5) };  // 35
 
-        // ── 3. Venues (Tamil Nadu) ────────────────────────────────────────────
-        var nehruStadium = new Venue
+        static string LayoutJson((string name, string type, int rows, int per)[] secs) =>
+            "{\"sections\":[" + string.Join(",", secs.Select(s =>
+                $"{{\"name\":\"{s.name}\",\"type\":\"{s.type}\",\"rows\":{s.rows},\"seatsPerRow\":{s.per}}}")) + "]}";
+
+        var nehruStadium      = new Venue { Name = "Nehru Indoor Stadium",         Address = "Sydenhams Road, Periamet",         City = "Chennai",          TotalCapacity = 500, LayoutConfig = LayoutJson(bigLayout) };
+        var sathyamCinema     = new Venue { Name = "Sathyam Cinemas",              Address = "8 Thiruvika Road, Royapettah",     City = "Chennai",          TotalCapacity = 400, LayoutConfig = LayoutJson(bigLayout) };
+        var codissia          = new Venue { Name = "Codissia Trade Fair Complex",  Address = "Trade Fair Road, Peelamedu",       City = "Coimbatore",       TotalCapacity = 300, LayoutConfig = LayoutJson(midLayout) };
+        var tamukkam          = new Venue { Name = "Tamukkam Grounds",             Address = "Tamukkam Road, Aringnar Anna Nagar", City = "Madurai",        TotalCapacity = 250, LayoutConfig = LayoutJson(midLayout) };
+        var annaAuditorium    = new Venue { Name = "Anna Auditorium",              Address = "Anna Nagar, Thillai Nagar",        City = "Tiruchirappalli",  TotalCapacity = 200, LayoutConfig = LayoutJson(smallLayout) };
+        var chennaiTradeCentre = new Venue { Name = "Chennai Trade Centre",        Address = "Mount Poonamallee Road, Nandambakkam", City = "Chennai",      TotalCapacity = 600, LayoutConfig = LayoutJson(bigLayout) };
+        var kalaignarArangam  = new Venue { Name = "Kalaignar Arangam",            Address = "Avinashi Road, Peelamedu",         City = "Coimbatore",       TotalCapacity = 250, LayoutConfig = LayoutJson(midLayout) };
+
+        var venueLayouts = new (Venue venue, (string, string, int, int)[] layout)[]
         {
-            Name = "Nehru Indoor Stadium", Address = "Sydenhams Road, Periamet", City = "Chennai", TotalCapacity = 500,
-            LayoutConfig = "{\"sections\":[{\"name\":\"A\",\"type\":\"Silver\",\"rows\":4,\"seatsPerRow\":10},{\"name\":\"B\",\"type\":\"Gold\",\"rows\":3,\"seatsPerRow\":10},{\"name\":\"C\",\"type\":\"Premium\",\"rows\":2,\"seatsPerRow\":10}]}"
+            (nehruStadium, bigLayout), (sathyamCinema, bigLayout), (codissia, midLayout),
+            (tamukkam, midLayout), (annaAuditorium, smallLayout), (chennaiTradeCentre, bigLayout),
+            (kalaignarArangam, midLayout)
         };
-        var sathyamCinema = new Venue
-        {
-            Name = "Sathyam Cinemas", Address = "8 Thiruvika Road, Royapettah", City = "Chennai", TotalCapacity = 400,
-            LayoutConfig = "{\"sections\":[{\"name\":\"A\",\"type\":\"Silver\",\"rows\":4,\"seatsPerRow\":10},{\"name\":\"B\",\"type\":\"Gold\",\"rows\":3,\"seatsPerRow\":10},{\"name\":\"C\",\"type\":\"Premium\",\"rows\":2,\"seatsPerRow\":10}]}"
-        };
-        var codissia = new Venue
-        {
-            Name = "Codissia Trade Fair Complex", Address = "Trade Fair Road, Peelamedu", City = "Coimbatore", TotalCapacity = 300,
-            LayoutConfig = "{\"sections\":[{\"name\":\"A\",\"type\":\"Silver\",\"rows\":3,\"seatsPerRow\":10},{\"name\":\"B\",\"type\":\"Gold\",\"rows\":2,\"seatsPerRow\":10},{\"name\":\"C\",\"type\":\"Premium\",\"rows\":1,\"seatsPerRow\":10}]}"
-        };
-        var tamukkam = new Venue
-        {
-            Name = "Tamukkam Grounds", Address = "Tamukkam Road, Aringnar Anna Nagar", City = "Madurai", TotalCapacity = 250,
-            LayoutConfig = "{\"sections\":[{\"name\":\"A\",\"type\":\"Silver\",\"rows\":3,\"seatsPerRow\":10},{\"name\":\"B\",\"type\":\"Gold\",\"rows\":2,\"seatsPerRow\":10},{\"name\":\"C\",\"type\":\"Premium\",\"rows\":1,\"seatsPerRow\":10}]}"
-        };
-        var annaAuditorium = new Venue
-        {
-            Name = "Anna Auditorium", Address = "Anna Nagar, Thillai Nagar", City = "Tiruchirappalli", TotalCapacity = 200,
-            LayoutConfig = "{\"sections\":[{\"name\":\"A\",\"type\":\"Silver\",\"rows\":2,\"seatsPerRow\":10},{\"name\":\"B\",\"type\":\"Gold\",\"rows\":1,\"seatsPerRow\":10},{\"name\":\"C\",\"type\":\"Premium\",\"rows\":1,\"seatsPerRow\":5}]}"
-        };
-        db.Venues.AddRange(nehruStadium, sathyamCinema, codissia, tamukkam, annaAuditorium);
+        db.Venues.AddRange(venueLayouts.Select(v => v.venue));
         await db.SaveChangesAsync();
 
-        // ── 4. Seats ──────────────────────────────────────────────────────────
-        var nehruSeats   = GenerateSeats(nehruStadium.Id,   ("A", "Silver", 4, 10), ("B", "Gold", 3, 10), ("C", "Premium", 2, 10));
-        var sathyamSeats = GenerateSeats(sathyamCinema.Id,  ("A", "Silver", 4, 10), ("B", "Gold", 3, 10), ("C", "Premium", 2, 10));
-        var codissiaSeats = GenerateSeats(codissia.Id,      ("A", "Silver", 3, 10), ("B", "Gold", 2, 10), ("C", "Premium", 1, 10));
-        var tamukkamSeats = GenerateSeats(tamukkam.Id,      ("A", "Silver", 3, 10), ("B", "Gold", 2, 10), ("C", "Premium", 1, 10));
-        var annaSeats    = GenerateSeats(annaAuditorium.Id, ("A", "Silver", 2, 10), ("B", "Gold", 1, 10), ("C", "Premium", 1, 5));
-
-        db.Seats.AddRange(nehruSeats);
-        db.Seats.AddRange(sathyamSeats);
-        db.Seats.AddRange(codissiaSeats);
-        db.Seats.AddRange(tamukkamSeats);
-        db.Seats.AddRange(annaSeats);
-        await db.SaveChangesAsync();
-
-        var nhSilver  = nehruSeats.Where(s => s.SeatType == "Silver").ToList();
-        var nhGold    = nehruSeats.Where(s => s.SeatType == "Gold").ToList();
-        var nhPremium = nehruSeats.Where(s => s.SeatType == "Premium").ToList();
-        var sySilver  = sathyamSeats.Where(s => s.SeatType == "Silver").ToList();
-        var syGold    = sathyamSeats.Where(s => s.SeatType == "Gold").ToList();
-        var syPremium = sathyamSeats.Where(s => s.SeatType == "Premium").ToList();
-        var cdSilver  = codissiaSeats.Where(s => s.SeatType == "Silver").ToList();
-        var cdGold    = codissiaSeats.Where(s => s.SeatType == "Gold").ToList();
-        var tmSilver  = tamukkamSeats.Where(s => s.SeatType == "Silver").ToList();
-        var tmGold    = tamukkamSeats.Where(s => s.SeatType == "Gold").ToList();
-        var tmPremium = tamukkamSeats.Where(s => s.SeatType == "Premium").ToList();
-        var anSilver  = annaSeats.Where(s => s.SeatType == "Silver").ToList();
-        var anGold    = annaSeats.Where(s => s.SeatType == "Gold").ToList();
-
-        // ── 5. Events ─────────────────────────────────────────────────────────
-        Event Ev(int organizerId, int venueId, string title, string description, string status, string category,
-                 string slug, int startInDays, string imageUrl, string screen = "", string? rejectionReason = null) => new()
+        var venueSeats = new Dictionary<int, List<Seat>>();
+        foreach (var (venue, layout) in venueLayouts)
         {
-            OrganizerId = organizerId, VenueId = venueId, Title = title, Description = description,
-            Status = status, Category = category, Slug = slug,
-            StartTime = now.AddDays(startInDays), EndTime = now.AddDays(startInDays).AddHours(3),
-            ImageUrl = imageUrl, Screen = screen, RejectionReason = rejectionReason
-        };
-
-        // Concerts (incl. Tamil hip-hop)
-        var hiphopTamizha = Ev(alice.Id, nehruStadium.Id, "Hiphop Tamizha Live in Concert",
-            "Adhi and the Hiphop Tamizha crew bring their high-energy Tamil rap anthems to Chennai for one electrifying night.",
-            "Published", "Concerts", "hiphop-tamizha-live-chennai", 21, imgConcert1);
-        var anirudhLive = Ev(alice.Id, nehruStadium.Id, "Anirudh Live in Concert",
-            "Rockstar Anirudh Ravichander performs his chart-topping hits live with a full band and stunning stage production.",
-            "Published", "Concerts", "anirudh-live-chennai", 35, imgConcert2);
-        var arivuEmbassy = Ev(bob.Id, codissia.Id, "Arivu & The Embassy",
-            "Arivu performs Enjoy Enjaami and his powerful independent Tamil tracks with The Embassy band live in Coimbatore.",
-            "Published", "Concerts", "arivu-the-embassy-coimbatore", 28, imgConcert3);
-        var santhoshLive = Ev(bob.Id, tamukkam.Id, "Santhosh Narayanan Live",
-            "Composer Santhosh Narayanan takes the Madurai stage with a genre-bending live set spanning film and indie work.",
-            "Published", "Concerts", "santhosh-narayanan-live-madurai", 42, imgConcert4);
-        var yuvanNight = Ev(alice.Id, nehruStadium.Id, "Yuvan Shankar Raja Musical Night",
-            "U1 returns to the stage for a nostalgic and electric night of his timeless Tamil melodies and beats.",
-            "Published", "Concerts", "yuvan-shankar-raja-night-chennai", 14, imgConcert5);
-        var indieFest = Ev(carol.Id, codissia.Id, "Coimbatore Indie Music Fest",
-            "A full day of Tamil independent music with rappers, bands and producers from across the state.",
-            "Published", "Concerts", "coimbatore-indie-music-fest", 49, imgConcert6);
-
-        // Comedy (stand-up)
-        var aravindSA = Ev(carol.Id, annaAuditorium.Id, "Aravind SA: Madrasi Da",
-            "Aravind SA returns with his celebrated solo special, a riot of observational comedy on life as a Madrasi.",
-            "Published", "Comedy", "aravind-sa-madrasi-da-trichy", 12, imgComedy1);
-        var praveenKumar = Ev(carol.Id, tamukkam.Id, "Praveen Kumar Stand-Up",
-            "SACT fame Praveen Kumar brings his sharp, relatable Tamil stand-up to Madurai for a laugh-out-loud evening.",
-            "Published", "Comedy", "praveen-kumar-standup-madurai", 18, imgComedy2);
-        var alexanderBabu = Ev(bob.Id, codissia.Id, "Alexander Babu: Musical Comedy",
-            "Alexander Babu blends music and comedy in his signature one-man show packed with songs, stories and laughs.",
-            "Published", "Comedy", "alexander-babu-musical-comedy-coimbatore", 25, imgComedy3);
-        var rjVignesh = Ev(carol.Id, annaAuditorium.Id, "RJ Vignesh Live",
-            "RJ Vignesh takes his viral Tamil humour off the airwaves and onto the stage for a packed live show.",
-            "Published", "Comedy", "rj-vignesh-live-trichy", 33, imgComedy1);
-        var openMic = Ev(alice.Id, annaAuditorium.Id, "Madras Central Open Mic",
-            "The best up-and-coming Tamil comedians test fresh material in a buzzing open-mic night.",
-            "Published", "Comedy", "madras-central-open-mic", 9, imgComedy2);
-
-        // Movies (premieres / special screenings)
-        var vikramRelease = Ev(alice.Id, sathyamCinema.Id, "Vikram: Re-Release Special",
-            "Lokesh Kanagaraj's blockbuster Vikram returns to the big screen in a special fan re-release.",
-            "Published", "Movies", "vikram-re-release-special", 7, imgMovie1, screen: "Screen 1");
-        var ps2Screening = Ev(bob.Id, sathyamCinema.Id, "Ponniyin Selvan: Part 2 — Special Screening",
-            "Experience Mani Ratnam's grand epic Ponniyin Selvan: Part 2 in a premium special screening.",
-            "Published", "Movies", "ponniyin-selvan-2-special-screening", 10, imgMovie2, screen: "Screen 2");
-        var leoFanShow = Ev(carol.Id, sathyamCinema.Id, "Leo: Fan Celebration Show",
-            "A first-day-first-show style fan celebration of Thalapathy Vijay's Leo with the full theatre experience.",
-            "Published", "Movies", "leo-fan-celebration-show", 5, imgMovie3, screen: "Screen 3");
-        var masterRelease = Ev(alice.Id, annaAuditorium.Id, "Master: Re-Release",
-            "Vijay and Vijay Sethupathi's Master is back on the big screen for a limited re-release run.",
-            "Published", "Movies", "master-re-release-trichy", 16, imgMovie1, screen: "Audi 1");
-        var ninetySix = Ev(bob.Id, sathyamCinema.Id, "96: Re-Release Special",
-            "Relive the romance of 96 starring Vijay Sethupathi and Trisha in this special re-release.",
-            "Published", "Movies", "96-re-release-special", 20, imgMovie2, screen: "Screen 1");
-
-        // More Coimbatore events (Codissia)
-        var kovaiCarnival = Ev(carol.Id, codissia.Id, "Coimbatore Food & Music Carnival",
-            "A weekend carnival pairing Kongu cuisine with live Tamil bands across multiple stages in Coimbatore.",
-            "Published", "Concerts", "coimbatore-food-music-carnival", 22, imgConcert5);
-        var sidSriramKovai = Ev(bob.Id, codissia.Id, "Sid Sriram Live in Coimbatore",
-            "Sid Sriram brings his soulful voice and hit Tamil melodies to Coimbatore for an intimate live evening.",
-            "Published", "Concerts", "sid-sriram-live-coimbatore", 38, imgConcert2);
-        var kovaiComedyNight = Ev(carol.Id, codissia.Id, "Kovai Comedy Night",
-            "A line-up of Tamil stand-up comedians deliver a laugh-packed night in the heart of Coimbatore.",
-            "Published", "Comedy", "kovai-comedy-night", 15, imgComedy2);
-
-        // More Madurai events (Tamukkam)
-        var maduraiClassical = Ev(bob.Id, tamukkam.Id, "Madurai Classical Evening",
-            "An evening of Carnatic classical music by leading artists set against the temple city of Madurai.",
-            "Published", "Concerts", "madurai-classical-evening", 20, imgConcert4);
-        var thaikkudamMadurai = Ev(alice.Id, tamukkam.Id, "Thaikkudam Bridge Live",
-            "The multi-genre band Thaikkudam Bridge lights up Madurai with their signature fusion sound.",
-            "Published", "Concerts", "thaikkudam-bridge-live-madurai", 33, imgConcert3);
-        var maduraiStandUp = Ev(carol.Id, tamukkam.Id, "Madurai Stand-Up Special",
-            "A special showcase of Tamil stand-up talent bringing sharp, local humour to a Madurai audience.",
-            "Published", "Comedy", "madurai-standup-special", 17, imgComedy1);
-        var karthikMadurai = Ev(bob.Id, tamukkam.Id, "Karthik Live in Madurai",
-            "Playback singer Karthik performs his beloved Tamil chartbusters live with a full band in Madurai.",
-            "Published", "Concerts", "karthik-live-madurai", 44, imgConcert6);
-
-        // More Trichy events (Anna Auditorium)
-        var trichyFiesta = Ev(carol.Id, annaAuditorium.Id, "Trichy Music Fiesta",
-            "A vibrant celebration of Tamil music with bands and singers taking the Trichy stage all evening.",
-            "Published", "Concerts", "trichy-music-fiesta", 19, imgConcert1);
-        var trichyMovieMarathon = Ev(alice.Id, annaAuditorium.Id, "Trichy Movie Marathon: Classics",
-            "A back-to-back big-screen marathon of beloved Tamil classics for a full day of cinema in Trichy.",
-            "Published", "Movies", "trichy-movie-marathon-classics", 24, imgMovie3, screen: "Audi 2");
-
-        // Non-published (dashboard realism)
-        var ilaiyaraajaDraft = Ev(alice.Id, nehruStadium.Id, "Ilaiyaraaja 80: Live in Symphony",
-            "A symphonic tribute concert celebrating the Maestro Ilaiyaraaja — details being finalised.",
-            "Draft", "Concerts", "ilaiyaraaja-80-live-symphony", 60, imgConcert1);
-        var hiphopBattle = Ev(bob.Id, codissia.Id, "Chennai Hip-Hop Battle 2026",
-            "A statewide Tamil rap and breakdance battle with cash prizes and celebrity judges.",
-            "PendingApproval", "Concerts", "chennai-hiphop-battle-2026", 55, imgConcert3);
-        var comedyBrawlRejected = Ev(carol.Id, annaAuditorium.Id, "Late Night Comedy Brawl",
-            "An after-hours competitive comedy showdown.",
-            "Rejected", "Comedy", "late-night-comedy-brawl", 30, imgComedy3,
-            rejectionReason: "Insufficient details. Please add performer line-up and run sheet.");
-        var maduraiCancelled = Ev(bob.Id, tamukkam.Id, "Madurai Music Marathon",
-            "A 12-hour music marathon — cancelled due to venue scheduling conflicts.",
-            "Cancelled", "Concerts", "madurai-music-marathon", 45, imgConcert4);
-
-        db.Events.AddRange(
-            hiphopTamizha, anirudhLive, arivuEmbassy, santhoshLive, yuvanNight, indieFest,
-            aravindSA, praveenKumar, alexanderBabu, rjVignesh, openMic,
-            vikramRelease, ps2Screening, leoFanShow, masterRelease, ninetySix,
-            kovaiCarnival, sidSriramKovai, kovaiComedyNight,
-            maduraiClassical, thaikkudamMadurai, maduraiStandUp, karthikMadurai,
-            trichyFiesta, trichyMovieMarathon,
-            ilaiyaraajaDraft, hiphopBattle, comedyBrawlRejected, maduraiCancelled);
+            var seats = GenerateSeats(venue.Id, layout);
+            db.Seats.AddRange(seats);
+            venueSeats[venue.Id] = seats;
+        }
         await db.SaveChangesAsync();
 
-        // ── 5b. Screenings ────────────────────────────────────────────────────
-        // Every event is bookable through a primary screening. Movies also get a
-        // second screening (different screen + time) so the screen-selection step
-        // is exercised and availability is independent per screening.
+        // Seats indexed by (venue, type) with a moving cursor so no seat is ever handed out twice.
+        var seatsByVenueType = new Dictionary<(int, string), List<Seat>>();
+        var seatCursor = new Dictionary<(int, string), int>();
+        foreach (var (venueId, seats) in venueSeats)
+            foreach (var g in seats.GroupBy(s => s.SeatType))
+            {
+                seatsByVenueType[(venueId, g.Key)] = g.ToList();
+                seatCursor[(venueId, g.Key)] = 0;
+            }
+        int NextSeatId(int venueId, string type) =>
+            seatsByVenueType[(venueId, type)][seatCursor[(venueId, type)]++].Id;
+
+        var seatCountsByVenue = venueSeats.ToDictionary(
+            kv => kv.Key,
+            kv => kv.Value.GroupBy(s => s.SeatType).ToDictionary(g => g.Key, g => g.Count()));
+
+        // ── 4. Events ─────────────────────────────────────────────────────────
+        // Price is captured per event (Silver/Gold/Premium) so every screening of that event
+        // can be given matching ticket tiers.
+        var priceMap = new Dictionary<Event, (decimal s, decimal g, decimal p)>();
+        Event Ev(int organizerId, Venue venue, string title, string description, string status, string category,
+                 string slug, int startInDays, string imageKey, decimal s, decimal g, decimal p, string? rejectionReason = null)
+        {
+            var e = new Event
+            {
+                OrganizerId = organizerId, VenueId = venue.Id, Title = title, Description = description,
+                Status = status, Category = category, Slug = slug,
+                StartTime = now.AddDays(startInDays), EndTime = now.AddDays(startInDays).AddHours(3),
+                ImageUrl = img[imageKey], Screen = "", RejectionReason = rejectionReason
+            };
+            priceMap[e] = (s, g, p);
+            return e;
+        }
+
+        // Concerts
+        var hiphopTamizha     = Ev(alice.Id, nehruStadium,   "Hiphop Tamizha Live in Concert",   "Adhi and the Hiphop Tamizha crew bring their high-energy Tamil rap anthems to Chennai for one electrifying night.", "Published", "Concerts", "hiphop-tamizha-live-chennai", 21, "concert-1",  999m, 1999m, 3499m);
+        var anirudhLive       = Ev(alice.Id, nehruStadium,   "Anirudh Live in Concert",          "Rockstar Anirudh Ravichander performs his chart-topping hits live with a full band and stunning stage production.", "Published", "Concerts", "anirudh-live-chennai", 35, "concert-2", 1499m, 2999m, 4999m);
+        var arivuEmbassy      = Ev(bob.Id,   codissia,       "Arivu & The Embassy",              "Arivu performs Enjoy Enjaami and his powerful independent Tamil tracks with The Embassy band live in Coimbatore.", "Published", "Concerts", "arivu-the-embassy-coimbatore", 28, "concert-3", 799m, 1499m, 2499m);
+        var santhoshLive      = Ev(bob.Id,   tamukkam,       "Santhosh Narayanan Live",          "Composer Santhosh Narayanan takes the Madurai stage with a genre-bending live set spanning film and indie work.", "Published", "Concerts", "santhosh-narayanan-live-madurai", 42, "concert-4", 899m, 1799m, 2999m);
+        var yuvanNight        = Ev(alice.Id, nehruStadium,   "Yuvan Shankar Raja Musical Night", "U1 returns to the stage for a nostalgic and electric night of his timeless Tamil melodies and beats.", "Published", "Concerts", "yuvan-shankar-raja-night-chennai", 14, "concert-5", 1299m, 2499m, 3999m);
+        var indieFest         = Ev(carol.Id, codissia,       "Coimbatore Indie Music Fest",      "A full day of Tamil independent music with rappers, bands and producers from across the state.", "Published", "Concerts", "coimbatore-indie-music-fest", 49, "concert-6", 599m, 1199m, 1999m);
+        var kovaiCarnival     = Ev(carol.Id, codissia,       "Coimbatore Food & Music Carnival", "A weekend carnival pairing Kongu cuisine with live Tamil bands across multiple stages in Coimbatore.", "Published", "Concerts", "coimbatore-food-music-carnival", 22, "concert-5", 699m, 1299m, 1999m);
+        var sidSriramKovai    = Ev(bob.Id,   codissia,       "Sid Sriram Live in Coimbatore",    "Sid Sriram brings his soulful voice and hit Tamil melodies to Coimbatore for an intimate live evening.", "Published", "Concerts", "sid-sriram-live-coimbatore", 38, "concert-2", 1299m, 2499m, 3999m);
+        var maduraiClassical  = Ev(bob.Id,   tamukkam,       "Madurai Classical Evening",        "An evening of Carnatic classical music by leading artists set against the temple city of Madurai.", "Published", "Concerts", "madurai-classical-evening", 20, "concert-4", 599m, 1099m, 1799m);
+        var thaikkudamMadurai = Ev(alice.Id, tamukkam,       "Thaikkudam Bridge Live",           "The multi-genre band Thaikkudam Bridge lights up Madurai with their signature fusion sound.", "Published", "Concerts", "thaikkudam-bridge-live-madurai", 33, "concert-3", 999m, 1899m, 2999m);
+        var karthikMadurai    = Ev(bob.Id,   tamukkam,       "Karthik Live in Madurai",          "Playback singer Karthik performs his beloved Tamil chartbusters live with a full band in Madurai.", "Published", "Concerts", "karthik-live-madurai", 44, "concert-6", 1099m, 1999m, 3299m);
+        var trichyFiesta      = Ev(carol.Id, annaAuditorium, "Trichy Music Fiesta",              "A vibrant celebration of Tamil music with bands and singers taking the Trichy stage all evening.", "Published", "Concerts", "trichy-music-fiesta", 19, "concert-1", 599m, 999m, 1499m);
+
+        // Comedy
+        var aravindSA      = Ev(carol.Id, annaAuditorium,   "Aravind SA: Madrasi Da",        "Aravind SA returns with his celebrated solo special, a riot of observational comedy on life as a Madrasi.", "Published", "Comedy", "aravind-sa-madrasi-da-trichy", 12, "comedy-1", 599m, 999m, 1499m);
+        var praveenKumar   = Ev(carol.Id, tamukkam,         "Praveen Kumar Stand-Up",        "SACT fame Praveen Kumar brings his sharp, relatable Tamil stand-up to Madurai for a laugh-out-loud evening.", "Published", "Comedy", "praveen-kumar-standup-madurai", 18, "comedy-2", 499m, 799m, 1299m);
+        var alexanderBabu  = Ev(bob.Id,   codissia,         "Alexander Babu: Musical Comedy","Alexander Babu blends music and comedy in his signature one-man show packed with songs, stories and laughs.", "Published", "Comedy", "alexander-babu-musical-comedy-coimbatore", 25, "comedy-3", 699m, 1099m, 1599m);
+        var rjVignesh      = Ev(carol.Id, annaAuditorium,   "RJ Vignesh Live",               "RJ Vignesh takes his viral Tamil humour off the airwaves and onto the stage for a packed live show.", "Published", "Comedy", "rj-vignesh-live-trichy", 33, "comedy-1", 399m, 699m, 999m);
+        var openMic        = Ev(alice.Id, annaAuditorium,   "Madras Central Open Mic",       "The best up-and-coming Tamil comedians test fresh material in a buzzing open-mic night.", "Published", "Comedy", "madras-central-open-mic", 9, "comedy-2", 299m, 499m, 799m);
+        var kovaiComedyNight = Ev(carol.Id, kalaignarArangam, "Kovai Comedy Night",          "A line-up of Tamil stand-up comedians deliver a laugh-packed night in the heart of Coimbatore.", "Published", "Comedy", "kovai-comedy-night", 15, "comedy-2", 499m, 899m, 1399m);
+        var maduraiStandUp = Ev(carol.Id, tamukkam,         "Madurai Stand-Up Special",      "A special showcase of Tamil stand-up talent bringing sharp, local humour to a Madurai audience.", "Published", "Comedy", "madurai-standup-special", 17, "comedy-1", 399m, 699m, 1099m);
+
+        // Movies — each gets multiple screenings across the venue's screens (see §5).
+        var vikramRelease       = Ev(alice.Id, sathyamCinema,  "Vikram: Re-Release Special",                   "Lokesh Kanagaraj's blockbuster Vikram returns to the big screen in a special fan re-release.", "Published", "Movies", "vikram-re-release-special", 7, "movie-1", 150m, 220m, 350m);
+        var ps2Screening        = Ev(bob.Id,   sathyamCinema,  "Ponniyin Selvan: Part 2 — Special Screening",  "Experience Mani Ratnam's grand epic Ponniyin Selvan: Part 2 in a premium special screening.", "Published", "Movies", "ponniyin-selvan-2-special-screening", 10, "movie-2", 180m, 260m, 400m);
+        var leoFanShow          = Ev(carol.Id, sathyamCinema,  "Leo: Fan Celebration Show",                    "A first-day-first-show style fan celebration of Thalapathy Vijay's Leo with the full theatre experience.", "Published", "Movies", "leo-fan-celebration-show", 5, "movie-3", 200m, 300m, 450m);
+        var masterRelease       = Ev(alice.Id, annaAuditorium, "Master: Re-Release",                           "Vijay and Vijay Sethupathi's Master is back on the big screen for a limited re-release run.", "Published", "Movies", "master-re-release-trichy", 16, "movie-1", 150m, 220m, 350m);
+        var ninetySix           = Ev(bob.Id,   sathyamCinema,  "96: Re-Release Special",                       "Relive the romance of 96 starring Vijay Sethupathi and Trisha in this special re-release.", "Published", "Movies", "96-re-release-special", 20, "movie-2", 150m, 220m, 350m);
+        var trichyMovieMarathon = Ev(alice.Id, annaAuditorium, "Trichy Movie Marathon: Classics",              "A back-to-back big-screen marathon of beloved Tamil classics for a full day of cinema in Trichy.", "Published", "Movies", "trichy-movie-marathon-classics", 24, "movie-3", 150m, 250m, 400m);
+
+        // Theatre
+        var chocolateKrishna = Ev(carol.Id, annaAuditorium,   "Crazy Mohan's Chocolate Krishna", "The beloved Tamil comedy play returns to the stage — a hilarious tribute production of Crazy Mohan's classic.", "Published", "Theatre", "crazy-mohan-chocolate-krishna-trichy", 13, "theatre-1", 499m, 899m, 1399m);
+        var koothuPattarai   = Ev(bob.Id,   kalaignarArangam, "Koothu-p-Pattarai: Stage Revival","An evening of powerful contemporary Tamil theatre from the Koothu-p-Pattarai repertory company.", "Published", "Theatre", "koothu-p-pattarai-stage-revival-coimbatore", 27, "theatre-2", 399m, 799m, 1299m);
+
+        // Sports
+        var tnplNight   = Ev(alice.Id, nehruStadium, "TNPL Exhibition Cricket Night",   "A floodlit exhibition T20 featuring TNPL stars in an action-packed evening of cricket in Chennai.", "Published", "Sports", "tnpl-exhibition-cricket-night-chennai", 11, "sports-1", 299m, 599m, 999m);
+        var proKabaddi  = Ev(bob.Id,   nehruStadium, "Chennai Pro Kabaddi Showdown",    "Top Pro Kabaddi franchises clash in a high-intensity showdown at the Nehru Indoor Stadium.", "Published", "Sports", "chennai-pro-kabaddi-showdown", 23, "sports-2", 399m, 799m, 1499m);
+
+        // Workshops
+        var aiWorkshop      = Ev(alice.Id, chennaiTradeCentre, "AI & ML Hands-On Workshop",       "A practical full-day workshop on building and deploying machine-learning models, from data to production.", "Published", "Workshops", "ai-ml-hands-on-workshop-chennai", 8, "workshop-1", 999m, 1999m, 2999m);
+        var startupBootcamp = Ev(carol.Id, codissia,          "Startup Product Design Bootcamp","A hands-on bootcamp on product design and go-to-market for early-stage founders and product teams.", "Published", "Workshops", "startup-product-design-bootcamp-coimbatore", 26, "workshop-2", 799m, 1499m, 2499m);
+
+        // Conferences
+        var tnTechSummit = Ev(alice.Id, chennaiTradeCentre, "Tamil Nadu Tech Summit 2026",  "The state's flagship technology conference with keynotes, panels and startups across two stages.", "Published", "Conferences", "tamil-nadu-tech-summit-2026", 30, "conference-1", 1499m, 2999m, 4999m);
+        var fintechConf  = Ev(bob.Id,   codissia,           "Coimbatore FinTech Conference","Leaders in payments, lending and banking tech meet for a day of talks and networking in Coimbatore.", "Published", "Conferences", "coimbatore-fintech-conference", 37, "conference-2", 999m, 1999m, 3499m);
+
+        // Exhibitions
+        var bookFair = Ev(carol.Id, chennaiTradeCentre, "Chennai Book Fair Special", "A curated showcase of Tamil and English publishers with author meets, readings and signings.", "Published", "Exhibitions", "chennai-book-fair-special", 6, "exhibition-1", 99m, 199m, 349m);
+        var autoExpo = Ev(bob.Id,   codissia,           "Kovai Auto & Tech Expo",    "The latest automobiles, EVs and mobility tech on display across the Codissia halls.", "Published", "Exhibitions", "kovai-auto-tech-expo", 32, "exhibition-2", 149m, 299m, 499m);
+
+        // Festivals
+        var chithiraiFestival = Ev(bob.Id,   tamukkam, "Madurai Chithirai Cultural Festival", "A two-day celebration of Madurai's Chithirai heritage with music, dance and cultural performances.", "Published", "Festivals", "madurai-chithirai-cultural-festival", 40, "festival-1", 299m, 599m, 999m);
+        var konguFest         = Ev(carol.Id, codissia, "Kongu Food & Music Festival",         "A vibrant festival of Kongu cuisine and live Tamil music across a full weekend in Coimbatore.", "Published", "Festivals", "kongu-food-music-festival-coimbatore", 34, "festival-2", 399m, 799m, 1299m);
+
+        // Other
+        var communityMeetup = Ev(alice.Id, chennaiTradeCentre, "EventHub Community Meetup", "An informal meetup for organizers and event enthusiasts to swap ideas over talks and coffee.", "Published", "Other", "eventhub-community-meetup-chennai", 9, "workshop-2", 199m, 399m, 599m);
+
+        // Non-published (dashboard realism — every event status represented).
+        var ilaiyaraajaDraft    = Ev(alice.Id, nehruStadium,   "Ilaiyaraaja 80: Live in Symphony", "A symphonic tribute concert celebrating the Maestro Ilaiyaraaja — details being finalised.", "Draft", "Concerts", "ilaiyaraaja-80-live-symphony", 60, "concert-1", 1499m, 2999m, 4999m);
+        var hiphopBattle        = Ev(bob.Id,   codissia,       "Chennai Hip-Hop Battle 2026",      "A statewide Tamil rap and breakdance battle with cash prizes and celebrity judges.", "PendingApproval", "Concerts", "chennai-hiphop-battle-2026", 55, "concert-3", 499m, 999m, 1499m);
+        var comedyBrawlRejected = Ev(carol.Id, annaAuditorium, "Late Night Comedy Brawl",          "An after-hours competitive comedy showdown.", "Rejected", "Comedy", "late-night-comedy-brawl", 30, "comedy-3", 399m, 699m, 999m, rejectionReason: "Insufficient details. Please add performer line-up and run sheet.");
+        var maduraiCancelled    = Ev(bob.Id,   tamukkam,       "Madurai Music Marathon",           "A 12-hour music marathon — cancelled due to venue scheduling conflicts.", "Cancelled", "Concerts", "madurai-music-marathon", 45, "concert-4", 599m, 1099m, 1799m);
+
         var allEvents = new[]
         {
             hiphopTamizha, anirudhLive, arivuEmbassy, santhoshLive, yuvanNight, indieFest,
-            aravindSA, praveenKumar, alexanderBabu, rjVignesh, openMic,
-            vikramRelease, ps2Screening, leoFanShow, masterRelease, ninetySix,
-            kovaiCarnival, sidSriramKovai, kovaiComedyNight,
-            maduraiClassical, thaikkudamMadurai, maduraiStandUp, karthikMadurai,
-            trichyFiesta, trichyMovieMarathon,
+            kovaiCarnival, sidSriramKovai, maduraiClassical, thaikkudamMadurai, karthikMadurai, trichyFiesta,
+            aravindSA, praveenKumar, alexanderBabu, rjVignesh, openMic, kovaiComedyNight, maduraiStandUp,
+            vikramRelease, ps2Screening, leoFanShow, masterRelease, ninetySix, trichyMovieMarathon,
+            chocolateKrishna, koothuPattarai, tnplNight, proKabaddi, aiWorkshop, startupBootcamp,
+            tnTechSummit, fintechConf, bookFair, autoExpo, chithiraiFestival, konguFest, communityMeetup,
             ilaiyaraajaDraft, hiphopBattle, comedyBrawlRejected, maduraiCancelled
         };
+        db.Events.AddRange(allEvents);
+        await db.SaveChangesAsync();
+
+        // ── 5. Screenings ─────────────────────────────────────────────────────
+        // Movies run on several screens/showtimes; a couple of events run two showtimes; the
+        // rest have a single "Main" screening. Every screening has independent availability.
+        var movieScreens = new Dictionary<int, string[]>
+        {
+            [sathyamCinema.Id]  = new[] { "Screen 1", "Screen 2", "Screen 3" },
+            [annaAuditorium.Id] = new[] { "Audi 1", "Audi 2" },
+        };
+        var twoShowEvents = new HashSet<Event> { aravindSA, chithiraiFestival };
+
         var primary = new Dictionary<int, Screening>();
-        var extraMovieScreenings = new List<Screening>();
+        var screeningsByEvent = new Dictionary<int, List<Screening>>();
         foreach (var ev in allEvents)
         {
-            var p = new Screening
-            {
-                EventId = ev.Id,
-                Screen = string.IsNullOrWhiteSpace(ev.Screen) ? "Main" : ev.Screen,
-                StartTime = ev.StartTime,
-                EndTime = ev.EndTime,
-                Status = "Scheduled"
-            };
-            db.Screenings.Add(p);
-            primary[ev.Id] = p;
-
+            var list = new List<Screening>();
             if (ev.Category == "Movies")
             {
-                var second = new Screening
+                var screens = movieScreens.TryGetValue(ev.VenueId, out var s) ? s : new[] { "Screen 1", "Screen 2", "Screen 3" };
+                for (var i = 0; i < screens.Length; i++)
                 {
-                    EventId = ev.Id,
-                    Screen = "Screen 2",
-                    StartTime = ev.StartTime.AddHours(4),
-                    EndTime = ev.EndTime.AddHours(4),
-                    Status = "Scheduled"
-                };
-                db.Screenings.Add(second);
-                extraMovieScreenings.Add(second);
+                    var start = ev.StartTime.AddHours(i * 3);
+                    list.Add(new Screening { EventId = ev.Id, Screen = screens[i], StartTime = start, EndTime = start.AddHours(3), Status = "Scheduled" });
+                }
             }
+            else if (twoShowEvents.Contains(ev))
+            {
+                // Festivals span days; other two-show events run twice the same evening.
+                var gapHours = ev.Category == "Festivals" ? 24 : 3;
+                list.Add(new Screening { EventId = ev.Id, Screen = "Main", StartTime = ev.StartTime, EndTime = ev.EndTime, Status = "Scheduled" });
+                var start2 = ev.StartTime.AddHours(gapHours);
+                list.Add(new Screening { EventId = ev.Id, Screen = "Main", StartTime = start2, EndTime = start2.AddHours(3), Status = "Scheduled" });
+            }
+            else
+            {
+                list.Add(new Screening { EventId = ev.Id, Screen = "Main", StartTime = ev.StartTime, EndTime = ev.EndTime, Status = "Scheduled" });
+            }
+            db.Screenings.AddRange(list);
+            primary[ev.Id] = list[0];
+            screeningsByEvent[ev.Id] = list;
         }
         await db.SaveChangesAsync();
 
         // ── 6. TicketTypes ────────────────────────────────────────────────────
+        // One Silver/Gold/Premium tier per screening, quantity = the venue's seat count for
+        // that type. Sale runs from a week ago until the screening starts.
         var saleStart = now.AddDays(-7);
-
-        // Quantity is not a free choice: each tier's quantity is the venue's seat count
-        // for that seat type, and there is exactly one tier per seat type per screening.
-        var seatCountsByVenue = new Dictionary<int, Dictionary<string, int>>
-        {
-            [nehruStadium.Id]   = nehruSeats.GroupBy(s => s.SeatType).ToDictionary(g => g.Key, g => g.Count()),
-            [sathyamCinema.Id]  = sathyamSeats.GroupBy(s => s.SeatType).ToDictionary(g => g.Key, g => g.Count()),
-            [codissia.Id]       = codissiaSeats.GroupBy(s => s.SeatType).ToDictionary(g => g.Key, g => g.Count()),
-            [tamukkam.Id]       = tamukkamSeats.GroupBy(s => s.SeatType).ToDictionary(g => g.Key, g => g.Count()),
-            [annaAuditorium.Id] = annaSeats.GroupBy(s => s.SeatType).ToDictionary(g => g.Key, g => g.Count()),
-        };
-        var venueByEvent = allEvents.ToDictionary(e => e.Id, e => e.VenueId);
-
-        // Three tiers (Silver/Gold/Premium) per screening; sale ends at the screening start.
-        // Tiers with no seats of that type in the venue are skipped.
         TicketType[] TiersFor(Screening sc, int venueId, decimal silver, decimal gold, decimal premium)
         {
             var counts = seatCountsByVenue[venueId];
@@ -317,132 +318,144 @@ public static class DataSeeder
             AddTier("Premium", premium);
             return tiers.ToArray();
         }
-        TicketType[] Tiers(Event ev, decimal silver, decimal gold, decimal premium) =>
-            TiersFor(primary[ev.Id], ev.VenueId, silver, gold, premium);
 
-        var ttHiphop    = Tiers(hiphopTamizha,  999m, 1999m, 3499m);
-        var ttAnirudh   = Tiers(anirudhLive,   1499m, 2999m, 4999m);
-        var ttArivu     = Tiers(arivuEmbassy,   799m, 1499m, 2499m);
-        var ttSanthosh  = Tiers(santhoshLive,   899m, 1799m, 2999m);
-        var ttYuvan     = Tiers(yuvanNight,    1299m, 2499m, 3999m);
-        var ttIndie     = Tiers(indieFest,      599m, 1199m, 1999m);
-        var ttAravind   = Tiers(aravindSA,      599m,  999m, 1499m);
-        var ttPraveen   = Tiers(praveenKumar,   499m,  799m, 1299m);
-        var ttAlexander = Tiers(alexanderBabu,  699m, 1099m, 1599m);
-        var ttVignesh   = Tiers(rjVignesh,      399m,  699m,  999m);
-        var ttOpenMic   = Tiers(openMic,        299m,  499m,  799m);
-        var ttVikram    = Tiers(vikramRelease,  150m,  220m,  350m);
-        var ttPs2       = Tiers(ps2Screening,   180m,  260m,  400m);
-        var ttLeo       = Tiers(leoFanShow,     200m,  300m,  450m);
-        var ttMaster    = Tiers(masterRelease,  150m,  220m,  350m);
-        var ttNinety    = Tiers(ninetySix,      150m,  220m,  350m);
-        var ttKovaiCar  = Tiers(kovaiCarnival,   699m, 1299m, 1999m);
-        var ttSidKovai  = Tiers(sidSriramKovai, 1299m, 2499m, 3999m);
-        var ttKovaiCom  = Tiers(kovaiComedyNight, 499m,  899m, 1399m);
-        var ttMadClass  = Tiers(maduraiClassical, 599m, 1099m, 1799m);
-        var ttThaikkudam= Tiers(thaikkudamMadurai, 999m, 1899m, 2999m);
-        var ttMadStand  = Tiers(maduraiStandUp,   399m,  699m, 1099m);
-        var ttKarthik   = Tiers(karthikMadurai,  1099m, 1999m, 3299m);
-        var ttTrichyFst = Tiers(trichyFiesta,     599m,  999m, 1499m);
-        var ttTrichyMov = Tiers(trichyMovieMarathon, 150m, 250m, 400m);
-
-        db.TicketTypes.AddRange(ttHiphop.Concat(ttAnirudh).Concat(ttArivu).Concat(ttSanthosh)
-            .Concat(ttYuvan).Concat(ttIndie).Concat(ttAravind).Concat(ttPraveen).Concat(ttAlexander)
-            .Concat(ttVignesh).Concat(ttOpenMic).Concat(ttVikram).Concat(ttPs2).Concat(ttLeo)
-            .Concat(ttMaster).Concat(ttNinety)
-            .Concat(ttKovaiCar).Concat(ttSidKovai).Concat(ttKovaiCom)
-            .Concat(ttMadClass).Concat(ttThaikkudam).Concat(ttMadStand).Concat(ttKarthik)
-            .Concat(ttTrichyFst).Concat(ttTrichyMov));
-
-        // Each movie's second screening gets its own tiers (independent availability).
-        foreach (var sc in extraMovieScreenings)
-            db.TicketTypes.AddRange(TiersFor(sc, venueByEvent[sc.EventId], 180m, 260m, 400m));
-
+        // tiersByScreening[screeningId] = [Silver, Gold, Premium] (every venue has all three).
+        var tiersByScreening = new Dictionary<int, TicketType[]>();
+        foreach (var ev in allEvents)
+        {
+            var (ps, pg, pp) = priceMap[ev];
+            foreach (var sc in screeningsByEvent[ev.Id])
+            {
+                var tiers = TiersFor(sc, ev.VenueId, ps, pg, pp);
+                db.TicketTypes.AddRange(tiers);
+                tiersByScreening[sc.Id] = tiers;
+            }
+        }
         await db.SaveChangesAsync();
 
-        // ── 7. Bookings ───────────────────────────────────────────────────────
-        // Bookings attach to the event's primary screening.
-        Booking MakeBooking(string reference, int userId, int eventId, string status, decimal total,
-            DateTime expiresAt, DateTime? scannedAt = null, int? scannedBy = null)
+        // ── 7. Bookings + items ───────────────────────────────────────────────
+        // AddBooking wires a booking to a specific screening (scrIndex), picks the right tier
+        // and a fresh seat, and derives the total from the tier price — so amounts can't drift.
+        var byRef = new Dictionary<string, Booking>();
+        var pendingItems = new List<(Booking booking, TicketType tier, int venueId, decimal unit, int qty, string itemStatus)>();
+
+        Booking AddBooking(string reference, User user, Event ev, int scrIndex, string status, int tierIndex, int qty,
+            DateTime expiresAt, DateTime? scannedAt = null, User? scannedBy = null)
         {
-            var screeningId = primary[eventId].Id;
-            return new Booking
+            var sc = screeningsByEvent[ev.Id][scrIndex];
+            var tier = tiersByScreening[sc.Id][tierIndex];
+            var itemStatus = status switch
+            {
+                "Confirmed" or "Completed" => "Sold",
+                "Pending" => "Reserved",
+                _ => "Cancelled"
+            };
+            var payload = "{\"ref\":\"" + reference + "\",\"screeningId\":" + sc.Id + ",\"userId\":" + user.Id + "}";
+            var booking = new Booking
             {
                 BookingReference = reference,
-                QrCode           = QrCodeHelper.GeneratePngBase64("{\"ref\":\"" + reference + "\",\"screeningId\":" + screeningId + ",\"userId\":" + userId + "}"),
-                QrPayload        = "{\"ref\":\"" + reference + "\",\"screeningId\":" + screeningId + ",\"userId\":" + userId + "}",
-                UserId           = userId,
-                ScreeningId      = screeningId,
-                BookingStatus    = status,
-                TotalAmount      = total,
-                ExpiresAt        = expiresAt,
-                ScannedAt        = scannedAt,
-                ScannedBy        = scannedBy
+                QrCode = QrCodeHelper.GeneratePngBase64(payload),
+                QrPayload = payload,
+                UserId = user.Id,
+                ScreeningId = sc.Id,
+                BookingStatus = status,
+                TotalAmount = tier.Price * qty,
+                ExpiresAt = expiresAt,
+                ScannedAt = scannedAt,
+                ScannedBy = scannedBy?.Id
             };
+            db.Bookings.Add(booking);
+            byRef[reference] = booking;
+            pendingItems.Add((booking, tier, ev.VenueId, tier.Price, qty, itemStatus));
+            return booking;
         }
 
-        // Per-venue seat counters (advance as seats are consumed, so none is reused).
-        int nhS = 0, nhG = 0, nhP = 0;
-        int syS = 0, syG = 0, syP = 0;
-        int cdS = 0, cdG = 0;
-        int tmS = 0, tmG = 0, tmP = 0;
-        int anS = 0, anG = 0;
-
-        var booking1  = MakeBooking("BK-2026-100001", david.Id, hiphopTamizha.Id, "Confirmed", 1999m, now.AddDays(21));
-        var booking2  = MakeBooking("BK-2026-100002", emma.Id,  anirudhLive.Id,   "Confirmed", 4999m, now.AddDays(35));
-        var booking3  = MakeBooking("BK-2026-100003", frank.Id, arivuEmbassy.Id,  "Confirmed", 1598m, now.AddDays(28));
-        var booking4  = MakeBooking("BK-2026-100004", grace.Id, aravindSA.Id,     "Completed", 999m,  now.AddDays(12), scannedAt: now.AddDays(-1), scannedBy: carol.Id);
-        var booking5  = MakeBooking("BK-2026-100005", henry.Id, vikramRelease.Id, "Confirmed", 350m,  now.AddDays(7));
-        var booking6  = MakeBooking("BK-2026-100006", david.Id, praveenKumar.Id,  "Pending",   499m,  now.AddHours(1));
-        var booking7  = MakeBooking("BK-2026-100007", emma.Id,  indieFest.Id,     "Cancelled", 1199m, now.AddDays(49));
-        var booking8  = MakeBooking("BK-2026-100008", frank.Id, anirudhLive.Id,   "Expired",   1499m, now.AddHours(-2));
-        var booking9  = MakeBooking("BK-2026-100009", grace.Id, ps2Screening.Id,  "Confirmed", 260m,  now.AddDays(10));
-        var booking10 = MakeBooking("BK-2026-100010", henry.Id, santhoshLive.Id,  "Confirmed", 2999m, now.AddDays(42));
-        var booking11 = MakeBooking("BK-2026-100011", david.Id, leoFanShow.Id,    "Confirmed", 200m,  now.AddDays(5));
-        var booking12 = MakeBooking("BK-2026-100012", emma.Id,  rjVignesh.Id,     "Pending",   399m,  now.AddHours(1));
-
-        db.Bookings.AddRange(booking1, booking2, booking3, booking4, booking5, booking6,
-            booking7, booking8, booking9, booking10, booking11, booking12);
+        AddBooking("BK-2026-100001", david, hiphopTamizha,     0, "Confirmed", 1, 1, now.AddDays(21));
+        AddBooking("BK-2026-100002", emma,  anirudhLive,       0, "Confirmed", 2, 1, now.AddDays(35));
+        AddBooking("BK-2026-100003", frank, arivuEmbassy,      0, "Confirmed", 0, 2, now.AddDays(28));
+        AddBooking("BK-2026-100004", grace, aravindSA,         0, "Completed", 1, 1, now.AddDays(12), scannedAt: now.AddDays(-1), scannedBy: carol);
+        AddBooking("BK-2026-100005", henry, vikramRelease,     0, "Confirmed", 2, 1, now.AddDays(7));
+        AddBooking("BK-2026-100006", david, praveenKumar,      0, "Pending",   0, 1, now.AddHours(1));
+        AddBooking("BK-2026-100007", emma,  indieFest,         0, "Cancelled", 1, 1, now.AddDays(49));
+        AddBooking("BK-2026-100008", frank, anirudhLive,       0, "Expired",   0, 1, now.AddHours(-2));
+        AddBooking("BK-2026-100009", grace, ps2Screening,      0, "Confirmed", 1, 1, now.AddDays(10));
+        AddBooking("BK-2026-100010", henry, santhoshLive,      0, "Confirmed", 2, 1, now.AddDays(42));
+        AddBooking("BK-2026-100011", david, leoFanShow,        1, "Confirmed", 0, 1, now.AddDays(5));  // secondary screen
+        AddBooking("BK-2026-100012", emma,  rjVignesh,         0, "Pending",   0, 1, now.AddHours(1));
+        AddBooking("BK-2026-100013", grace, tnTechSummit,      0, "Confirmed", 1, 1, now.AddDays(30));
+        AddBooking("BK-2026-100014", henry, aiWorkshop,        0, "Completed", 0, 1, now.AddDays(8), scannedAt: now.AddDays(-2), scannedBy: alice);
+        AddBooking("BK-2026-100015", david, chithiraiFestival, 0, "Confirmed", 1, 1, now.AddDays(40));
+        AddBooking("BK-2026-100016", frank, vikramRelease,     1, "Confirmed", 1, 1, now.AddDays(7));  // secondary screen, same movie as 100005
+        AddBooking("BK-2026-100017", emma,  proKabaddi,        0, "Confirmed", 2, 1, now.AddDays(23));
+        AddBooking("BK-2026-100018", grace, bookFair,          0, "Cancelled", 0, 1, now.AddDays(6));
         await db.SaveChangesAsync();
 
-        // ── 8. BookingItems ───────────────────────────────────────────────────
-        db.BookingItems.AddRange(
-            Item(booking1.Id,  ttHiphop[1].Id,   nhGold[nhG++].Id,    1999m, "Sold"),
-            Item(booking2.Id,  ttAnirudh[2].Id,  nhPremium[nhP++].Id, 4999m, "Sold"),
-            Item(booking3.Id,  ttArivu[0].Id,    cdSilver[cdS++].Id,  799m,  "Sold"),
-            Item(booking3.Id,  ttArivu[0].Id,    cdSilver[cdS++].Id,  799m,  "Sold"),
-            Item(booking4.Id,  ttAravind[1].Id,  anGold[anG++].Id,    999m,  "Sold"),
-            Item(booking5.Id,  ttVikram[2].Id,   syPremium[syP++].Id, 350m,  "Sold"),
-            Item(booking6.Id,  ttPraveen[0].Id,  tmSilver[tmS++].Id,  499m,  "Reserved"),
-            Item(booking7.Id,  ttIndie[1].Id,    cdGold[cdG++].Id,    1199m, "Cancelled"),
-            Item(booking8.Id,  ttAnirudh[0].Id,  nhSilver[nhS++].Id,  1499m, "Cancelled"),
-            Item(booking9.Id,  ttPs2[1].Id,      syGold[syG++].Id,    260m,  "Sold"),
-            Item(booking10.Id, ttSanthosh[2].Id, tmPremium[tmP++].Id, 2999m, "Sold"),
-            Item(booking11.Id, ttLeo[0].Id,      sySilver[syS++].Id,  200m,  "Sold"),
-            Item(booking12.Id, ttVignesh[0].Id,  anSilver[anS++].Id,  399m,  "Reserved")
-        );
+        foreach (var (booking, tier, venueId, unit, qty, itemStatus) in pendingItems)
+            for (var i = 0; i < qty; i++)
+                db.BookingItems.Add(Item(booking.Id, tier.Id, NextSeatId(venueId, tier.SeatType), unit, itemStatus));
         await db.SaveChangesAsync();
 
-        // ── 9. Payments ───────────────────────────────────────────────────────
+        // ── 8. Payments ───────────────────────────────────────────────────────
+        // Succeeded for paid bookings; one Failed (payment attempt on an expired hold) and one
+        // Refunded (a cancelled-and-refunded booking) so every payment status is represented.
+        Payment Pay(string reference, string status, DateTime? paidAt)
+        {
+            var b = byRef[reference];
+            return new Payment
+            {
+                BookingId = b.Id,
+                StripePaymentIntentId = "pi_seed_" + reference.Replace("BK-2026-", ""),
+                StripeChargeId = "ch_seed_" + reference.Replace("BK-2026-", ""),
+                StripeCustomerId = "cus_seed_" + b.UserId,
+                Amount = b.TotalAmount,
+                Currency = "inr",
+                Status = status,
+                PaidAt = paidAt
+            };
+        }
         db.Payments.AddRange(
-            new Payment { BookingId = booking1.Id,  StripePaymentIntentId = "pi_seed_001", StripeChargeId = "ch_seed_001", StripeCustomerId = "cus_seed_david",  Amount = 1999m, Currency = "inr", Status = "Succeeded", PaidAt = now.AddDays(-5) },
-            new Payment { BookingId = booking2.Id,  StripePaymentIntentId = "pi_seed_002", StripeChargeId = "ch_seed_002", StripeCustomerId = "cus_seed_emma",   Amount = 4999m, Currency = "inr", Status = "Succeeded", PaidAt = now.AddDays(-4) },
-            new Payment { BookingId = booking3.Id,  StripePaymentIntentId = "pi_seed_003", StripeChargeId = "ch_seed_003", StripeCustomerId = "cus_seed_frank",  Amount = 1598m, Currency = "inr", Status = "Succeeded", PaidAt = now.AddDays(-3) },
-            new Payment { BookingId = booking4.Id,  StripePaymentIntentId = "pi_seed_004", StripeChargeId = "ch_seed_004", StripeCustomerId = "cus_seed_grace",  Amount = 999m,  Currency = "inr", Status = "Succeeded", PaidAt = now.AddDays(-8) },
-            new Payment { BookingId = booking5.Id,  StripePaymentIntentId = "pi_seed_005", StripeChargeId = "ch_seed_005", StripeCustomerId = "cus_seed_henry",  Amount = 350m,  Currency = "inr", Status = "Succeeded", PaidAt = now.AddDays(-2) },
-            new Payment { BookingId = booking9.Id,  StripePaymentIntentId = "pi_seed_009", StripeChargeId = "ch_seed_009", StripeCustomerId = "cus_seed_grace2", Amount = 260m,  Currency = "inr", Status = "Succeeded", PaidAt = now.AddDays(-1) },
-            new Payment { BookingId = booking10.Id, StripePaymentIntentId = "pi_seed_010", StripeChargeId = "ch_seed_010", StripeCustomerId = "cus_seed_henry2", Amount = 2999m, Currency = "inr", Status = "Succeeded", PaidAt = now.AddDays(-1) },
-            new Payment { BookingId = booking11.Id, StripePaymentIntentId = "pi_seed_011", StripeChargeId = "ch_seed_011", StripeCustomerId = "cus_seed_david2", Amount = 200m,  Currency = "inr", Status = "Succeeded", PaidAt = now.AddHours(-12) }
+            Pay("BK-2026-100001", "Succeeded", now.AddDays(-5)),
+            Pay("BK-2026-100002", "Succeeded", now.AddDays(-4)),
+            Pay("BK-2026-100003", "Succeeded", now.AddDays(-3)),
+            Pay("BK-2026-100004", "Succeeded", now.AddDays(-8)),
+            Pay("BK-2026-100005", "Succeeded", now.AddDays(-2)),
+            Pay("BK-2026-100009", "Succeeded", now.AddDays(-1)),
+            Pay("BK-2026-100010", "Succeeded", now.AddDays(-1)),
+            Pay("BK-2026-100011", "Succeeded", now.AddHours(-12)),
+            Pay("BK-2026-100013", "Succeeded", now.AddDays(-2)),
+            Pay("BK-2026-100014", "Succeeded", now.AddDays(-6)),
+            Pay("BK-2026-100015", "Succeeded", now.AddDays(-1)),
+            Pay("BK-2026-100016", "Succeeded", now.AddHours(-20)),
+            Pay("BK-2026-100017", "Succeeded", now.AddDays(-1)),
+            Pay("BK-2026-100008", "Failed", null),
+            Pay("BK-2026-100018", "Refunded", now.AddDays(-4))
         );
         await db.SaveChangesAsync();
 
-        // ── 10. SeatReservations ──────────────────────────────────────────────
+        // ── 9. SeatReservations ───────────────────────────────────────────────
+        // Short-lived holds a user has placed while choosing seats. Active holds sit in the
+        // future; Released/Expired are past. Each takes a fresh seat (Active holds must be unique
+        // per seat per screening).
+        SeatReservation Hold(Event ev, int tierIndex, User user, string status, DateTime until)
+        {
+            var sc = primary[ev.Id];
+            var tier = tiersByScreening[sc.Id][tierIndex];
+            return new SeatReservation
+            {
+                SeatId = NextSeatId(ev.VenueId, tier.SeatType),
+                TicketTypeId = tier.Id,
+                ScreeningId = sc.Id,
+                UserId = user.Id,
+                Status = status,
+                ReservedUntil = until
+            };
+        }
         db.SeatReservations.AddRange(
-            new SeatReservation { SeatId = nhSilver[nhS++].Id,  TicketTypeId = ttHiphop[0].Id,   ScreeningId = primary[hiphopTamizha.Id].Id, UserId = carol.Id, Status = "Active",   ReservedUntil = now.AddMinutes(8) },
-            new SeatReservation { SeatId = nhPremium[nhP++].Id, TicketTypeId = ttAnirudh[2].Id,  ScreeningId = primary[anirudhLive.Id].Id,   UserId = henry.Id, Status = "Active",   ReservedUntil = now.AddMinutes(5) },
-            new SeatReservation { SeatId = syGold[syG++].Id,    TicketTypeId = ttVikram[1].Id,   ScreeningId = primary[vikramRelease.Id].Id, UserId = david.Id, Status = "Released", ReservedUntil = now.AddMinutes(-5) },
-            new SeatReservation { SeatId = anGold[anG++].Id,    TicketTypeId = ttAravind[1].Id,  ScreeningId = primary[aravindSA.Id].Id,     UserId = emma.Id,  Status = "Expired",  ReservedUntil = now.AddMinutes(-15) },
-            new SeatReservation { SeatId = tmGold[tmG++].Id,    TicketTypeId = ttSanthosh[1].Id, ScreeningId = primary[santhoshLive.Id].Id,  UserId = frank.Id, Status = "Active",   ReservedUntil = now.AddMinutes(9) }
+            Hold(hiphopTamizha, 0, carol, "Active",   now.AddMinutes(8)),
+            Hold(anirudhLive,   2, henry, "Active",   now.AddMinutes(5)),
+            Hold(vikramRelease, 1, david, "Released", now.AddMinutes(-5)),
+            Hold(aravindSA,     1, emma,  "Expired",  now.AddMinutes(-15)),
+            Hold(santhoshLive,  1, frank, "Active",   now.AddMinutes(9))
         );
         await db.SaveChangesAsync();
     }
@@ -450,10 +463,10 @@ public static class DataSeeder
     // ── Helpers ───────────────────────────────────────────────────────────────
     private static BookingItem Item(int bookingId, int ticketTypeId, int seatId, decimal price, string status) => new()
     {
-        BookingId    = bookingId,
+        BookingId = bookingId,
         TicketTypeId = ticketTypeId,
-        SeatId       = seatId,
-        UnitPrice    = price,
+        SeatId = seatId,
+        UnitPrice = price,
         TicketStatus = status
     };
 

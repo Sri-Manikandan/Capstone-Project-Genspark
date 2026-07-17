@@ -27,6 +27,12 @@ namespace EMSModelLibrary.DTOs
         public string? Reason { get; set; }
     }
 
+    public class SeedResetRequest
+    {
+        /// <summary>Must be true — a guard against accidentally wiping all demo data.</summary>
+        public bool Confirm { get; set; }
+    }
+
     public class OrganizerRequestQueryRequest
     {
         /// <summary>Filter by status: Pending | Approved | Rejected</summary>
