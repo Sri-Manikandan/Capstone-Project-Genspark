@@ -105,63 +105,88 @@ public static class DataSeeder
         );
         await db.SaveChangesAsync();
 
-        // ── 3. Venues + seats ─────────────────────────────────────────────────
-        // A layout section is (name, seat type, rows, seats-per-row). The same array drives
-        // both the stored LayoutConfig JSON and the generated Seat rows, so they can't drift.
-        (string, string, int, int)[] bigLayout   = { ("A", "Silver", 4, 10), ("B", "Gold", 3, 10), ("C", "Premium", 2, 10) }; // 90
-        (string, string, int, int)[] midLayout   = { ("A", "Silver", 3, 10), ("B", "Gold", 2, 10), ("C", "Premium", 1, 10) }; // 60
-        (string, string, int, int)[] smallLayout = { ("A", "Silver", 2, 10), ("B", "Gold", 1, 10), ("C", "Premium", 1, 5) };  // 35
+        // ── 3. Venues, screens & seats ────────────────────────────────────────
+        // The app models a "screen" as a Seat.Section: a screen holds several seat types, and the
+        // seat grid for a screening returns seats WHERE Section == screening.Screen. So every
+        // venue is a set of named screens, each carrying the full Silver/Gold/Premium tier set,
+        // and a screening's Screen must be one of its venue's screen names.
+        //
+        // A screen's tiers are laid out with continuously-lettered rows (Silver A.., Gold next..,
+        // Premium next..) so (Section, Row, SeatNumber) never repeats within a screen.
+        (string type, int rows, int per)[] bigTiers   = { ("Silver", 4, 10), ("Gold", 3, 10), ("Premium", 2, 10) }; // 90 / screen
+        (string type, int rows, int per)[] midTiers   = { ("Silver", 3, 10), ("Gold", 2, 10), ("Premium", 1, 10) }; // 60 / screen
+        (string type, int rows, int per)[] smallTiers = { ("Silver", 2, 10), ("Gold", 1, 10), ("Premium", 1, 5) };  // 35 / screen
 
-        static string LayoutJson((string name, string type, int rows, int per)[] secs) =>
-            "{\"sections\":[" + string.Join(",", secs.Select(s =>
-                $"{{\"name\":\"{s.name}\",\"type\":\"{s.type}\",\"rows\":{s.rows},\"seatsPerRow\":{s.per}}}")) + "]}";
+        var nehruStadium       = new Venue { Name = "Nehru Indoor Stadium",        Address = "Sydenhams Road, Periamet",             City = "Chennai",         TotalCapacity = 500 };
+        var sathyamCinema      = new Venue { Name = "Sathyam Cinemas",             Address = "8 Thiruvika Road, Royapettah",         City = "Chennai",         TotalCapacity = 400 };
+        var codissia           = new Venue { Name = "Codissia Trade Fair Complex", Address = "Trade Fair Road, Peelamedu",           City = "Coimbatore",      TotalCapacity = 300 };
+        var tamukkam           = new Venue { Name = "Tamukkam Grounds",            Address = "Tamukkam Road, Aringnar Anna Nagar",   City = "Madurai",         TotalCapacity = 250 };
+        var annaAuditorium     = new Venue { Name = "Anna Auditorium",             Address = "Anna Nagar, Thillai Nagar",            City = "Tiruchirappalli", TotalCapacity = 200 };
+        var chennaiTradeCentre = new Venue { Name = "Chennai Trade Centre",        Address = "Mount Poonamallee Road, Nandambakkam", City = "Chennai",         TotalCapacity = 600 };
+        var kalaignarArangam   = new Venue { Name = "Kalaignar Arangam",           Address = "Avinashi Road, Peelamedu",             City = "Coimbatore",      TotalCapacity = 250 };
 
-        var nehruStadium      = new Venue { Name = "Nehru Indoor Stadium",         Address = "Sydenhams Road, Periamet",         City = "Chennai",          TotalCapacity = 500, LayoutConfig = LayoutJson(bigLayout) };
-        var sathyamCinema     = new Venue { Name = "Sathyam Cinemas",              Address = "8 Thiruvika Road, Royapettah",     City = "Chennai",          TotalCapacity = 400, LayoutConfig = LayoutJson(bigLayout) };
-        var codissia          = new Venue { Name = "Codissia Trade Fair Complex",  Address = "Trade Fair Road, Peelamedu",       City = "Coimbatore",       TotalCapacity = 300, LayoutConfig = LayoutJson(midLayout) };
-        var tamukkam          = new Venue { Name = "Tamukkam Grounds",             Address = "Tamukkam Road, Aringnar Anna Nagar", City = "Madurai",        TotalCapacity = 250, LayoutConfig = LayoutJson(midLayout) };
-        var annaAuditorium    = new Venue { Name = "Anna Auditorium",              Address = "Anna Nagar, Thillai Nagar",        City = "Tiruchirappalli",  TotalCapacity = 200, LayoutConfig = LayoutJson(smallLayout) };
-        var chennaiTradeCentre = new Venue { Name = "Chennai Trade Centre",        Address = "Mount Poonamallee Road, Nandambakkam", City = "Chennai",      TotalCapacity = 600, LayoutConfig = LayoutJson(bigLayout) };
-        var kalaignarArangam  = new Venue { Name = "Kalaignar Arangam",            Address = "Avinashi Road, Peelamedu",         City = "Coimbatore",       TotalCapacity = 250, LayoutConfig = LayoutJson(midLayout) };
-
-        var venueLayouts = new (Venue venue, (string, string, int, int)[] layout)[]
+        // Each venue's screens. Cinemas/auditoriums have several; other venues run a single "Main".
+        var venueScreens = new Dictionary<Venue, (string screen, (string type, int rows, int per)[] tiers)[]>
         {
-            (nehruStadium, bigLayout), (sathyamCinema, bigLayout), (codissia, midLayout),
-            (tamukkam, midLayout), (annaAuditorium, smallLayout), (chennaiTradeCentre, bigLayout),
-            (kalaignarArangam, midLayout)
+            [nehruStadium]       = new[] { ("Main", bigTiers) },
+            [sathyamCinema]      = new[] { ("Screen 1", bigTiers), ("Screen 2", bigTiers), ("Screen 3", bigTiers) },
+            [codissia]           = new[] { ("Main", midTiers) },
+            [tamukkam]           = new[] { ("Main", midTiers) },
+            [annaAuditorium]     = new[] { ("Audi 1", smallTiers), ("Audi 2", smallTiers) },
+            [chennaiTradeCentre] = new[] { ("Main", bigTiers) },
+            [kalaignarArangam]   = new[] { ("Main", midTiers) },
         };
-        db.Venues.AddRange(venueLayouts.Select(v => v.venue));
+
+        static string LayoutJson((string screen, (string type, int rows, int per)[] tiers)[] screens) =>
+            "{\"sections\":[" + string.Join(",", screens.SelectMany(sc => sc.tiers.Select(t =>
+                $"{{\"name\":\"{sc.screen}\",\"type\":\"{t.type}\",\"rows\":{t.rows},\"seatsPerRow\":{t.per}}}"))) + "]}";
+
+        foreach (var (venue, screens) in venueScreens)
+            venue.LayoutConfig = LayoutJson(screens);
+
+        db.Venues.AddRange(venueScreens.Keys);
         await db.SaveChangesAsync();
 
-        var venueSeats = new Dictionary<int, List<Seat>>();
-        foreach (var (venue, layout) in venueLayouts)
+        static List<Seat> GenerateVenueSeats(int venueId, (string screen, (string type, int rows, int per)[] tiers)[] screens)
         {
-            var seats = GenerateSeats(venue.Id, layout);
-            db.Seats.AddRange(seats);
-            venueSeats[venue.Id] = seats;
+            var seats = new List<Seat>();
+            foreach (var (screen, tiers) in screens)
+            {
+                var rowIdx = 0;
+                foreach (var (type, rows, per) in tiers)
+                    for (var r = 0; r < rows; r++, rowIdx++)
+                    {
+                        var row = ((char)('A' + rowIdx)).ToString();
+                        for (var n = 1; n <= per; n++)
+                            seats.Add(new Seat { VenueId = venueId, Section = screen, Row = row, SeatNumber = n, SeatType = type });
+                    }
+            }
+            return seats;
         }
+
+        foreach (var (venue, screens) in venueScreens)
+            db.Seats.AddRange(GenerateVenueSeats(venue.Id, screens));
         await db.SaveChangesAsync();
 
-        // Seats indexed by (venue, type) with a moving cursor so no seat is ever handed out twice.
-        var seatsByVenueType = new Dictionary<(int, string), List<Seat>>();
-        var seatCursor = new Dictionary<(int, string), int>();
-        foreach (var (venueId, seats) in venueSeats)
-            foreach (var g in seats.GroupBy(s => s.SeatType))
-            {
-                seatsByVenueType[(venueId, g.Key)] = g.ToList();
-                seatCursor[(venueId, g.Key)] = 0;
-            }
-        int NextSeatId(int venueId, string type) =>
-            seatsByVenueType[(venueId, type)][seatCursor[(venueId, type)]++].Id;
+        // Seats indexed by (venue, screen, type) with a moving cursor so no seat is handed out twice.
+        var allSeats = await db.Seats.ToListAsync();
+        var seatsByKey = allSeats
+            .GroupBy(s => (s.VenueId, s.Section, s.SeatType))
+            .ToDictionary(g => g.Key, g => g.OrderBy(s => s.Row).ThenBy(s => s.SeatNumber).ToList());
+        var seatCursor = seatsByKey.Keys.ToDictionary(k => k, _ => 0);
+        int NextSeatId(int venueId, string screen, string type) =>
+            seatsByKey[(venueId, screen, type)][seatCursor[(venueId, screen, type)]++].Id;
+        int SeatCount(int venueId, string screen, string type) =>
+            seatsByKey.TryGetValue((venueId, screen, type), out var l) ? l.Count : 0;
 
-        var seatCountsByVenue = venueSeats.ToDictionary(
-            kv => kv.Key,
-            kv => kv.Value.GroupBy(s => s.SeatType).ToDictionary(g => g.Key, g => g.Count()));
+        string FirstScreen(Venue v) => venueScreens[v][0].screen;
+        string[] ScreensOf(Venue v) => venueScreens[v].Select(s => s.screen).ToArray();
 
         // ── 4. Events ─────────────────────────────────────────────────────────
         // Price is captured per event (Silver/Gold/Premium) so every screening of that event
         // can be given matching ticket tiers.
         var priceMap = new Dictionary<Event, (decimal s, decimal g, decimal p)>();
+        var venueOf = new Dictionary<Event, Venue>();
         Event Ev(int organizerId, Venue venue, string title, string description, string status, string category,
                  string slug, int startInDays, string imageKey, decimal s, decimal g, decimal p, string? rejectionReason = null)
         {
@@ -173,6 +198,7 @@ public static class DataSeeder
                 ImageUrl = img[imageKey], Screen = "", RejectionReason = rejectionReason
             };
             priceMap[e] = (s, g, p);
+            venueOf[e] = venue;
             return e;
         }
 
@@ -191,15 +217,15 @@ public static class DataSeeder
         var trichyFiesta      = Ev(carol.Id, annaAuditorium, "Trichy Music Fiesta",              "A vibrant celebration of Tamil music with bands and singers taking the Trichy stage all evening.", "Published", "Concerts", "trichy-music-fiesta", 19, "concert-1", 599m, 999m, 1499m);
 
         // Comedy
-        var aravindSA      = Ev(carol.Id, annaAuditorium,   "Aravind SA: Madrasi Da",        "Aravind SA returns with his celebrated solo special, a riot of observational comedy on life as a Madrasi.", "Published", "Comedy", "aravind-sa-madrasi-da-trichy", 12, "comedy-1", 599m, 999m, 1499m);
-        var praveenKumar   = Ev(carol.Id, tamukkam,         "Praveen Kumar Stand-Up",        "SACT fame Praveen Kumar brings his sharp, relatable Tamil stand-up to Madurai for a laugh-out-loud evening.", "Published", "Comedy", "praveen-kumar-standup-madurai", 18, "comedy-2", 499m, 799m, 1299m);
-        var alexanderBabu  = Ev(bob.Id,   codissia,         "Alexander Babu: Musical Comedy","Alexander Babu blends music and comedy in his signature one-man show packed with songs, stories and laughs.", "Published", "Comedy", "alexander-babu-musical-comedy-coimbatore", 25, "comedy-3", 699m, 1099m, 1599m);
-        var rjVignesh      = Ev(carol.Id, annaAuditorium,   "RJ Vignesh Live",               "RJ Vignesh takes his viral Tamil humour off the airwaves and onto the stage for a packed live show.", "Published", "Comedy", "rj-vignesh-live-trichy", 33, "comedy-1", 399m, 699m, 999m);
-        var openMic        = Ev(alice.Id, annaAuditorium,   "Madras Central Open Mic",       "The best up-and-coming Tamil comedians test fresh material in a buzzing open-mic night.", "Published", "Comedy", "madras-central-open-mic", 9, "comedy-2", 299m, 499m, 799m);
-        var kovaiComedyNight = Ev(carol.Id, kalaignarArangam, "Kovai Comedy Night",          "A line-up of Tamil stand-up comedians deliver a laugh-packed night in the heart of Coimbatore.", "Published", "Comedy", "kovai-comedy-night", 15, "comedy-2", 499m, 899m, 1399m);
-        var maduraiStandUp = Ev(carol.Id, tamukkam,         "Madurai Stand-Up Special",      "A special showcase of Tamil stand-up talent bringing sharp, local humour to a Madurai audience.", "Published", "Comedy", "madurai-standup-special", 17, "comedy-1", 399m, 699m, 1099m);
+        var aravindSA        = Ev(carol.Id, annaAuditorium,   "Aravind SA: Madrasi Da",        "Aravind SA returns with his celebrated solo special, a riot of observational comedy on life as a Madrasi.", "Published", "Comedy", "aravind-sa-madrasi-da-trichy", 12, "comedy-1", 599m, 999m, 1499m);
+        var praveenKumar     = Ev(carol.Id, tamukkam,         "Praveen Kumar Stand-Up",        "SACT fame Praveen Kumar brings his sharp, relatable Tamil stand-up to Madurai for a laugh-out-loud evening.", "Published", "Comedy", "praveen-kumar-standup-madurai", 18, "comedy-2", 499m, 799m, 1299m);
+        var alexanderBabu    = Ev(bob.Id,   codissia,         "Alexander Babu: Musical Comedy","Alexander Babu blends music and comedy in his signature one-man show packed with songs, stories and laughs.", "Published", "Comedy", "alexander-babu-musical-comedy-coimbatore", 25, "comedy-3", 699m, 1099m, 1599m);
+        var rjVignesh        = Ev(carol.Id, annaAuditorium,   "RJ Vignesh Live",               "RJ Vignesh takes his viral Tamil humour off the airwaves and onto the stage for a packed live show.", "Published", "Comedy", "rj-vignesh-live-trichy", 33, "comedy-1", 399m, 699m, 999m);
+        var openMic          = Ev(alice.Id, annaAuditorium,   "Madras Central Open Mic",       "The best up-and-coming Tamil comedians test fresh material in a buzzing open-mic night.", "Published", "Comedy", "madras-central-open-mic", 9, "comedy-2", 299m, 499m, 799m);
+        var kovaiComedyNight = Ev(carol.Id, kalaignarArangam, "Kovai Comedy Night",            "A line-up of Tamil stand-up comedians deliver a laugh-packed night in the heart of Coimbatore.", "Published", "Comedy", "kovai-comedy-night", 15, "comedy-2", 499m, 899m, 1399m);
+        var maduraiStandUp   = Ev(carol.Id, tamukkam,         "Madurai Stand-Up Special",      "A special showcase of Tamil stand-up talent bringing sharp, local humour to a Madurai audience.", "Published", "Comedy", "madurai-standup-special", 17, "comedy-1", 399m, 699m, 1099m);
 
-        // Movies — each gets multiple screenings across the venue's screens (see §5).
+        // Movies — hosted at multi-screen venues, so each runs on several screens (see §5).
         var vikramRelease       = Ev(alice.Id, sathyamCinema,  "Vikram: Re-Release Special",                   "Lokesh Kanagaraj's blockbuster Vikram returns to the big screen in a special fan re-release.", "Published", "Movies", "vikram-re-release-special", 7, "movie-1", 150m, 220m, 350m);
         var ps2Screening        = Ev(bob.Id,   sathyamCinema,  "Ponniyin Selvan: Part 2 — Special Screening",  "Experience Mani Ratnam's grand epic Ponniyin Selvan: Part 2 in a premium special screening.", "Published", "Movies", "ponniyin-selvan-2-special-screening", 10, "movie-2", 180m, 260m, 400m);
         var leoFanShow          = Ev(carol.Id, sathyamCinema,  "Leo: Fan Celebration Show",                    "A first-day-first-show style fan celebration of Thalapathy Vijay's Leo with the full theatre experience.", "Published", "Movies", "leo-fan-celebration-show", 5, "movie-3", 200m, 300m, 450m);
@@ -254,23 +280,20 @@ public static class DataSeeder
         await db.SaveChangesAsync();
 
         // ── 5. Screenings ─────────────────────────────────────────────────────
-        // Movies run on several screens/showtimes; a couple of events run two showtimes; the
-        // rest have a single "Main" screening. Every screening has independent availability.
-        var movieScreens = new Dictionary<int, string[]>
-        {
-            [sathyamCinema.Id]  = new[] { "Screen 1", "Screen 2", "Screen 3" },
-            [annaAuditorium.Id] = new[] { "Audi 1", "Audi 2" },
-        };
+        // Movies run on each of their venue's screens; a couple of events run two showtimes on
+        // the venue's first screen; the rest have a single screening. A screening's Screen is
+        // always a real section of its venue, so the seat grid resolves.
         var twoShowEvents = new HashSet<Event> { aravindSA, chithiraiFestival };
 
         var primary = new Dictionary<int, Screening>();
         var screeningsByEvent = new Dictionary<int, List<Screening>>();
         foreach (var ev in allEvents)
         {
+            var venue = venueOf[ev];
             var list = new List<Screening>();
             if (ev.Category == "Movies")
             {
-                var screens = movieScreens.TryGetValue(ev.VenueId, out var s) ? s : new[] { "Screen 1", "Screen 2", "Screen 3" };
+                var screens = ScreensOf(venue);
                 for (var i = 0; i < screens.Length; i++)
                 {
                     var start = ev.StartTime.AddHours(i * 3);
@@ -281,13 +304,14 @@ public static class DataSeeder
             {
                 // Festivals span days; other two-show events run twice the same evening.
                 var gapHours = ev.Category == "Festivals" ? 24 : 3;
-                list.Add(new Screening { EventId = ev.Id, Screen = "Main", StartTime = ev.StartTime, EndTime = ev.EndTime, Status = "Scheduled" });
+                var screen = FirstScreen(venue);
+                list.Add(new Screening { EventId = ev.Id, Screen = screen, StartTime = ev.StartTime, EndTime = ev.EndTime, Status = "Scheduled" });
                 var start2 = ev.StartTime.AddHours(gapHours);
-                list.Add(new Screening { EventId = ev.Id, Screen = "Main", StartTime = start2, EndTime = start2.AddHours(3), Status = "Scheduled" });
+                list.Add(new Screening { EventId = ev.Id, Screen = screen, StartTime = start2, EndTime = start2.AddHours(3), Status = "Scheduled" });
             }
             else
             {
-                list.Add(new Screening { EventId = ev.Id, Screen = "Main", StartTime = ev.StartTime, EndTime = ev.EndTime, Status = "Scheduled" });
+                list.Add(new Screening { EventId = ev.Id, Screen = FirstScreen(venue), StartTime = ev.StartTime, EndTime = ev.EndTime, Status = "Scheduled" });
             }
             db.Screenings.AddRange(list);
             primary[ev.Id] = list[0];
@@ -296,16 +320,16 @@ public static class DataSeeder
         await db.SaveChangesAsync();
 
         // ── 6. TicketTypes ────────────────────────────────────────────────────
-        // One Silver/Gold/Premium tier per screening, quantity = the venue's seat count for
-        // that type. Sale runs from a week ago until the screening starts.
+        // One Silver/Gold/Premium tier per screening, quantity = the seat count for that type on
+        // that screen. Sale runs from a week ago until the screening starts.
         var saleStart = now.AddDays(-7);
         TicketType[] TiersFor(Screening sc, int venueId, decimal silver, decimal gold, decimal premium)
         {
-            var counts = seatCountsByVenue[venueId];
             var tiers = new List<TicketType>();
             void AddTier(string type, decimal price)
             {
-                if (counts.TryGetValue(type, out var qty) && qty > 0)
+                var qty = SeatCount(venueId, sc.Screen, type);
+                if (qty > 0)
                     tiers.Add(new TicketType
                     {
                         ScreeningId = sc.Id, Name = type, SeatType = type, Price = price,
@@ -319,7 +343,7 @@ public static class DataSeeder
             return tiers.ToArray();
         }
 
-        // tiersByScreening[screeningId] = [Silver, Gold, Premium] (every venue has all three).
+        // tiersByScreening[screeningId] = [Silver, Gold, Premium] (every screen has all three).
         var tiersByScreening = new Dictionary<int, TicketType[]>();
         foreach (var ev in allEvents)
         {
@@ -334,10 +358,10 @@ public static class DataSeeder
         await db.SaveChangesAsync();
 
         // ── 7. Bookings + items ───────────────────────────────────────────────
-        // AddBooking wires a booking to a specific screening (scrIndex), picks the right tier
-        // and a fresh seat, and derives the total from the tier price — so amounts can't drift.
+        // AddBooking wires a booking to a specific screening (scrIndex), picks the right tier and
+        // a fresh seat on that screen, and derives the total from the tier price.
         var byRef = new Dictionary<string, Booking>();
-        var pendingItems = new List<(Booking booking, TicketType tier, int venueId, decimal unit, int qty, string itemStatus)>();
+        var pendingItems = new List<(Booking booking, TicketType tier, int venueId, string screen, decimal unit, int qty, string itemStatus)>();
 
         Booking AddBooking(string reference, User user, Event ev, int scrIndex, string status, int tierIndex, int qty,
             DateTime expiresAt, DateTime? scannedAt = null, User? scannedBy = null)
@@ -366,7 +390,7 @@ public static class DataSeeder
             };
             db.Bookings.Add(booking);
             byRef[reference] = booking;
-            pendingItems.Add((booking, tier, ev.VenueId, tier.Price, qty, itemStatus));
+            pendingItems.Add((booking, tier, ev.VenueId, sc.Screen, tier.Price, qty, itemStatus));
             return booking;
         }
 
@@ -390,9 +414,9 @@ public static class DataSeeder
         AddBooking("BK-2026-100018", grace, bookFair,          0, "Cancelled", 0, 1, now.AddDays(6));
         await db.SaveChangesAsync();
 
-        foreach (var (booking, tier, venueId, unit, qty, itemStatus) in pendingItems)
+        foreach (var (booking, tier, venueId, screen, unit, qty, itemStatus) in pendingItems)
             for (var i = 0; i < qty; i++)
-                db.BookingItems.Add(Item(booking.Id, tier.Id, NextSeatId(venueId, tier.SeatType), unit, itemStatus));
+                db.BookingItems.Add(Item(booking.Id, tier.Id, NextSeatId(venueId, screen, tier.SeatType), unit, itemStatus));
         await db.SaveChangesAsync();
 
         // ── 8. Payments ───────────────────────────────────────────────────────
@@ -434,15 +458,14 @@ public static class DataSeeder
 
         // ── 9. SeatReservations ───────────────────────────────────────────────
         // Short-lived holds a user has placed while choosing seats. Active holds sit in the
-        // future; Released/Expired are past. Each takes a fresh seat (Active holds must be unique
-        // per seat per screening).
+        // future; Released/Expired are past. Each takes a fresh seat on the screening's screen.
         SeatReservation Hold(Event ev, int tierIndex, User user, string status, DateTime until)
         {
             var sc = primary[ev.Id];
             var tier = tiersByScreening[sc.Id][tierIndex];
             return new SeatReservation
             {
-                SeatId = NextSeatId(ev.VenueId, tier.SeatType),
+                SeatId = NextSeatId(ev.VenueId, sc.Screen, tier.SeatType),
                 TicketTypeId = tier.Id,
                 ScreeningId = sc.Id,
                 UserId = user.Id,
@@ -469,17 +492,4 @@ public static class DataSeeder
         UnitPrice = price,
         TicketStatus = status
     };
-
-    private static List<Seat> GenerateSeats(int venueId, params (string Section, string SeatType, int Rows, int SeatsPerRow)[] sections)
-    {
-        var seats = new List<Seat>();
-        foreach (var (section, seatType, rows, seatsPerRow) in sections)
-            for (var r = 0; r < rows; r++)
-            {
-                var row = ((char)('A' + r)).ToString();
-                for (var n = 1; n <= seatsPerRow; n++)
-                    seats.Add(new Seat { VenueId = venueId, Section = section, Row = row, SeatNumber = n, SeatType = seatType });
-            }
-        return seats;
-    }
 }
