@@ -13,7 +13,7 @@ namespace EMSBLLLibrary.Interfaces
         Task DeactivateSelf(int id, string password);
 
         // Organizer role requests (user-facing)
-        Task<OrganizerRequestDto> RequestOrganizerRole(int userId);
+        Task<OrganizerRequestDto> RequestOrganizerRole(int userId, string? reason);
         Task<OrganizerRequestDto?> GetMyOrganizerRequest(int userId);
 
         // Admin operations

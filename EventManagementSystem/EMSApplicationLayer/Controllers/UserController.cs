@@ -87,10 +87,10 @@ namespace EMSApplicationLayer.Controllers
         // Request to become an organizer (User role only)
         [HttpPost("request-organizer")]
         [Authorize(Roles = "User")]
-        public async Task<IActionResult> RequestOrganizerRole()
+        public async Task<IActionResult> RequestOrganizerRole([FromBody] RequestOrganizerRoleRequest request)
         {
             var userId = ClaimsHelper.GetUserId(User);
-            var result = await _userService.RequestOrganizerRole(userId);
+            var result = await _userService.RequestOrganizerRole(userId, request.Reason);
             return Ok(result);
         }
 

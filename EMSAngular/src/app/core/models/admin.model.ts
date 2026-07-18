@@ -4,6 +4,7 @@ export interface OrganizerRequestDto {
   userName: string;
   userEmail: string;
   status: string;
+  applicantReason?: string | null;
   reason?: string | null;
   requestedAt: string;
   reviewedAt?: string | null;

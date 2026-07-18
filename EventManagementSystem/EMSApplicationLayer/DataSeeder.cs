@@ -96,12 +96,12 @@ public static class DataSeeder
 
         // ── 2. OrganizerRequests ──────────────────────────────────────────────
         db.OrganizerRequests.AddRange(
-            new OrganizerRequest { UserId = alice.Id, Status = "Approved", Reason = "Verified professional event organizer.", RequestedAt = now.AddDays(-30), ReviewedAt = now.AddDays(-29), ReviewedByAdminId = admin.Id },
-            new OrganizerRequest { UserId = bob.Id,   Status = "Approved", Reason = "Experienced in large-scale events.",     RequestedAt = now.AddDays(-25), ReviewedAt = now.AddDays(-24), ReviewedByAdminId = admin.Id },
-            new OrganizerRequest { UserId = carol.Id, Status = "Approved", Reason = "Strong portfolio of past events.",       RequestedAt = now.AddDays(-20), ReviewedAt = now.AddDays(-19), ReviewedByAdminId = admin.Id },
-            new OrganizerRequest { UserId = david.Id, Status = "Pending",  RequestedAt = now.AddDays(-3) },
-            new OrganizerRequest { UserId = emma.Id,  Status = "Rejected", Reason = "Portfolio did not meet requirements.",   RequestedAt = now.AddDays(-10), ReviewedAt = now.AddDays(-8), ReviewedByAdminId = admin.Id },
-            new OrganizerRequest { UserId = henry.Id, Status = "Pending",  RequestedAt = now.AddDays(-1) }
+            new OrganizerRequest { UserId = alice.Id, Status = "Approved", ApplicantReason = "I run a professional events agency and want to list our shows here.", RequestedAt = now.AddDays(-30), ReviewedAt = now.AddDays(-29), ReviewedByAdminId = admin.Id },
+            new OrganizerRequest { UserId = bob.Id,   Status = "Approved", ApplicantReason = "I organize large-scale conferences and would like to sell tickets on the platform.", RequestedAt = now.AddDays(-25), ReviewedAt = now.AddDays(-24), ReviewedByAdminId = admin.Id },
+            new OrganizerRequest { UserId = carol.Id, Status = "Approved", ApplicantReason = "I have a strong portfolio of past music events and want to host more.", RequestedAt = now.AddDays(-20), ReviewedAt = now.AddDays(-19), ReviewedByAdminId = admin.Id },
+            new OrganizerRequest { UserId = david.Id, Status = "Pending",  ApplicantReason = "I host weekly community meetups and want to manage RSVPs here.", RequestedAt = now.AddDays(-3) },
+            new OrganizerRequest { UserId = emma.Id,  Status = "Rejected", ApplicantReason = "I want to start selling tickets for my workshops.", Reason = "Portfolio did not meet requirements.", RequestedAt = now.AddDays(-10), ReviewedAt = now.AddDays(-8), ReviewedByAdminId = admin.Id },
+            new OrganizerRequest { UserId = henry.Id, Status = "Pending",  ApplicantReason = "I run a local theatre group and would like to publish our upcoming plays.", RequestedAt = now.AddDays(-1) }
         );
         await db.SaveChangesAsync();
 

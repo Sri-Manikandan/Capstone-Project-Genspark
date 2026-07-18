@@ -9,10 +9,18 @@ namespace EMSModelLibrary.DTOs
         public string UserName { get; set; } = string.Empty;
         public string UserEmail { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
+        public string? ApplicantReason { get; set; }
         public string? Reason { get; set; }
         public DateTime RequestedAt { get; set; }
         public DateTime? ReviewedAt { get; set; }
         public int? ReviewedByAdminId { get; set; }
+    }
+
+    public class RequestOrganizerRoleRequest
+    {
+        [Required]
+        [StringLength(500, MinimumLength = 10)]
+        public string Reason { get; set; } = string.Empty;
     }
 
     public class ReviewOrganizerRequestRequest

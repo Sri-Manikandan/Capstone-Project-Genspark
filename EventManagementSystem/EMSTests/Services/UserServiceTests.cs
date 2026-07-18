@@ -93,7 +93,7 @@ namespace EMSTests.Services
                 .Callback<List<QueuedEmail>>(e => captured = e)
                 .Returns(Task.CompletedTask);
 
-            await _sut.RequestOrganizerRole(1);
+            await _sut.RequestOrganizerRole(1, "I organize community meetups");
 
             captured.Should().HaveCount(2);
             captured![0].TemplateKey.Should().Be(EmailTemplateKey.AdminReviewPending);
@@ -405,11 +405,16 @@ namespace EMSTests.Services
         {
             _userRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeUser(role: "User"));
             _orgRequestRepo.Setup(r => r.GetPendingByUserId(1)).ReturnsAsync((OrganizerRequest?)null);
-            _orgRequestRepo.Setup(r => r.Add(It.IsAny<OrganizerRequest>())).ReturnsAsync((OrganizerRequest o) => o);
+            OrganizerRequest? added = null;
+            _orgRequestRepo.Setup(r => r.Add(It.IsAny<OrganizerRequest>()))
+                .Callback<OrganizerRequest>(o => added = o)
+                .ReturnsAsync((OrganizerRequest o) => o);
 
-            var result = await _sut.RequestOrganizerRole(1);
+            var result = await _sut.RequestOrganizerRole(1, "I run a local theatre group");
 
             result.Status.Should().Be("Pending");
+            result.ApplicantReason.Should().Be("I run a local theatre group");
+            added!.ApplicantReason.Should().Be("I run a local theatre group");
         }
 
         [Test]
@@ -435,7 +440,7 @@ namespace EMSTests.Services
         {
             _userRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeUser(role: "Organizer"));
 
-            await _sut.Invoking(s => s.RequestOrganizerRole(1))
+            await _sut.Invoking(s => s.RequestOrganizerRole(1, "reason text here"))
                 .Should().ThrowAsync<ValidationException>().WithMessage("*already an organizer*");
         }
 
@@ -444,7 +449,7 @@ namespace EMSTests.Services
         {
             _userRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeUser(role: "Admin"));
 
-            await _sut.Invoking(s => s.RequestOrganizerRole(1))
+            await _sut.Invoking(s => s.RequestOrganizerRole(1, "reason text here"))
                 .Should().ThrowAsync<ValidationException>();
         }
 
@@ -454,7 +459,7 @@ namespace EMSTests.Services
             _userRepo.Setup(r => r.GetById(1)).ReturnsAsync(MakeUser());
             _orgRequestRepo.Setup(r => r.GetPendingByUserId(1)).ReturnsAsync(new OrganizerRequest { UserId = 1 });
 
-            await _sut.Invoking(s => s.RequestOrganizerRole(1))
+            await _sut.Invoking(s => s.RequestOrganizerRole(1, "reason text here"))
                 .Should().ThrowAsync<ValidationException>().WithMessage("*pending*");
         }
 
@@ -463,7 +468,7 @@ namespace EMSTests.Services
         {
             _userRepo.Setup(r => r.GetById(99)).ReturnsAsync((User?)null);
 
-            await _sut.Invoking(s => s.RequestOrganizerRole(99)).Should().ThrowAsync<NotFoundException>();
+            await _sut.Invoking(s => s.RequestOrganizerRole(99, "reason text here")).Should().ThrowAsync<NotFoundException>();
         }
 
         [Test]

@@ -142,7 +142,7 @@ namespace EMSBLLLibrary.Services
                     "This is the last active admin account. Promote another admin before deactivating it.");
         }
 
-        public async Task<OrganizerRequestDto> RequestOrganizerRole(int userId)
+        public async Task<OrganizerRequestDto> RequestOrganizerRole(int userId, string? reason)
         {
             var user = await _userRepo.GetById(userId)
                 ?? throw new NotFoundException($"User {userId} not found.");
@@ -154,7 +154,7 @@ namespace EMSBLLLibrary.Services
             if (pending != null)
                 throw new ValidationException("You already have a pending organizer request.");
 
-            var request = new OrganizerRequest { UserId = userId };
+            var request = new OrganizerRequest { UserId = userId, ApplicantReason = reason };
             await _orgRequestRepo.Add(request);
 
             var admins = await _userRepo.GetAdmins();
@@ -264,6 +264,7 @@ namespace EMSBLLLibrary.Services
             UserName = user?.Name ?? string.Empty,
             UserEmail = user?.Email ?? string.Empty,
             Status = request.Status,
+            ApplicantReason = request.ApplicantReason,
             Reason = request.Reason,
             RequestedAt = TimeHelper.UtcToIst(request.RequestedAt),
             ReviewedAt = TimeHelper.UtcToIst(request.ReviewedAt),

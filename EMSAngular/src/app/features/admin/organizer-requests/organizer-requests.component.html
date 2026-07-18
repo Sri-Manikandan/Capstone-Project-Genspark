@@ -16,11 +16,15 @@
     <div *ngIf="!loading()" class="table-scroll-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>User</th><th>Requested</th><th>Actions</th></tr>
+          <tr><th>User</th><th>Reason</th><th>Requested</th><th>Actions</th></tr>
         </thead>
         <tbody>
           <tr *ngFor="let r of requests()">
             <td><span class="font-medium text-ink">{{ r.userName }}</span><br /><span class="text-muted">{{ r.userEmail }}</span></td>
+            <td class="max-w-sm">
+              <span *ngIf="r.applicantReason; else noReason" class="text-ink whitespace-normal">{{ r.applicantReason }}</span>
+              <ng-template #noReason><span class="text-muted">—</span></ng-template>
+            </td>
             <td class="font-mono text-xs">{{ r.requestedAt | istDate }}</td>
             <td>
               <ng-container *ngIf="r.status === 'Pending'; else decided">
